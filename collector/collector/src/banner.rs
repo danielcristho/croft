@@ -6,6 +6,7 @@ const WORD: &str = "CROFT";
 const CYAN: &str = "\x1b[1;36m";
 const RESET: &str = "\x1b[0m";
 
+// glyph returns the 5x5 representation of a character in the Croft banner.
 fn glyph(c: char) -> [&'static str; GLYPH_ROWS] {
     match c {
         'C' => [".###.", "#....", "#....", "#....", ".###."],
@@ -17,6 +18,7 @@ fn glyph(c: char) -> [&'static str; GLYPH_ROWS] {
     }
 }
 
+// print prints the Croft banner to stdout.
 pub fn print() {
     println!();
     for row in 0..GLYPH_ROWS {
