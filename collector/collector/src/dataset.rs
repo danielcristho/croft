@@ -38,7 +38,10 @@ pub fn append(tgid: u32, ioctl_count: u64, syscalls: Vec<(String, f64)>) {
         ioctl_count,
         syscalls: syscalls
             .into_iter()
-            .map(|(name, rate_per_sec)| SyscallRate { name, rate_per_sec })
+            .map(|(name, rate_per_sec)| SyscallRate {
+                name,
+                rate_per_sec: round2(rate_per_sec),
+            })
             .collect(),
         label: None,
     };
@@ -46,6 +49,10 @@ pub fn append(tgid: u32, ioctl_count: u64, syscalls: Vec<(String, f64)>) {
     if let Err(e) = write_line(&record) {
         debug!("dataset: could not append record for tgid={tgid}: {e}");
     }
+}
+
+fn round2(value: f64) -> f64 {
+    (value * 100.0).round() / 100.0
 }
 
 fn now_unix_ms() -> u128 {
