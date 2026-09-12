@@ -1,0 +1,15 @@
+[Unit]
+Description=Croft eBPF collector
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/var/www/croft
+Environment=RUST_LOG=info
+Environment=DATASET_PATH=/var/www/croft/croft-dataset.jsonl
+ExecStart=/var/www/croft/collector/target/debug/collector
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
