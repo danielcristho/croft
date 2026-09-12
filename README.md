@@ -22,19 +22,19 @@ collector/
 
 The eBPF program traces `openat`, `ioctl`, and `close` to detect GPU device
 activity: a process that opens `/dev/nvidia*` or `/dev/dri/*` and then drives it
-via `ioctl` gets a per-process activity counter, see [research.md's GPU
-Gap](../.agent/croft/research.md) for why this is the first feature and how it
-is derived. Syscall frequency, process lifetime, mmap counts, and futex counts
-are still just proposed, not collected.
+via `ioctl` gets a per-process activity counter. This is the first feature
+because the scenario croft exists for is GPU onset: a workload declared "2 CPU"
+that becomes an LLM inference job. Syscall frequency, process lifetime, mmap
+counts, and futex counts are still just proposed, not collected.
 
 ## Building
 
 Recipes are in the [justfile](./justfile):
 
 ```bash
-just build      # userspace + eBPF program
-just run        # needs root to load and attach eBPF programs
-just lint        # fmt --check and clippy
+just build   # userspace + eBPF program
+just run     # needs root to load and attach eBPF programs
+just lint    # fmt --check and clippy
 just test
 ```
 
