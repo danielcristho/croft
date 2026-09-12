@@ -1,10 +1,12 @@
-use std::time::Duration;
+use std::{io::Write, time::Duration};
 
 use aya::{maps::HashMap, programs::TracePoint};
 use collector_common::GpuActivity;
 #[rustfmt::skip]
-use log::{debug, info, warn};
+use log::{debug, info, warn, Level};
 use tokio::signal;
+
+mod banner;
 
 // Consts
 const TRACEPOINTS: &[&str] = &[
@@ -18,7 +20,8 @@ const TRACEPOINTS: &[&str] = &[
 // Main
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    env_logger::init();
+    init_logging();
+    banner::print();
 
     let rlim = libc::rlimit {
         rlim_cur: libc::RLIM_INFINITY,
@@ -64,6 +67,27 @@ async fn main() -> anyhow::Result<()> {
     println!("Exiting...");
 
     Ok(())
+}
+
+// init_logging colors each log level, closer to how a tool like Python's `rich` renders levels.
+fn init_logging() {
+    env_logger::Builder::from_default_env()
+        .format(|buf, record| {
+            let color = match record.level() {
+                Level::Error => "\x1b[1;31m",
+                Level::Warn => "\x1b[1;33m",
+                Level::Info => "\x1b[1;36m",
+                Level::Debug => "\x1b[2;37m",
+                Level::Trace => "\x1b[2;90m",
+            };
+            writeln!(
+                buf,
+                "{color}[{:>5}]\x1b[0m {}",
+                record.level(),
+                record.args()
+            )
+        })
+        .init();
 }
 
 // report_gpu_activity periodically reads the GPU_ACTIVITY map and logs the activity for each process.
