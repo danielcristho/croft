@@ -23,12 +23,10 @@ pub fn print() {
         let mut line = String::new();
         for c in WORD.chars() {
             for cell in glyph(c)[row].chars() {
-                line.push_str(if cell == '#' { "██" } else { "  " });
+                line.push(if cell == '#' { '█' } else { ' ' });
             }
-            line.push_str("  ");
+            line.push(' ');
         }
-        // Doubled: one glyph row reads as too flat and thin otherwise.
-        println!("{CYAN}{line}{RESET}");
         println!("{CYAN}{line}{RESET}");
     }
     println!();
