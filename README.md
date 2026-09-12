@@ -7,78 +7,76 @@ Croft looks at what a workload is actually *doing* at the kernel level, through
 eBPF, to decide when infrastructure should scale. It is a decision engine, not a
 replacement for Karpenter or HPA.
 
-> **Status: scaffold.** The collector crate is generated but does not build yet
-> (see [Blocked on bpf-linker](#blocked-on-bpf-linker)). Nothing classifies
-> workloads or makes scaling decisions.
+> **Status: one signal collected, nothing classifies it yet.** GPU device
+> activity is the first feature the eBPF program actually extracts. No workload
+> classifier or scaling decision exists.
 
 ## Layout
 
 ```sh
 collector/
-├── collector/          userspace loader and event reader
-├── collector-common/   types shared across the boundary
+├── collector/          userspace loader, attaches programs, reads maps
+├── collector-common/   types shared across the kernel/userspace boundary
 └── collector-ebpf/     the eBPF program, compiled to the BPF target
 ```
 
-The eBPF program attaches to the `raw_syscalls/sys_enter` tracepoint. Syscall
-frequency, process lifetime, mmap counts, and futex counts all derive from it.
-Process events such as exec and exit come later, as a second program in the same
-crate.
+The eBPF program traces `openat`, `ioctl`, and `close` to detect GPU device
+activity: a process that opens `/dev/nvidia*` or `/dev/dri/*` and then drives it
+via `ioctl` gets a per-process activity counter, see [research.md's GPU
+Gap](../.agent/croft/research.md) for why this is the first feature and how it
+is derived. Syscall frequency, process lifetime, mmap counts, and futex counts
+are still just proposed, not collected.
 
 ## Building
 
+Recipes are in the [justfile](./justfile):
+
 ```bash
-cd collector
-cargo build              # userspace only
-cargo build --release
+just build      # userspace + eBPF program
+just run        # needs root to load and attach eBPF programs
+just lint        # fmt --check and clippy
+just test
 ```
 
-The eBPF crate needs a nightly toolchain and `bpf-linker`:
+### Toolchain
+
+The eBPF crate needs a nightly toolchain and `bpf-linker`, which itself needs a
+system LLVM matching nightly rustc's own LLVM version (`rustc +nightly --version
+--verbose` shows it). bpf-linker 0.11 supports LLVM 21, 22, or 23; a mismatch
+between nightly's LLVM and bpf-linker's fails at link time with `ERROR llvm:
+Invalid record`, not at install time.
 
 ```bash
 rustup toolchain install nightly --component rust-src
+# install LLVM (apt.llvm.org's llvm.sh, or your distro's package) matching
+# nightly rustc's LLVM version, then:
+LLVM_SYS_231_PREFIX=/usr/lib/llvm-23 PATH=/usr/lib/llvm-23/bin:$PATH \
+    cargo install bpf-linker --locked
 ```
 
-### Blocked on bpf-linker
+`llvm-config` must be reachable unversioned (`llvm-config`, not
+`llvm-config-23`) somewhere on `PATH`; a distro package typically only installs
+the versioned name in `/usr/bin`, but the unversioned one lives alongside it
+under `/usr/lib/llvm-<version>/bin`.
 
-`cargo install bpf-linker` does not work on every machine, and the crate says so
-itself:
-
-> Installing bpf-linker through `cargo install` is NOT recommended for regular
-> users due to dependency on specific LLVM version, system libraries and overall
-> complexity of getting the setup right.
-
-bpf-linker 0.11 supports LLVM 21, 22, or 23 only. Older system LLVM will not do.
-Check what is installed:
-
-```bash
-ls /usr/lib/llvm-*/bin/llvm-config
-LLVM_PREFIX=/usr/lib/llvm-21 cargo install bpf-linker
-```
-
-Also make sure `PATH` holds no directory the current user cannot read. The build
-script walks `PATH` looking for `llvm-config` and fails on the first unreadable
-entry, which produces a confusing "Permission denied" rather than a missing
-LLVM error.
-
-Userspace work does not need any of this.
+Userspace-only work does not need any of this.
 
 ## Where this is going
 
 ```sh
-eBPF collector
+eBPF collector             GPU device activity collected
       │
       ▼
-feature vectors
+feature vectors             one feature so far
       │
       ▼
 workload classifier        not built
       │
       ▼
-decision engine            not built
+decision engine             not built
       │
       ▼
-Karpenter                  not built
+Karpenter                   not built
 ```
 
 One note on the last step. Karpenter does not scale up on utilization. It

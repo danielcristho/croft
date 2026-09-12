@@ -32,7 +32,7 @@ pub fn sys_enter_openat(ctx: TracePointContext) -> u32 {
     try_enter_openat(ctx).unwrap_or(0)
 }
 
-// try_enter_openat checks if the openat is for a GPU device node and if so, records the pid_tgid in PENDING_GPU_OPEN.  
+// try_enter_openat checks if the openat is for a GPU device node and if so, records the pid_tgid in PENDING_GPU_OPEN.
 fn try_enter_openat(ctx: TracePointContext) -> Result<u32, i32> {
     let filename_ptr: u64 = unsafe { ctx.read_at(ARGS_OFFSET + 8)? };
 
@@ -40,7 +40,10 @@ fn try_enter_openat(ctx: TracePointContext) -> Result<u32, i32> {
     if unsafe { bpf_probe_read_user_buf(filename_ptr as *const u8, &mut buf) }.is_err() {
         return Ok(0);
     }
-    if !GPU_PATH_PREFIXES.iter().any(|prefix| buf.starts_with(prefix)) {
+    if !GPU_PATH_PREFIXES
+        .iter()
+        .any(|prefix| buf.starts_with(prefix))
+    {
         return Ok(0);
     }
     let pid_tgid = bpf_get_current_pid_tgid();
