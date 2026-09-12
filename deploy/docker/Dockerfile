@@ -20,7 +20,8 @@ WORKDIR /src
 ARG LLVM_VERSION=23
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential curl ca-certificates gnupg \
+    build-essential curl wget ca-certificates gnupg lsb-release \
+    software-properties-common \
     && rm -rf /var/lib/apt/lists/*
 
 RUN rustup toolchain install nightly --component rust-src && rustup default nightly
