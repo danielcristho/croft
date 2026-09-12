@@ -29,6 +29,9 @@ pub fn load_and_attach() -> anyhow::Result<aya::Ebpf> {
         program.attach(category, name)?;
     }
 
+    // Add backfill to scan /proc for GPU fds.
+    crate::backfill::scan_gpu_fds(&mut ebpf)?;
+
     Ok(ebpf)
 }
 

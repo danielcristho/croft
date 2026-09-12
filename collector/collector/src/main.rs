@@ -1,5 +1,6 @@
 // Main entry point for the collector binary.
 
+mod backfill;
 mod banner;
 mod classifier;
 mod clock;
