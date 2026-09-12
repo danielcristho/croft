@@ -1,6 +1,7 @@
 use anyhow::{Context as _, anyhow};
 use aya_build::Toolchain;
 
+// Build script for the collector-ebpf crate. This script is responsible for building the eBPF programs and ensuring that the bpf-linker tool is available.
 fn main() -> anyhow::Result<()> {
     let cargo_metadata::Metadata { packages, .. } = cargo_metadata::MetadataCommand::new()
         .no_deps()
