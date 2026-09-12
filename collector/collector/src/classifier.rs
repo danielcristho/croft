@@ -5,6 +5,7 @@ use collector_common::GpuActivity;
 // Consts
 const RECENT_WINDOW_NS: u64 = 5_000_000_000;
 
+// Workload is the classification result for a single process.
 pub enum Workload {
     GpuOnset,
     Idle,
@@ -23,8 +24,6 @@ pub fn classify(activity: &GpuActivity, now_ns: u64) -> Workload {
 mod tests {
     use super::*;
 
-    // recent_activity_is_onset tests that classify returns GpuOnset for recent activity.
-    // stale_activity_is_idle tests that classify returns Idle for stale activity.
     #[test]
     fn recent_activity_is_onset() {
         let activity = GpuActivity {

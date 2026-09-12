@@ -6,6 +6,7 @@ mod clock;
 mod ebpf;
 mod logging;
 mod reporter;
+mod syscalls;
 
 use tokio::signal;
 

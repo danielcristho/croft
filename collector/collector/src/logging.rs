@@ -4,6 +4,7 @@ use std::io::Write;
 
 use log::Level;
 
+// init colors each log level, closer to how a tool like Python's rich renders them.
 pub fn init() {
     env_logger::Builder::from_default_env()
         .format(|buf, record| {

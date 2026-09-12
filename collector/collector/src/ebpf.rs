@@ -3,13 +3,14 @@
 use aya::programs::TracePoint;
 use log::{debug, warn};
 
-// Consts
-const TRACEPOINTS: &[&str] = &[
-    "sys_enter_openat",
-    "sys_exit_openat",
-    "sys_enter_ioctl",
-    "sys_enter_close",
-    "sys_enter_exit_group",
+// sys_enter is the one raw_syscalls hook; the rest are under "syscalls".
+const TRACEPOINTS: &[(&str, &str)] = &[
+    ("syscalls", "sys_enter_openat"),
+    ("syscalls", "sys_exit_openat"),
+    ("syscalls", "sys_enter_ioctl"),
+    ("syscalls", "sys_enter_close"),
+    ("syscalls", "sys_enter_exit_group"),
+    ("raw_syscalls", "sys_enter"),
 ];
 
 // load_and_attach loads the compiled eBPF object and attaches its tracepoints.
@@ -22,10 +23,10 @@ pub fn load_and_attach() -> anyhow::Result<aya::Ebpf> {
     )))?;
     bridge_ebpf_logger(&mut ebpf)?;
 
-    for name in TRACEPOINTS {
+    for (category, name) in TRACEPOINTS {
         let program: &mut TracePoint = ebpf.program_mut(name).unwrap().try_into()?;
         program.load()?;
-        program.attach("syscalls", name)?;
+        program.attach(category, name)?;
     }
 
     Ok(ebpf)
@@ -48,7 +49,6 @@ fn raise_memlock() {
 fn bridge_ebpf_logger(ebpf: &mut aya::Ebpf) -> anyhow::Result<()> {
     let logger = match aya_log::EbpfLogger::init(ebpf) {
         Err(e) => {
-            // Expected once every log! call is removed from the eBPF program.
             warn!("failed to initialize eBPF logger: {e}");
             return Ok(());
         }
