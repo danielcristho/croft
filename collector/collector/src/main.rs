@@ -4,6 +4,7 @@ mod backfill;
 mod banner;
 mod classifier;
 mod clock;
+mod dataset;
 mod ebpf;
 mod logging;
 mod reporter;

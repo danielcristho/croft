@@ -8,7 +8,7 @@ use log::info;
 
 use crate::{
     classifier::{self, Workload},
-    clock, syscalls,
+    clock, dataset, syscalls,
 };
 
 const POLL_INTERVAL: Duration = Duration::from_secs(2);
@@ -58,22 +58,24 @@ fn report(
         return;
     }
 
-    let top = top_syscalls_by_rate(tgid, tgid_syscalls, now, rates);
+    let rated = rated_syscalls(tgid, tgid_syscalls, now, rates);
     info!(
-        "workload classified: gpu-onset tgid={tgid} ioctl_count={} top_syscalls=[{top}]",
-        activity.count
+        "workload classified: gpu-onset tgid={tgid} ioctl_count={} top_syscalls=[{}]",
+        activity.count,
+        format_top(&rated)
     );
+    dataset::append(tgid, activity.count, rated);
 }
 
-// top_syscalls_by_rate renders a tgid's busiest syscalls by name, capped to TOP_SYSCALLS.
-fn top_syscalls_by_rate(
+// rated_syscalls turns a tgid's raw syscall counts into a name-and-rate list, busiest first.
+fn rated_syscalls(
     tgid: u32,
     tgid_syscalls: Option<&Vec<(i64, u64)>>,
     now: u64,
     rates: &mut syscalls::RateTracker,
-) -> String {
+) -> Vec<(String, f64)> {
     let Some(tgid_syscalls) = tgid_syscalls else {
-        return String::new();
+        return Vec::new();
     };
 
     let mut rated: Vec<(String, f64)> = tgid_syscalls
@@ -81,10 +83,14 @@ fn top_syscalls_by_rate(
         .map(|&(nr, count)| (syscalls::name(nr), rates.rate_per_sec(tgid, nr, count, now)))
         .collect();
     rated.sort_by(|a, b| b.1.total_cmp(&a.1));
-    rated.truncate(TOP_SYSCALLS);
-
     rated
-        .into_iter()
+}
+
+// format_top renders the busiest few syscalls for the human-readable log line.
+fn format_top(rated: &[(String, f64)]) -> String {
+    rated
+        .iter()
+        .take(TOP_SYSCALLS)
         .map(|(name, rate)| format!("{name}:{rate:.0}/s"))
         .collect::<Vec<_>>()
         .join(" ")
