@@ -12,6 +12,7 @@ const TRACEPOINTS: &[&str] = &[
     "sys_exit_openat",
     "sys_enter_ioctl",
     "sys_enter_close",
+    "sys_enter_exit_group",
 ];
 
 // Main

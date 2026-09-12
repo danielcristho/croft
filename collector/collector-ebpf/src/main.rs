@@ -4,7 +4,7 @@
 use aya_ebpf::{
     helpers::{bpf_get_current_pid_tgid, bpf_ktime_get_ns, bpf_probe_read_user_buf},
     macros::{map, tracepoint},
-    maps::HashMap,
+    maps::{HashMap, LruHashMap},
     programs::TracePointContext,
 };
 use collector_common::GpuActivity;
@@ -16,8 +16,10 @@ const MAX_TRACKED: u32 = 10240;
 
 #[map]
 static PENDING_GPU_OPEN: HashMap<u64, u8> = HashMap::with_max_entries(MAX_TRACKED, 0);
+// ponytail: LRU, not exact per-tgid cleanup on exit; a stale (tgid, fd) can outlive its
+// process until eviction. Switch to per-tgid enumeration if reused tgids misfire in practice.
 #[map]
-static GPU_FDS: HashMap<u64, u8> = HashMap::with_max_entries(MAX_TRACKED, 0);
+static GPU_FDS: LruHashMap<u64, u8> = LruHashMap::with_max_entries(MAX_TRACKED, 0);
 #[map]
 static GPU_ACTIVITY: HashMap<u32, GpuActivity> = HashMap::with_max_entries(MAX_TRACKED, 0);
 
@@ -34,9 +36,11 @@ pub fn sys_enter_openat(ctx: TracePointContext) -> u32 {
 
 // try_enter_openat checks if the openat is for a GPU device node and if so, records the pid_tgid in PENDING_GPU_OPEN.
 fn try_enter_openat(ctx: TracePointContext) -> Result<u32, i32> {
+    // SAFETY: offset is inside the fixed sys_enter_openat record; filename is args[1].
     let filename_ptr: u64 = unsafe { ctx.read_at(ARGS_OFFSET + 8)? };
 
     let mut buf = [0u8; 16];
+    // SAFETY: faults safely if filename_ptr is not a mapped user address.
     if unsafe { bpf_probe_read_user_buf(filename_ptr as *const u8, &mut buf) }.is_err() {
         return Ok(0);
     }
@@ -60,11 +64,13 @@ pub fn sys_exit_openat(ctx: TracePointContext) -> u32 {
 // try_exit_openat checks if the openat was for a GPU device node and if so, records the fd in GPU_FDS.
 fn try_exit_openat(ctx: TracePointContext) -> Result<u32, i32> {
     let pid_tgid = bpf_get_current_pid_tgid();
+    // SAFETY: a racing remove would only miss this fd, not corrupt state.
     if unsafe { PENDING_GPU_OPEN.get(&pid_tgid) }.is_none() {
         return Ok(0);
     }
     let _ = PENDING_GPU_OPEN.remove(&pid_tgid);
 
+    // SAFETY: offset is inside the fixed sys_exit_openat record.
     let ret: i64 = unsafe { ctx.read_at(ARGS_OFFSET)? };
     if ret < 0 {
         return Ok(0);
@@ -82,15 +88,19 @@ pub fn sys_enter_ioctl(ctx: TracePointContext) -> u32 {
 }
 
 fn try_enter_ioctl(ctx: TracePointContext) -> Result<u32, i32> {
+    // SAFETY: offset is inside the fixed sys_enter_ioctl record; fd is args[0].
     let fd: u64 = unsafe { ctx.read_at(ARGS_OFFSET)? };
     let pid_tgid = bpf_get_current_pid_tgid();
     let tgid = (pid_tgid >> 32) as u32;
 
+    // SAFETY: a racing remove would only miss this fd, not corrupt state.
     if unsafe { GPU_FDS.get(&fd_key(tgid, fd as u32)) }.is_none() {
         return Ok(0);
     }
 
+    // SAFETY: no arguments, cannot fault.
     let now = unsafe { bpf_ktime_get_ns() };
+    // SAFETY: a racing update would only lose one count, not corrupt state.
     let activity = match unsafe { GPU_ACTIVITY.get(&tgid) } {
         Some(prev) => GpuActivity {
             count: prev.count + 1,
@@ -112,10 +122,25 @@ pub fn sys_enter_close(ctx: TracePointContext) -> u32 {
 }
 
 fn try_enter_close(ctx: TracePointContext) -> Result<u32, i32> {
+    // SAFETY: offset is inside the fixed sys_enter_close record; fd is args[0].
     let fd: u64 = unsafe { ctx.read_at(ARGS_OFFSET)? };
     let pid_tgid = bpf_get_current_pid_tgid();
     let tgid = (pid_tgid >> 32) as u32;
     let _ = GPU_FDS.remove(&fd_key(tgid, fd as u32));
+    Ok(0)
+}
+
+// sys_enter_exit_group fires once for the whole process (not per thread), unlike
+// sched_process_exit; drops the exiting tgid's activity so a dead process stops
+// being reported.
+#[tracepoint]
+pub fn sys_enter_exit_group(ctx: TracePointContext) -> u32 {
+    try_enter_exit_group(ctx).unwrap_or(0)
+}
+
+fn try_enter_exit_group(_ctx: TracePointContext) -> Result<u32, i32> {
+    let tgid = (bpf_get_current_pid_tgid() >> 32) as u32;
+    let _ = GPU_ACTIVITY.remove(&tgid);
     Ok(0)
 }
 
