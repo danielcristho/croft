@@ -17,7 +17,9 @@ pub fn name(nr: i64) -> String {
         2 => "open".into(),
         3 => "close".into(),
         9 => "mmap".into(),
+        12 => "brk".into(),
         16 => "ioctl".into(),
+        39 => "getpid".into(),
         41 => "socket".into(),
         42 => "connect".into(),
         44 => "sendto".into(),
@@ -27,8 +29,10 @@ pub fn name(nr: i64) -> String {
         60 => "exit".into(),
         61 => "wait4".into(),
         202 => "futex".into(),
+        218 => "set_tid_address".into(),
         231 => "exit_group".into(),
         257 => "openat".into(),
+        293 => "pipe2".into(),
         other => format!("syscall_{other}"),
     }
 }
