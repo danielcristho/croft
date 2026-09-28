@@ -117,21 +117,11 @@ systemd, and how to check it works.
 
 ## Where this is going
 
-```sh
-eBPF collector          per-process GPU activity and syscall rates     built
-      │
-      ▼
-dataset                 labelled by controlled runs                     built
-      │
-      ▼
-workload classifier     train, infer, serve, idle, not ML               not built
-      │
-      ▼
-decision engine         scale out, scale in, wait, cooldown             not built
-      │
-      ▼
-platform integration    Kubernetes | Docker | CloudX | Nomad            not built
-```
+<p align="center">
+  <img src="assets/pipeline.svg" width="820" alt="Pipeline: eBPF collector, dataset, workload classifier, decision engine, then Kubernetes, Docker, CloudX or Nomad. The first two are built.">
+</p>
+
+Filled boxes are built; dashed ones are next.
 
 Each integration acts through what its platform exposes. Karpenter, for one,
 does not scale up on utilization: it provisions when the scheduler marks a pod
