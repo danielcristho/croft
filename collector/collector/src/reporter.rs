@@ -1,97 +1,94 @@
-// Polls GPU_ACTIVITY and SYSCALL_BY_TYPE, and reports what the classifier makes of them.
+//! Polls the eBPF maps and writes a dataset row for every process holding a GPU device.
 
-use std::{collections::HashMap as StdHashMap, time::Duration};
+use std::time::Duration;
 
-use aya::maps::HashMap;
+use aya::Ebpf;
 use collector_common::GpuActivity;
-use log::info;
+use log::{debug, info, warn};
 
 use crate::{
     classifier::{self, Workload},
-    clock, dataset, syscalls,
+    clock::{self, NANOS_PER_MS},
+    dataset::{Dataset, Sample},
+    drops::DropWatcher,
+    maps, process,
+    syscalls::{self, RateTracker, SyscallCount, SyscallRate},
 };
 
 const POLL_INTERVAL: Duration = Duration::from_secs(2);
 const TOP_SYSCALLS: usize = 3;
 
-// run polls both maps every POLL_INTERVAL and reports each GPU-onset workload.
-pub async fn run(ebpf: aya::Ebpf) {
+pub async fn run(ebpf: Ebpf, dataset: Dataset) {
     let mut interval = tokio::time::interval(POLL_INTERVAL);
-    let mut rates = syscalls::RateTracker::default();
-
+    let mut reporter = Reporter::new(dataset);
     loop {
         interval.tick().await;
-        let Ok(gpu_activity) =
-            HashMap::<_, u32, GpuActivity>::try_from(ebpf.map("GPU_ACTIVITY").unwrap())
-        else {
-            continue;
-        };
-        let Ok(syscall_counts) =
-            HashMap::<_, u64, u64>::try_from(ebpf.map("SYSCALL_BY_TYPE").unwrap())
-        else {
-            continue;
-        };
-
-        // Group the flat (tgid, syscall_nr) -> count map by tgid.
-        let mut by_tgid: StdHashMap<u32, Vec<(i64, u64)>> = StdHashMap::new();
-        for (key, count) in syscall_counts.iter().flatten() {
-            let (tgid, syscall_nr) = syscalls::unpack_key(key);
-            by_tgid.entry(tgid).or_default().push((syscall_nr, count));
+        if let Err(e) = reporter.poll(&ebpf) {
+            warn!("poll eBPF maps: {e:#}");
         }
+    }
+}
 
+struct Reporter {
+    dataset: Dataset,
+    drops: DropWatcher,
+    rates: RateTracker,
+}
+
+impl Reporter {
+    fn new(dataset: Dataset) -> Self {
+        Self {
+            dataset,
+            drops: DropWatcher::default(),
+            rates: RateTracker::default(),
+        }
+    }
+
+    fn poll(&mut self, ebpf: &Ebpf) -> anyhow::Result<()> {
+        self.drops.warn_new(ebpf)?;
+        let syscall_counts = maps::syscall_counts(ebpf)?;
+        let by_tgid = syscalls::group_by_tgid(syscall_counts.iter().flatten());
         let now = clock::monotonic_ns();
-        for (tgid, activity) in gpu_activity.iter().flatten() {
-            report(tgid, &activity, now, by_tgid.get(&tgid), &mut rates);
+        for (tgid, activity) in maps::gpu_activity(ebpf)?.iter().flatten() {
+            let counts = by_tgid.get(&tgid).map_or(&[][..], Vec::as_slice);
+            self.report(tgid, &activity, counts, now);
         }
+        Ok(())
+    }
+
+    // report writes every GPU holder: CUDA sends work through mapped queues, so a busy process can go quiet on ioctl.
+    fn report(&mut self, tgid: u32, activity: &GpuActivity, counts: &[SyscallCount], now: u64) {
+        let workload = classifier::classify(activity, now);
+        let rates = self.rates.rates_for(tgid, counts, now);
+        let process = process::read(tgid);
+        let line = format!(
+            "workload classified: {} tgid={tgid} comm={} ioctl_count={} top_syscalls=[{}]",
+            workload.label(),
+            process.comm.as_deref().unwrap_or("?"),
+            activity.count,
+            format_top(&rates)
+        );
+        if workload == Workload::GpuOnset {
+            info!("{line}");
+        } else {
+            debug!("{line}");
+        }
+        self.dataset.append(&Sample {
+            tgid,
+            process: &process,
+            activity,
+            workload,
+            since_last_gpu_ioctl_ms: now.saturating_sub(activity.last_ns) / NANOS_PER_MS,
+            syscalls: &rates,
+        });
     }
 }
 
-// report logs a GPU-onset classification; idle workloads stay silent.
-fn report(
-    tgid: u32,
-    activity: &GpuActivity,
-    now: u64,
-    tgid_syscalls: Option<&Vec<(i64, u64)>>,
-    rates: &mut syscalls::RateTracker,
-) {
-    if !matches!(classifier::classify(activity, now), Workload::GpuOnset) {
-        return;
-    }
-
-    let rated = rated_syscalls(tgid, tgid_syscalls, now, rates);
-    info!(
-        "workload classified: gpu-onset tgid={tgid} ioctl_count={} top_syscalls=[{}]",
-        activity.count,
-        format_top(&rated)
-    );
-    dataset::append(tgid, activity.count, rated);
-}
-
-// rated_syscalls turns a tgid's raw syscall counts into a name-and-rate list, busiest first.
-fn rated_syscalls(
-    tgid: u32,
-    tgid_syscalls: Option<&Vec<(i64, u64)>>,
-    now: u64,
-    rates: &mut syscalls::RateTracker,
-) -> Vec<(String, f64)> {
-    let Some(tgid_syscalls) = tgid_syscalls else {
-        return Vec::new();
-    };
-
-    let mut rated: Vec<(String, f64)> = tgid_syscalls
-        .iter()
-        .map(|&(nr, count)| (syscalls::name(nr), rates.rate_per_sec(tgid, nr, count, now)))
-        .collect();
-    rated.sort_by(|a, b| b.1.total_cmp(&a.1));
-    rated
-}
-
-// format_top renders the busiest few syscalls for the human-readable log line.
-fn format_top(rated: &[(String, f64)]) -> String {
-    rated
+fn format_top(rates: &[SyscallRate]) -> String {
+    rates
         .iter()
         .take(TOP_SYSCALLS)
-        .map(|(name, rate)| format!("{name}:{rate:.0}/s"))
+        .map(|r| format!("{}:{:.0}/s", r.name, r.rate_per_sec))
         .collect::<Vec<_>>()
         .join(" ")
 }

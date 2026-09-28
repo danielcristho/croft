@@ -4,10 +4,10 @@ After=network.target
 
 [Service]
 Type=simple
-WorkingDirectory=/var/www/croft
 Environment=RUST_LOG=info
-Environment=DATASET_PATH=/var/www/croft/croft-dataset.jsonl
-ExecStart=/var/www/croft/collector/target/debug/collector
+Environment=DATASET_PATH=/var/lib/croft/croft-dataset.jsonl
+StateDirectory=croft
+ExecStart=/usr/local/bin/croft-collector
 Restart=always
 RestartSec=5
 

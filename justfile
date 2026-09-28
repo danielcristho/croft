@@ -14,9 +14,7 @@ build:
 build-release:
     cargo build --manifest-path {{ manifest }} -p collector --release
 
-# Run the collector. Needs root to load and attach eBPF programs. RUST_LOG
-# goes after `sudo`, not before: some sudoers configs reject -E outright and
-# silently drop it instead.
+# Run the collector. Needs root to load and attach eBPF programs.
 run:
     cargo build --manifest-path {{ manifest }} -p collector
     sudo RUST_LOG=info ./collector/target/debug/collector
@@ -37,3 +35,10 @@ test:
 
 clean:
     rm -rf collector/target
+
+docker-up:
+    docker run -d --name croft-collector --restart unless-stopped \
+    --privileged --pid=host --cgroupns=host \
+    -v /sys/kernel/tracing:/sys/kernel/tracing:ro \
+    -v /var/lib/croft:/data \
+    croft-collector

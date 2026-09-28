@@ -1,50 +1,51 @@
-// Classifies a process's GPU activity as either onset or idle, based on the last time it drove the GPU.
+//! Classifies a GPU-holding process by how recently it sent an ioctl to the device.
 
 use collector_common::GpuActivity;
 
-// Consts
-const RECENT_WINDOW_NS: u64 = 5_000_000_000;
+use crate::clock::NANOS_PER_SEC;
 
-// Workload is the classification result for a single process.
+const RECENT_WINDOW_NS: u64 = 5 * NANOS_PER_SEC;
+
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Workload {
     GpuOnset,
-    Idle,
+    GpuHeld,
 }
 
-// classify returns the workload classification for a process based on its GPU activity and the current time.
+impl Workload {
+    pub fn label(self) -> &'static str {
+        match self {
+            Workload::GpuOnset => "gpu-onset",
+            Workload::GpuHeld => "gpu-held",
+        }
+    }
+}
+
 pub fn classify(activity: &GpuActivity, now_ns: u64) -> Workload {
     if now_ns.saturating_sub(activity.last_ns) <= RECENT_WINDOW_NS {
-        Workload::GpuOnset
-    } else {
-        Workload::Idle
+        return Workload::GpuOnset;
     }
+    Workload::GpuHeld
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    const ACTIVITY: GpuActivity = GpuActivity {
+        count: 1,
+        last_ns: 1_000,
+    };
+
     #[test]
     fn recent_activity_is_onset() {
-        let activity = GpuActivity {
-            count: 1,
-            last_ns: 1_000,
-        };
-        assert!(matches!(
-            classify(&activity, 1_000 + RECENT_WINDOW_NS),
-            Workload::GpuOnset
-        ));
+        let now = ACTIVITY.last_ns + RECENT_WINDOW_NS;
+        assert_eq!(classify(&ACTIVITY, now), Workload::GpuOnset);
     }
 
     #[test]
-    fn stale_activity_is_idle() {
-        let activity = GpuActivity {
-            count: 1,
-            last_ns: 1_000,
-        };
-        assert!(matches!(
-            classify(&activity, 1_000 + RECENT_WINDOW_NS + 1),
-            Workload::Idle
-        ));
+    fn stale_activity_is_held() {
+        let now = ACTIVITY.last_ns + RECENT_WINDOW_NS + 1;
+        assert_eq!(classify(&ACTIVITY, now), Workload::GpuHeld);
     }
 }

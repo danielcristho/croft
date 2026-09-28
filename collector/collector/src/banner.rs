@@ -1,12 +1,10 @@
-// Croft Banner
+//! Startup banner.
 
-// Consts
+use crate::ansi::{BOLD_CYAN, RESET};
+
 const GLYPH_ROWS: usize = 5;
 const WORD: &str = "CROFT";
-const CYAN: &str = "\x1b[1;36m";
-const RESET: &str = "\x1b[0m";
 
-// glyph returns the 5x5 representation of a character in the Croft banner.
 fn glyph(c: char) -> [&'static str; GLYPH_ROWS] {
     match c {
         'C' => [".###.", "#....", "#....", "#....", ".###."],
@@ -18,18 +16,23 @@ fn glyph(c: char) -> [&'static str; GLYPH_ROWS] {
     }
 }
 
-// print prints the Croft banner to stdout.
+fn row(index: usize) -> String {
+    let mut line = String::new();
+    for c in WORD.chars() {
+        line.extend(
+            glyph(c)[index]
+                .chars()
+                .map(|cell| if cell == '#' { '█' } else { ' ' }),
+        );
+        line.push(' ');
+    }
+    line
+}
+
 pub fn print() {
     println!();
-    for row in 0..GLYPH_ROWS {
-        let mut line = String::new();
-        for c in WORD.chars() {
-            for cell in glyph(c)[row].chars() {
-                line.push(if cell == '#' { '█' } else { ' ' });
-            }
-            line.push(' ');
-        }
-        println!("{CYAN}{line}{RESET}");
+    for index in 0..GLYPH_ROWS {
+        println!("{BOLD_CYAN}{}{RESET}", row(index));
     }
     println!();
 }

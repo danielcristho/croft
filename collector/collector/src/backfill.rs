@@ -1,47 +1,51 @@
-// Pre-populates GPU_FDS for processes that already had a GPU device open before
-// this collector started, since their openat already happened and won't be seen.
+//! Seeds GPU_FDS with GPU fds opened before the collector attached.
 
-use std::fs;
+use std::{
+    fs,
+    os::unix::ffi::OsStrExt,
+    path::{Path, PathBuf},
+};
 
-use aya::maps::HashMap;
-use log::debug;
+use aya::Ebpf;
+use collector_common::{PRESENT, is_gpu_path, pack_key};
+use log::warn;
 
-const GPU_PATH_PREFIXES: &[&str] = &["/dev/nvidia", "/dev/dri/"];
+use crate::maps;
 
-// scan_gpu_fds walks /proc/<pid>/fd, looking for fds already pointing at a GPU device.
-pub fn scan_gpu_fds(ebpf: &mut aya::Ebpf) -> anyhow::Result<()> {
-    let mut gpu_fds: HashMap<_, u64, u8> = HashMap::try_from(ebpf.map_mut("GPU_FDS").unwrap())?;
-
-    let Ok(procs) = fs::read_dir("/proc") else {
-        return Ok(());
-    };
-    for proc_entry in procs.flatten() {
-        let Ok(tgid) = proc_entry.file_name().to_string_lossy().parse::<u32>() else {
-            continue;
-        };
-        let Ok(fds) = fs::read_dir(proc_entry.path().join("fd")) else {
-            continue;
-        };
-        for fd_entry in fds.flatten() {
-            let Ok(fd) = fd_entry.file_name().to_string_lossy().parse::<u32>() else {
-                continue;
-            };
-            let Ok(target) = fs::read_link(fd_entry.path()) else {
-                continue;
-            };
-            let target = target.to_string_lossy();
-            if !GPU_PATH_PREFIXES
-                .iter()
-                .any(|prefix| target.starts_with(prefix))
-            {
-                continue;
-            }
-
-            let key = ((tgid as u64) << 32) | fd as u64;
-            if let Err(e) = gpu_fds.insert(key, 1u8, 0) {
-                debug!("backfill: could not record tgid={tgid} fd={fd}: {e}");
-            }
+pub fn scan_gpu_fds(ebpf: &mut Ebpf) -> anyhow::Result<()> {
+    let mut gpu_fds = maps::gpu_fds(ebpf)?;
+    let mut refused = 0;
+    for (tgid, fd) in open_gpu_fds() {
+        if gpu_fds.insert(pack_key(tgid, fd), PRESENT, 0).is_err() {
+            refused += 1;
         }
     }
+    if refused > 0 {
+        warn!("backfill could not record {refused} GPU fds");
+    }
     Ok(())
+}
+
+fn open_gpu_fds() -> impl Iterator<Item = (u32, u32)> {
+    numeric_entries(PathBuf::from("/proc")).flat_map(|(tgid, proc_dir)| {
+        numeric_entries(proc_dir.join("fd"))
+            .filter(|(_, fd_path)| points_at_gpu(fd_path))
+            .map(move |(fd, _)| (tgid, fd))
+    })
+}
+
+// numeric_entries yields the entries of dir named by a number, such as pids and fds.
+fn numeric_entries(dir: PathBuf) -> impl Iterator<Item = (u32, PathBuf)> {
+    fs::read_dir(dir)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter_map(|entry| {
+            let number = entry.file_name().to_str()?.parse().ok()?;
+            Some((number, entry.path()))
+        })
+}
+
+fn points_at_gpu(fd_path: &Path) -> bool {
+    fs::read_link(fd_path).is_ok_and(|target| is_gpu_path(target.as_os_str().as_bytes()))
 }

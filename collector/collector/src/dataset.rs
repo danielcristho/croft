@@ -1,58 +1,87 @@
-// Appends one JSON Lines record per GPU-onset classification, for later labeling and training.
+//! JSON Lines dataset, one row per GPU-holding process per poll, for labelling and training.
 
 use std::{
     fs::OpenOptions,
     io::Write,
+    path::PathBuf,
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use log::debug;
+use collector_common::GpuActivity;
+use log::warn;
 use serde::Serialize;
 
+use crate::{classifier::Workload, process::ProcessInfo, syscalls::SyscallRate};
+
+const PATH_ENV: &str = "DATASET_PATH";
 const DEFAULT_PATH: &str = "croft-dataset.jsonl";
 
-#[derive(Serialize)]
-struct SyscallRate {
-    name: String,
-    rate_per_sec: f64,
+pub struct Sample<'a> {
+    pub tgid: u32,
+    pub process: &'a ProcessInfo,
+    pub activity: &'a GpuActivity,
+    pub workload: Workload,
+    pub since_last_gpu_ioctl_ms: u64,
+    pub syscalls: &'a [SyscallRate],
 }
 
-// Record is one dataset row: a feature vector plus a label left for later filling in.
 #[derive(Serialize)]
-struct Record {
+struct Record<'a> {
     unix_ms: u128,
     tgid: u32,
+    process: &'a ProcessInfo,
     workload: &'static str,
     ioctl_count: u64,
+    since_last_gpu_ioctl_ms: u64,
     syscalls: Vec<SyscallRate>,
     label: Option<String>,
 }
 
-// append writes one record; a write failure only logs, since a dataset problem
-// should not stop the collector from reporting.
-pub fn append(tgid: u32, ioctl_count: u64, syscalls: Vec<(String, f64)>) {
-    let record = Record {
-        unix_ms: now_unix_ms(),
-        tgid,
-        workload: "gpu-onset",
-        ioctl_count,
-        syscalls: syscalls
-            .into_iter()
-            .map(|(name, rate_per_sec)| SyscallRate {
-                name,
-                rate_per_sec: round2(rate_per_sec),
-            })
-            .collect(),
-        label: None,
-    };
+pub struct Dataset {
+    path: PathBuf,
+}
 
-    if let Err(e) = write_line(&record) {
-        debug!("dataset: could not append record for tgid={tgid}: {e}");
+impl Dataset {
+    pub fn new(path: impl Into<PathBuf>) -> Self {
+        Self { path: path.into() }
+    }
+
+    pub fn from_env() -> Self {
+        Self::new(std::env::var(PATH_ENV).unwrap_or_else(|_| DEFAULT_PATH.to_string()))
+    }
+
+    // append logs a write error instead of returning it, so a dataset problem does not stop reporting.
+    pub fn append(&self, sample: &Sample) {
+        let record = Record {
+            unix_ms: now_unix_ms(),
+            tgid: sample.tgid,
+            process: sample.process,
+            workload: sample.workload.label(),
+            ioctl_count: sample.activity.count,
+            since_last_gpu_ioctl_ms: sample.since_last_gpu_ioctl_ms,
+            syscalls: sample.syscalls.iter().map(rounded).collect(),
+            label: None,
+        };
+        if let Err(e) = self.write_line(&record) {
+            warn!("append dataset record for tgid={}: {e}", sample.tgid);
+        }
+    }
+
+    fn write_line(&self, record: &Record) -> anyhow::Result<()> {
+        let mut file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&self.path)?;
+        writeln!(file, "{}", serde_json::to_string(record)?)?;
+        Ok(())
     }
 }
 
-fn round2(value: f64) -> f64 {
-    (value * 100.0).round() / 100.0
+fn rounded(rate: &SyscallRate) -> SyscallRate {
+    SyscallRate {
+        name: rate.name.clone(),
+        rate_per_sec: (rate.rate_per_sec * 100.0).round() / 100.0,
+    }
 }
 
 fn now_unix_ms() -> u128 {
@@ -62,38 +91,48 @@ fn now_unix_ms() -> u128 {
         .unwrap_or(0)
 }
 
-fn write_line(record: &Record) -> anyhow::Result<()> {
-    let path = std::env::var("DATASET_PATH").unwrap_or_else(|_| DEFAULT_PATH.to_string());
-    let mut file = OpenOptions::new().create(true).append(true).open(path)?;
-    writeln!(file, "{}", serde_json::to_string(record)?)?;
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn appends_valid_json_line() {
-        let path = "/tmp/croft-dataset-test.jsonl";
-        // SAFETY: this test runs single-threaded; no concurrent env reader to race.
-        unsafe { std::env::set_var("DATASET_PATH", path) };
-        let _ = std::fs::remove_file(path);
+        let path = std::env::temp_dir().join(format!("croft-dataset-{}.jsonl", std::process::id()));
+        let _ = std::fs::remove_file(&path);
+        let activity = GpuActivity {
+            count: 100,
+            last_ns: 0,
+        };
+        let syscalls = [SyscallRate {
+            name: "ioctl".into(),
+            rate_per_sec: 26.004,
+        }];
 
-        append(
-            42,
-            100,
-            vec![("ioctl".to_string(), 26.0), ("write".to_string(), 19.0)],
-        );
+        let process = ProcessInfo {
+            comm: Some("python3".into()),
+            ..ProcessInfo::default()
+        };
 
-        let content = std::fs::read_to_string(path).unwrap();
+        Dataset::new(&path).append(&Sample {
+            tgid: 42,
+            process: &process,
+            activity: &activity,
+            workload: Workload::GpuOnset,
+            since_last_gpu_ioctl_ms: 1500,
+            syscalls: &syscalls,
+        });
+
+        let content = std::fs::read_to_string(&path).unwrap();
         let parsed: serde_json::Value = serde_json::from_str(content.trim()).unwrap();
         assert_eq!(parsed["tgid"], 42);
+        assert_eq!(parsed["process"]["comm"], "python3");
+        assert!(parsed["process"]["container_id"].is_null());
         assert_eq!(parsed["workload"], "gpu-onset");
         assert_eq!(parsed["ioctl_count"], 100);
+        assert_eq!(parsed["since_last_gpu_ioctl_ms"], 1500);
         assert_eq!(parsed["syscalls"][0]["name"], "ioctl");
+        assert_eq!(parsed["syscalls"][0]["rate_per_sec"], 26.0);
         assert!(parsed["label"].is_null());
-
-        std::fs::remove_file(path).ok();
+        std::fs::remove_file(&path).ok();
     }
 }
