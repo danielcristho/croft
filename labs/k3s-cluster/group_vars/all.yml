@@ -1,0 +1,20 @@
+k3s_version: v1.36.4+k3s1
+k3s_install_url: https://get.k3s.io
+k3s_installer: /usr/local/share/k3s-install.sh
+k3s_server_ip: "{{ hostvars[groups['server'][0]].ansible_host }}"
+k3s_pod_cidr: 10.42.0.0/16
+k3s_service_cidr: 10.43.0.0/16
+k3s_disable:
+  - traefik
+  - servicelb
+k3s_kubeconfig: "{{ lookup('env', 'HOME') }}/.kube/croft-k3s.yaml"
+
+k3s_agent_ports:
+  - { port: 6443, proto: tcp, comment: k3s api }
+  - { port: 10250, proto: tcp, comment: k3s kubelet }
+  - { port: 8472, proto: udp, comment: k3s flannel vxlan }
+
+inotify_max_user_instances: 8192
+inotify_max_user_watches: 524288
+
+nvidia_device_plugin_version: v0.20.1

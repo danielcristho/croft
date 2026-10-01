@@ -1,0 +1,23 @@
+- name: Prepare every node
+  hosts: k3s
+  become: true
+  roles:
+    - common
+
+- name: Install the k3s server
+  hosts: server
+  become: true
+  roles:
+    - server
+
+- name: Join the agents
+  hosts: agents
+  become: true
+  roles:
+    - agent
+
+- name: Expose GPUs to the scheduler
+  hosts: server
+  become: true
+  roles:
+    - gpu

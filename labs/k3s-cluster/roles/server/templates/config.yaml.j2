@@ -1,0 +1,10 @@
+node-ip: {{ ansible_host }}
+advertise-address: {{ ansible_host }}
+tls-san:
+  - {{ ansible_host }}
+cluster-cidr: {{ k3s_pod_cidr }}
+service-cidr: {{ k3s_service_cidr }}
+disable:
+{% for component in k3s_disable %}
+  - {{ component }}
+{% endfor %}

@@ -1,0 +1,3 @@
+- name: Apply inotify limits
+  ansible.builtin.command: sysctl -p /etc/sysctl.d/99-k8s-inotify.conf
+  changed_when: true

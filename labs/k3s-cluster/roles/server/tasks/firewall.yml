@@ -1,0 +1,27 @@
+- name: Read the ufw status
+  ansible.builtin.command: ufw status
+  register: ufw_status
+  changed_when: false
+  failed_when: false
+
+- name: Apply the k3s rules for each agent
+  ansible.builtin.command: >-
+    ufw {{ ufw_action }} from {{ hostvars[item.0].ansible_host }} to any port {{ item.1.port }} proto {{ item.1.proto }}
+    {% if ufw_action == 'allow' %}comment '{{ item.1.comment }}'{% endif %}
+  loop: "{{ groups['agents'] | product(k3s_agent_ports) | list }}"
+  loop_control:
+    label: "{{ item.0 }} {{ item.1.port }}/{{ item.1.proto }}"
+  register: ufw_agent_rules
+  changed_when: "'Skipping' not in ufw_agent_rules.stdout and 'non-existent' not in ufw_agent_rules.stdout"
+  when: "'Status: active' in ufw_status.stdout"
+
+- name: Apply the k3s rules for pod and service traffic
+  ansible.builtin.command: >-
+    ufw {{ ufw_action }} from {{ item.cidr }} to any
+    {% if ufw_action == 'allow' %}comment '{{ item.comment }}'{% endif %}
+  loop:
+    - { cidr: "{{ k3s_pod_cidr }}", comment: k3s pods }
+    - { cidr: "{{ k3s_service_cidr }}", comment: k3s services }
+  register: ufw_cidr_rules
+  changed_when: "'Skipping' not in ufw_cidr_rules.stdout and 'non-existent' not in ufw_cidr_rules.stdout"
+  when: "'Status: active' in ufw_status.stdout"

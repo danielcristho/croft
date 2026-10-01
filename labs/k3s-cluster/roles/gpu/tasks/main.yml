@@ -1,0 +1,27 @@
+- name: Label the GPU nodes
+  ansible.builtin.command: k3s kubectl label node {{ hostvars[item].ansible_hostname }} nvidia.com/gpu.present=true --overwrite
+  loop: "{{ groups['gpu'] }}"
+  register: gpu_labels
+  changed_when: "'not labeled' not in gpu_labels.stdout"
+
+- name: Write the device plugin manifest
+  ansible.builtin.template:
+    src: nvidia-device-plugin.yaml.j2
+    dest: /usr/local/share/nvidia-device-plugin.yaml
+    mode: "0644"
+
+- name: Apply the device plugin
+  ansible.builtin.command: k3s kubectl apply -f /usr/local/share/nvidia-device-plugin.yaml
+  register: device_plugin
+  changed_when: "'unchanged' not in device_plugin.stdout"
+
+- name: Wait for each GPU to be allocatable
+  ansible.builtin.command: >-
+    k3s kubectl get node {{ hostvars[item].ansible_hostname }}
+    -o jsonpath={.status.allocatable.nvidia\.com/gpu}
+  loop: "{{ groups['gpu'] }}"
+  register: gpu_allocatable
+  until: gpu_allocatable.stdout | int > 0
+  retries: 24
+  delay: 5
+  changed_when: false

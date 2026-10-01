@@ -1,0 +1,31 @@
+- name: Remove the agents
+  hosts: agents
+  become: true
+  tasks:
+    - name: Run the k3s agent uninstaller
+      ansible.builtin.command: /usr/local/bin/k3s-agent-uninstall.sh
+      args:
+        removes: /usr/local/bin/k3s-agent-uninstall.sh
+
+- name: Remove the server
+  hosts: server
+  become: true
+  tasks:
+    - name: Run the k3s uninstaller
+      ansible.builtin.command: /usr/local/bin/k3s-uninstall.sh
+      args:
+        removes: /usr/local/bin/k3s-uninstall.sh
+
+    - name: Close the k3s ports
+      ansible.builtin.include_role:
+        name: server
+        tasks_from: firewall
+      vars:
+        ufw_action: delete allow
+
+    - name: Remove the kubeconfig on the controller
+      ansible.builtin.file:
+        path: "{{ k3s_kubeconfig }}"
+        state: absent
+      delegate_to: localhost
+      become: false
