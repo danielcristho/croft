@@ -16,9 +16,15 @@
   changed_when: "'unchanged' not in device_plugin.stdout"
 
 - name: Wait for each GPU to be allocatable
-  ansible.builtin.command: >-
-    k3s kubectl get node {{ hostvars[item].ansible_hostname }}
-    -o jsonpath={.status.allocatable.nvidia\.com/gpu}
+  ansible.builtin.command:
+    argv:
+      - k3s
+      - kubectl
+      - get
+      - node
+      - "{{ hostvars[item].ansible_hostname }}"
+      - -o
+      - 'jsonpath={.status.allocatable.nvidia\.com/gpu}'
   loop: "{{ groups['gpu'] }}"
   register: gpu_allocatable
   until: gpu_allocatable.stdout | int > 0
