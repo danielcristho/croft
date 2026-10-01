@@ -36,9 +36,11 @@ test:
 clean:
     rm -rf collector/target
 
+# Run the collector image. WATCH_CGROUPS=kubepods also records every pod, GPU or not.
 docker-up:
     docker run -d --name croft-collector --restart unless-stopped \
     --privileged --pid=host --cgroupns=host \
+    -e WATCH_CGROUPS={{ quote(env_var_or_default("WATCH_CGROUPS", "")) }} \
     -v /sys/kernel/tracing:/sys/kernel/tracing:ro \
     -v /var/lib/croft:/data \
     croft-collector
