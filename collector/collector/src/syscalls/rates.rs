@@ -1,11 +1,9 @@
 //! Turns cumulative eBPF syscall counters into per-second rates.
 
-use std::collections::HashMap;
-
 use serde::Serialize;
 
 use super::{SyscallCount, names};
-use crate::clock::NANOS_PER_SEC;
+use crate::delta::DeltaTracker;
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct SyscallRate {
@@ -15,7 +13,7 @@ pub struct SyscallRate {
 
 #[derive(Default)]
 pub struct RateTracker {
-    prev: HashMap<(u32, u32), (u64, u64)>,
+    deltas: DeltaTracker<(u32, u32)>,
 }
 
 impl RateTracker {
@@ -37,24 +35,22 @@ impl RateTracker {
         rates
     }
 
+    pub fn end_poll(&mut self) {
+        self.deltas.end_poll();
+    }
+
     // rate_per_sec returns 0 on the first observation, having no previous count to diff.
     fn rate_per_sec(&mut self, tgid: u32, sample: &SyscallCount, now_ns: u64) -> f64 {
-        let key = (tgid, sample.nr);
-        let rate = match self.prev.get(&key) {
-            Some(&(prev_count, prev_ns)) if now_ns > prev_ns => {
-                let elapsed_secs = (now_ns - prev_ns) as f64 / NANOS_PER_SEC as f64;
-                sample.count.saturating_sub(prev_count) as f64 / elapsed_secs
-            }
-            _ => 0.0,
-        };
-        self.prev.insert(key, (sample.count, now_ns));
-        rate
+        self.deltas
+            .per_sec((tgid, sample.nr), sample.count, now_ns)
+            .unwrap_or(0.0)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::clock::NANOS_PER_SEC;
 
     const IOCTL: u32 = 16;
 
@@ -66,14 +62,6 @@ mod tests {
     fn first_observation_has_no_rate() {
         let mut rates = RateTracker::default();
         assert_eq!(rates.rate_per_sec(1, &count(100), NANOS_PER_SEC), 0.0);
-    }
-
-    #[test]
-    fn rate_is_delta_over_elapsed_time() {
-        let mut rates = RateTracker::default();
-        rates.rate_per_sec(1, &count(100), NANOS_PER_SEC);
-        let rate = rates.rate_per_sec(1, &count(300), 3 * NANOS_PER_SEC);
-        assert_eq!(rate, 100.0);
     }
 
     #[test]

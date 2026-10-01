@@ -1,6 +1,6 @@
-//! Polls the eBPF maps and writes a dataset row for every process holding a GPU device.
+//! Polls the eBPF maps and writes a dataset row for every GPU holder and every process in a watched cgroup.
 
-use std::time::Duration;
+use std::{collections::HashMap, time::Duration};
 
 use aya::Ebpf;
 use collector_common::GpuActivity;
@@ -11,16 +11,20 @@ use crate::{
     clock::{self, NANOS_PER_MS},
     dataset::{Dataset, Sample},
     drops::DropWatcher,
-    maps, process,
+    maps,
+    process::{self, ProcessInfo},
+    resources::ResourceTracker,
     syscalls::{self, RateTracker, SyscallCount, SyscallRate},
+    watch::CgroupWatch,
 };
 
 const POLL_INTERVAL: Duration = Duration::from_secs(2);
 const TOP_SYSCALLS: usize = 3;
+const MIB: u64 = 1024 * 1024;
 
-pub async fn run(ebpf: Ebpf, dataset: Dataset) {
+pub async fn run(ebpf: Ebpf, dataset: Dataset, watch: CgroupWatch) {
     let mut interval = tokio::time::interval(POLL_INTERVAL);
-    let mut reporter = Reporter::new(dataset);
+    let mut reporter = Reporter::new(dataset, watch);
     loop {
         interval.tick().await;
         if let Err(e) = reporter.poll(&ebpf) {
@@ -29,18 +33,28 @@ pub async fn run(ebpf: Ebpf, dataset: Dataset) {
     }
 }
 
+struct Subject {
+    tgid: u32,
+    process: ProcessInfo,
+    activity: Option<GpuActivity>,
+}
+
 struct Reporter {
     dataset: Dataset,
+    watch: CgroupWatch,
     drops: DropWatcher,
     rates: RateTracker,
+    resources: ResourceTracker,
 }
 
 impl Reporter {
-    fn new(dataset: Dataset) -> Self {
+    fn new(dataset: Dataset, watch: CgroupWatch) -> Self {
         Self {
             dataset,
+            watch,
             drops: DropWatcher::default(),
             rates: RateTracker::default(),
+            resources: ResourceTracker::new(),
         }
     }
 
@@ -49,23 +63,67 @@ impl Reporter {
         let syscall_counts = maps::syscall_counts(ebpf)?;
         let by_tgid = syscalls::group_by_tgid(syscall_counts.iter().flatten());
         let now = clock::monotonic_ns();
-        for (tgid, activity) in maps::gpu_activity(ebpf)?.iter().flatten() {
-            let counts = by_tgid.get(&tgid).map_or(&[][..], Vec::as_slice);
-            self.report(tgid, &activity, counts, now);
+        for subject in self.subjects(ebpf)? {
+            let counts = by_tgid.get(&subject.tgid).map_or(&[][..], Vec::as_slice);
+            self.report(&subject, counts, now);
         }
+        self.rates.end_poll();
+        self.resources.end_poll();
         Ok(())
     }
 
+    // subjects adds, to the GPU holders, every process in a watched cgroup.
+    fn subjects(&self, ebpf: &Ebpf) -> anyhow::Result<Vec<Subject>> {
+        let holders: HashMap<u32, GpuActivity> =
+            maps::gpu_activity(ebpf)?.iter().flatten().collect();
+        let mut subjects: Vec<Subject> = holders
+            .iter()
+            .map(|(&tgid, &activity)| Subject {
+                tgid,
+                process: process::read(tgid),
+                activity: Some(activity),
+            })
+            .collect();
+        if self.watch.is_empty() {
+            return Ok(subjects);
+        }
+        let own = std::process::id();
+        subjects.extend(
+            self.watch
+                .processes()
+                .into_iter()
+                .filter(|(tgid, _)| *tgid != own && !holders.contains_key(tgid))
+                .map(|(tgid, cgroup)| Subject {
+                    tgid,
+                    process: process::identify(tgid, Some(cgroup)),
+                    activity: None,
+                }),
+        );
+        Ok(subjects)
+    }
+
     // report writes every GPU holder: CUDA sends work through mapped queues, so a busy process can go quiet on ioctl.
-    fn report(&mut self, tgid: u32, activity: &GpuActivity, counts: &[SyscallCount], now: u64) {
-        let workload = classifier::classify(activity, now);
+    fn report(&mut self, subject: &Subject, counts: &[SyscallCount], now: u64) {
+        let Subject {
+            tgid,
+            process,
+            activity,
+        } = subject;
+        let tgid = *tgid;
+        let workload = classifier::classify(activity.as_ref(), now);
         let rates = self.rates.rates_for(tgid, counts, now);
-        let process = process::read(tgid);
+        let usage = self.resources.process(tgid, now);
+        let cgroup_usage = process
+            .cgroup
+            .as_deref()
+            .map(|cgroup| self.resources.cgroup(cgroup, now));
         let line = format!(
-            "workload classified: {} tgid={tgid} comm={} ioctl_count={} top_syscalls=[{}]",
+            "workload classified: {} tgid={tgid} comm={} cpu_cores={:.2} rss_mib={} ioctl_count={} top_syscalls=[{}]",
             workload.label(),
             process.comm.as_deref().unwrap_or("?"),
-            activity.count,
+            usage.cpu_cores.unwrap_or(0.0),
+            usage.rss_bytes.unwrap_or(0) / MIB,
+            activity.map_or(0, |activity| activity.count),
             format_top(&rates)
         );
         if workload == Workload::GpuOnset {
@@ -75,10 +133,13 @@ impl Reporter {
         }
         self.dataset.append(&Sample {
             tgid,
-            process: &process,
-            activity,
+            process,
+            activity: activity.as_ref(),
             workload,
-            since_last_gpu_ioctl_ms: now.saturating_sub(activity.last_ns) / NANOS_PER_MS,
+            since_last_gpu_ioctl_ms: activity
+                .map(|activity| now.saturating_sub(activity.last_ns) / NANOS_PER_MS),
+            usage: &usage,
+            cgroup_usage: cgroup_usage.as_ref(),
             syscalls: &rates,
         });
     }

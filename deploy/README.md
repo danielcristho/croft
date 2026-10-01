@@ -83,6 +83,22 @@ sudo systemctl restart croft-collector
 `just run` builds a debug binary and runs it under sudo in the foreground. The
 dataset goes to `croft-dataset.jsonl` in the current directory.
 
+## Recording processes without a GPU
+
+By default only processes holding a GPU device get dataset rows. `WATCH_CGROUPS`
+adds every process in cgroups whose path contains one of its comma-separated
+substrings, GPU or not:
+
+```sh
+WATCH_CGROUPS=kubepods just docker-up          # every Kubernetes pod, kind included
+WATCH_CGROUPS=docker-<container-id> just docker-up
+```
+
+Those processes come from walking `/sys/fs/cgroup`, not from syscall activity, so
+a CPU-bound loop that makes no syscalls is still recorded. Their rows carry
+`"workload": "no-gpu"` and `null` GPU fields. Under systemd, set it with
+`Environment=WATCH_CGROUPS=...` in the unit.
+
 ## Checking it works
 
 Start the collector, then drive the GPU from another terminal, for example:

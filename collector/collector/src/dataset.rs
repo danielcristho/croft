@@ -11,7 +11,12 @@ use collector_common::GpuActivity;
 use log::warn;
 use serde::Serialize;
 
-use crate::{classifier::Workload, process::ProcessInfo, syscalls::SyscallRate};
+use crate::{
+    classifier::Workload,
+    process::ProcessInfo,
+    resources::{CgroupUsage, ProcessUsage},
+    syscalls::SyscallRate,
+};
 
 const PATH_ENV: &str = "DATASET_PATH";
 const DEFAULT_PATH: &str = "croft-dataset.jsonl";
@@ -19,9 +24,11 @@ const DEFAULT_PATH: &str = "croft-dataset.jsonl";
 pub struct Sample<'a> {
     pub tgid: u32,
     pub process: &'a ProcessInfo,
-    pub activity: &'a GpuActivity,
+    pub activity: Option<&'a GpuActivity>,
     pub workload: Workload,
-    pub since_last_gpu_ioctl_ms: u64,
+    pub since_last_gpu_ioctl_ms: Option<u64>,
+    pub usage: &'a ProcessUsage,
+    pub cgroup_usage: Option<&'a CgroupUsage>,
     pub syscalls: &'a [SyscallRate],
 }
 
@@ -31,8 +38,10 @@ struct Record<'a> {
     tgid: u32,
     process: &'a ProcessInfo,
     workload: &'static str,
-    ioctl_count: u64,
-    since_last_gpu_ioctl_ms: u64,
+    ioctl_count: Option<u64>,
+    since_last_gpu_ioctl_ms: Option<u64>,
+    usage: &'a ProcessUsage,
+    cgroup_usage: Option<&'a CgroupUsage>,
     syscalls: Vec<SyscallRate>,
     label: Option<String>,
 }
@@ -57,8 +66,10 @@ impl Dataset {
             tgid: sample.tgid,
             process: sample.process,
             workload: sample.workload.label(),
-            ioctl_count: sample.activity.count,
+            ioctl_count: sample.activity.map(|activity| activity.count),
             since_last_gpu_ioctl_ms: sample.since_last_gpu_ioctl_ms,
+            usage: sample.usage,
+            cgroup_usage: sample.cgroup_usage,
             syscalls: sample.syscalls.iter().map(rounded).collect(),
             label: None,
         };
@@ -116,9 +127,14 @@ mod tests {
         Dataset::new(&path).append(&Sample {
             tgid: 42,
             process: &process,
-            activity: &activity,
+            activity: Some(&activity),
             workload: Workload::GpuOnset,
-            since_last_gpu_ioctl_ms: 1500,
+            since_last_gpu_ioctl_ms: Some(1500),
+            usage: &ProcessUsage {
+                cpu_cores: Some(1.5),
+                ..ProcessUsage::default()
+            },
+            cgroup_usage: None,
             syscalls: &syscalls,
         });
 
@@ -130,6 +146,8 @@ mod tests {
         assert_eq!(parsed["workload"], "gpu-onset");
         assert_eq!(parsed["ioctl_count"], 100);
         assert_eq!(parsed["since_last_gpu_ioctl_ms"], 1500);
+        assert_eq!(parsed["usage"]["cpu_cores"], 1.5);
+        assert!(parsed["cgroup_usage"].is_null());
         assert_eq!(parsed["syscalls"][0]["name"], "ioctl");
         assert_eq!(parsed["syscalls"][0]["rate_per_sec"], 26.0);
         assert!(parsed["label"].is_null());

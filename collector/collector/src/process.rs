@@ -4,6 +4,7 @@ use std::{fs, path::PathBuf};
 
 use serde::Serialize;
 
+pub const CGROUP_ROOT: &str = "/sys/fs/cgroup";
 const CONTAINER_ID_LEN: usize = 64;
 const RUNTIME_PREFIXES: &[&str] = &["docker-", "cri-containerd-", "crio-", "libpod-"];
 
@@ -18,10 +19,18 @@ pub struct ProcessInfo {
 
 // read returns empty fields for a process that exited between the poll and this read.
 pub fn read(tgid: u32) -> ProcessInfo {
-    let dir = PathBuf::from(format!("/proc/{tgid}"));
-    let cgroup = fs::read_to_string(dir.join("cgroup"))
+    identify(tgid, cgroup_of(tgid))
+}
+
+fn cgroup_of(tgid: u32) -> Option<String> {
+    fs::read_to_string(format!("/proc/{tgid}/cgroup"))
         .ok()
-        .and_then(|content| unified_cgroup(&content));
+        .and_then(|content| unified_cgroup(&content))
+}
+
+// identify completes a process whose cgroup the caller has read already.
+pub fn identify(tgid: u32, cgroup: Option<String>) -> ProcessInfo {
+    let dir = PathBuf::from(format!("/proc/{tgid}"));
     ProcessInfo {
         comm: fs::read_to_string(dir.join("comm"))
             .ok()
