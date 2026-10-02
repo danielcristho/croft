@@ -10,6 +10,7 @@ from pathlib import Path
 
 from . import kube, prometheus, records
 
+# Consts
 NAMESPACE = "croft-exp"
 DEPLOYMENT = "webapp"
 ROOT = Path(__file__).resolve().parent.parent

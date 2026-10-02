@@ -30,7 +30,6 @@ spec:
             limits:
               cpu: "1"
               memory: 512Mi
-          # Timeouts above the 1 s default: a CPU-starved pod answers slowly, it is not dead.
           readinessProbe:
             httpGet:
               path: /health

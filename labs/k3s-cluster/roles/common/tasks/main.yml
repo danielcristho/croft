@@ -1,4 +1,4 @@
-- name: Raise inotify limits
+- name: Update inotify limits
   ansible.builtin.copy:
     dest: /etc/sysctl.d/99-k8s-inotify.conf
     content: |
@@ -25,7 +25,6 @@
   register: k3s_unit
   failed_when: false
 
-# Flags in the unit come from a manual install; merged with config.yaml they duplicate list values like node-ip.
 - name: Decide whether k3s needs installing
   ansible.builtin.set_fact:
     k3s_needs_install: >-

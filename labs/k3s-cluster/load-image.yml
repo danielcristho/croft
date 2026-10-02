@@ -1,5 +1,4 @@
 # Loads a local Docker image into every node's k3s containerd, for images that are in no registry.
-# Usage: ansible-playbook load-image.yml -e image=croft-webapp:v1 --ask-become-pass
 - name: Load an image into k3s
   hosts: k3s
   vars:

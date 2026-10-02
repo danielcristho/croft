@@ -10,6 +10,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import torch
 from torch import nn
 
+# Consts
 DEVICE = "cuda"
 VOCAB = 8000
 SERVE_PORT = 8000

@@ -1,0 +1,60 @@
+# Source: https://zenodo.org/records/17995721
+
+"""Prompt categorization for a more structured evaluations"""
+    
+    SHORT_TEXT_PROMPTS = [
+        "What is AI?",
+        "Define machine learning.",
+        "What is 2+2?",
+        "Name three colors.",
+        "What day is today?",
+        "Define quantum computing.",
+        "What is Python programming?",
+        "Name a popular database.",
+        "Define blockchain.",
+        "What is cloud computing?"
+    ]
+    
+    LONG_TEXT_PROMPTS = [
+        "Write a detailed explanation of how artificial intelligence works, including its history, current applications, and future prospects.",
+        "Explain the complete process of machine learning from data collection to model deployment, with examples.",
+        "Write a comprehensive guide on renewable energy sources, their advantages, disadvantages, and implementation challenges.",
+        "Describe the evolution of computer technology from the 1940s to present day, including major milestones.",
+        "Write a detailed analysis of climate change causes, effects, and potential solutions.",
+        "Explain how the internet works, from physical infrastructure to protocols and data transmission.",
+        "Write a comprehensive overview of modern programming languages and their use cases.",
+        "Describe the complete software development lifecycle with best practices and methodologies."
+    ]
+    
+    CREATIVE_PROMPTS = [
+        "Write a short story about a robot learning to paint.",
+        "Create a poem about the beauty of mathematics.",
+        "Write a creative dialogue between two AI systems.",
+        "Compose a song about space exploration.",
+        "Write a fictional news report from the year 2050.",
+        "Create a humorous conversation between a programmer and their code.",
+        "Write a short play about time travel.",
+        "Compose a creative essay about the color blue."
+    ]
+    
+    TECHNICAL_PROMPTS = [
+        "Explain the differences between SQL and NoSQL databases with examples.",
+        "Describe the REST API architectural style and its principles.",
+        "Explain how containerization works with Docker and Kubernetes.",
+        "Describe the MVC (Model-View-Controller) design pattern.",
+        "Explain the concept of microservices architecture.",
+        "Describe how version control systems like Git work.",
+        "Explain the principles of object-oriented programming.",
+        "Describe the difference between relational and non-relational databases."
+    ]
+    
+    REASONING_PROMPTS = [
+        "If you have 100 books and you read 3 books per week, how many weeks will it take to read all books? Show your reasoning.",
+        "A train leaves Station A at 2 PM traveling at 60 mph. Another train leaves Station B at 3 PM traveling at 80 mph toward Station A. If the stations are 200 miles apart, when will the trains meet?",
+        "You have a 3-gallon jug and a 5-gallon jug. How can you measure exactly 4 gallons of water?",
+        "If all roses are flowers, and some flowers are red, can we conclude that some roses are red? Explain your reasoning.",
+        "In a group of 30 people, everyone shakes hands exactly once with every other person. How many handshakes occur in total?",
+        "If it takes 5 machines 5 minutes to make 5 widgets, how long would it take 100 machines to make 100 widgets?",
+        "You have 12 balls, one of which is heavier than the others. Using a balance scale only 3 times, how can you identify the heavy ball?",
+        "If a shirt costs $20 after a 20% discount, what was the original price?"
+    ]

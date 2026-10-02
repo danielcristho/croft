@@ -9,14 +9,13 @@ from pathlib import Path
 
 from . import kube, records
 
+# Consts
 NAMESPACE = "croft-exp"
 CONFIGMAP = "croft-gpu-workloads"
 TORCH_IMAGE = "pytorch/pytorch:2.14.0-cuda13.0-cudnn9-runtime"
 OLLAMA_IMAGE = "ollama/ollama:0.34.4"
 WORKLOADS = Path(__file__).resolve().parent.parent / "workloads" / "gpu"
-# Image pulls and model downloads come on top of the run itself.
 STARTUP_ALLOWANCE_S = 900
-
 
 def torch_command(label: str, seconds: float, params: dict) -> list[str]:
     return ["python", "/workloads/workloads.py", label, "--seconds", str(seconds), "--params", json.dumps(params)]
