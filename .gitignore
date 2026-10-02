@@ -218,7 +218,7 @@ __marimo__/
 .streamlit/secrets.toml
 
 # Research notebooks and their environment
-research/
+/research/
 
 # The real lab inventory holds host addresses and users
 labs/k3s-cluster/hosts.ini

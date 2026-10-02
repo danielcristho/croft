@@ -1,0 +1,6 @@
+[project]
+name = "croft-experiment"
+version = "0.1.0"
+description = "Labelled workloads on the k3s lab cluster for croft"
+requires-python = ">=3.12"
+dependencies = ["locust>=2.40"]
