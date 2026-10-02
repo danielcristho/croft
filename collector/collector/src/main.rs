@@ -11,6 +11,7 @@ mod drops;
 mod ebpf;
 mod logging;
 mod maps;
+mod namespace;
 mod process;
 mod reporter;
 mod resources;
@@ -22,11 +23,17 @@ use tokio::signal;
 
 use crate::{dataset::Dataset, watch::CgroupWatch};
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
+fn main() -> anyhow::Result<()> {
     logging::init();
     banner::print();
+    namespace::join_host_cgroup();
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()?
+        .block_on(run())
+}
 
+async fn run() -> anyhow::Result<()> {
     let mut ebpf = ebpf::load_and_attach()?;
     backfill::scan_gpu_fds(&mut ebpf)?;
     let watch = CgroupWatch::from_env();
