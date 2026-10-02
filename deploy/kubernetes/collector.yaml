@@ -1,0 +1,64 @@
+# One collector per node. Each needs the host PID namespace, the host tracefs and cgroup tree, and privileges to load eBPF.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: croft
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: croft-collector
+  namespace: croft
+  labels:
+    app: croft-collector
+spec:
+  selector:
+    matchLabels:
+      app: croft-collector
+  template:
+    metadata:
+      labels:
+        app: croft-collector
+    spec:
+      hostPID: true
+      tolerations:
+        - operator: Exists
+      containers:
+        - name: collector
+          image: croft-collector:dev
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            privileged: true
+          env:
+            - name: RUST_LOG
+              value: info
+            - name: DATASET_PATH
+              value: /data/croft-dataset.jsonl
+            - name: WATCH_CGROUPS
+              value: kubepods
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 512Mi
+          volumeMounts:
+            - name: tracefs
+              mountPath: /sys/kernel/tracing
+              readOnly: true
+            - name: cgroup
+              mountPath: /sys/fs/cgroup
+              readOnly: true
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: tracefs
+          hostPath:
+            path: /sys/kernel/tracing
+        - name: cgroup
+          hostPath:
+            path: /sys/fs/cgroup
+        - name: data
+          hostPath:
+            path: /var/lib/croft
+            type: DirectoryOrCreate
