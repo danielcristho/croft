@@ -1,0 +1,37 @@
+# Loads a local Docker image into every node's k3s containerd, for images that are in no registry.
+# Usage: ansible-playbook load-image.yml -e image=croft-webapp:v1 --ask-become-pass
+- name: Load an image into k3s
+  hosts: k3s
+  vars:
+    archive: /tmp/k3s-image-{{ image | regex_replace('[^A-Za-z0-9]', '-') }}.tar
+  tasks:
+    - name: Save the image on the controller
+      ansible.builtin.command:
+        argv: [docker, save, "{{ image }}", -o, "{{ archive }}"]
+      delegate_to: localhost
+      run_once: true
+      changed_when: true
+
+    - name: Copy the archive to the node
+      ansible.builtin.copy:
+        src: "{{ archive }}"
+        dest: "{{ archive }}"
+        mode: "0600"
+
+    - name: Import the image
+      ansible.builtin.command:
+        argv: [k3s, ctr, images, import, "{{ archive }}"]
+      become: true
+      changed_when: true
+
+    - name: Remove the archive from the node
+      ansible.builtin.file:
+        path: "{{ archive }}"
+        state: absent
+
+    - name: Remove the archive from the controller
+      ansible.builtin.file:
+        path: "{{ archive }}"
+        state: absent
+      delegate_to: localhost
+      run_once: true

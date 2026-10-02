@@ -1,0 +1,28 @@
+# Pulls each node's croft dataset into one directory, one file per node; reruns copy only what was appended.
+- name: Collect the croft datasets
+  hosts: k3s
+  vars:
+    croft_dataset: /var/lib/croft/croft-dataset.jsonl
+    collect_dir: "{{ playbook_dir }}/../../research/data/nodes"
+  tasks:
+    - name: Create the collection directory
+      ansible.builtin.file:
+        path: "{{ collect_dir }}"
+        state: directory
+        mode: "0755"
+      delegate_to: localhost
+      run_once: true
+
+    - name: Pull the dataset
+      ansible.builtin.command:
+        argv:
+          - rsync
+          - --append-verify
+          - --partial
+          - "{{ croft_dataset if node.ansible_connection | default('ssh') == 'local' else node.ansible_user ~ '@' ~ node.ansible_host ~ ':' ~ croft_dataset }}"
+          - "{{ collect_dir }}/{{ ansible_hostname }}.jsonl"
+      vars:
+        # Under delegate_to, connection variables name localhost; the node's own come from hostvars.
+        node: "{{ hostvars[inventory_hostname] }}"
+      delegate_to: localhost
+      changed_when: true
