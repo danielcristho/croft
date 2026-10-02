@@ -11,6 +11,7 @@ pub struct DropWatcher {
     reported: [u64; DropSite::ALL.len()],
 }
 
+// DropWatcher tracks the total number of inserts refused by the eBPF side, and warns when new drops are detected.
 impl DropWatcher {
     pub fn warn_new(&mut self, ebpf: &Ebpf) -> anyhow::Result<()> {
         let drops = maps::drops(ebpf)?;

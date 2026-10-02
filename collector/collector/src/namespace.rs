@@ -4,6 +4,7 @@ use std::{fs, fs::File, os::fd::AsRawFd};
 
 use log::{info, warn};
 
+// Consts for the cgroup namespace files in /proc.
 const OWN_CGROUP_NS: &str = "/proc/self/ns/cgroup";
 const HOST_CGROUP_NS: &str = "/proc/1/ns/cgroup";
 

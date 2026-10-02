@@ -33,6 +33,7 @@ fn main() -> anyhow::Result<()> {
         .block_on(run())
 }
 
+// Run the collector, polling eBPF maps and reporting to the dataset.
 async fn run() -> anyhow::Result<()> {
     let mut ebpf = ebpf::load_and_attach()?;
     backfill::scan_gpu_fds(&mut ebpf)?;

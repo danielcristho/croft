@@ -15,6 +15,7 @@ pub struct DeltaTracker<K> {
     poll: u64,
 }
 
+// DeltaTracker tracks the previous values of counters and the time they were seen, so that it can compute per-second rates from cumulative counters.
 impl<K> Default for DeltaTracker<K> {
     fn default() -> Self {
         Self {
@@ -24,6 +25,7 @@ impl<K> Default for DeltaTracker<K> {
     }
 }
 
+// DeltaTracker<K> is generic over K, but K must implement Hash and Eq for use in the HashMap.
 impl<K: Hash + Eq> DeltaTracker<K> {
     pub fn per_sec(&mut self, key: K, value: u64, now_ns: u64) -> Option<f64> {
         let rate = self

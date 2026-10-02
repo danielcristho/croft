@@ -7,6 +7,7 @@ use std::{
 
 use crate::process::CGROUP_ROOT;
 
+// Consts for the WATCH_CGROUPS environment variable and the cgroup.procs file.
 const ENV: &str = "WATCH_CGROUPS";
 const PROCS_FILE: &str = "cgroup.procs";
 

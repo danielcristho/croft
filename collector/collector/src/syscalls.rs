@@ -14,6 +14,7 @@ pub struct SyscallCount {
     pub count: u64,
 }
 
+// group_by_tgid takes an iterator of (key, count) pairs from SYSCALL_BY_TYPE and returns a map of tgid to the syscall counts for that tgid.
 pub fn group_by_tgid(entries: impl Iterator<Item = (u64, u64)>) -> HashMap<u32, Vec<SyscallCount>> {
     let mut by_tgid: HashMap<u32, Vec<SyscallCount>> = HashMap::new();
     for (key, count) in entries {

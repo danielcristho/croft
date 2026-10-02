@@ -13,6 +13,7 @@ pub enum Workload {
     NoGpu,
 }
 
+// Workload::label returns a string label for the workload, suitable for use in a dataset row.
 impl Workload {
     pub fn label(self) -> &'static str {
         match self {
@@ -23,6 +24,7 @@ impl Workload {
     }
 }
 
+// classify returns the workload classification for a process, given its GPU activity and the current time in nanoseconds.
 pub fn classify(activity: Option<&GpuActivity>, now_ns: u64) -> Workload {
     let Some(activity) = activity else {
         return Workload::NoGpu;

@@ -7,6 +7,7 @@ use serde::Serialize;
 pub const CGROUP_ROOT: &str = "/sys/fs/cgroup";
 const CONTAINER_ID_LEN: usize = 64;
 const RUNTIME_PREFIXES: &[&str] = &["docker-", "cri-containerd-", "crio-", "libpod-"];
+const SANDBOX_EXE: &str = "/pause";
 
 // The command line is left out on purpose: its arguments can carry tokens and passwords.
 #[derive(Clone, Debug, Default, PartialEq, Serialize)]
@@ -15,6 +16,13 @@ pub struct ProcessInfo {
     pub exe: Option<String>,
     pub cgroup: Option<String>,
     pub container_id: Option<String>,
+}
+
+impl ProcessInfo {
+    // is_pod_sandbox spots the pause process, which only holds a pod's namespaces.
+    pub fn is_pod_sandbox(&self) -> bool {
+        self.exe.as_deref() == Some(SANDBOX_EXE)
+    }
 }
 
 // read returns empty fields for a process that exited between the poll and this read.
@@ -62,6 +70,7 @@ fn container_id(cgroup: &str) -> Option<String> {
     is_container_id(id).then(|| id.to_string())
 }
 
+// is_container_id checks for a 64-character hex string.
 fn is_container_id(id: &str) -> bool {
     id.len() == CONTAINER_ID_LEN && id.bytes().all(|b| b.is_ascii_hexdigit())
 }
@@ -101,6 +110,20 @@ mod tests {
         for (cgroup, want) in cases {
             assert_eq!(container_id(&cgroup).as_deref(), want, "{cgroup}");
         }
+    }
+
+    #[test]
+    fn pause_is_a_pod_sandbox() {
+        let pause = ProcessInfo {
+            exe: Some("/pause".into()),
+            ..ProcessInfo::default()
+        };
+        let app = ProcessInfo {
+            exe: Some("/usr/local/bin/pause".into()),
+            ..ProcessInfo::default()
+        };
+        assert!(pause.is_pod_sandbox());
+        assert!(!app.is_pod_sandbox());
     }
 
     #[test]

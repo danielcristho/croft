@@ -16,6 +16,7 @@ fn color(level: Level) -> &'static str {
     }
 }
 
+// Initializes the logger with a custom format.
 pub fn init() {
     env_logger::Builder::from_default_env()
         .format(|buf, record| {

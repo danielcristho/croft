@@ -18,6 +18,7 @@ use crate::{
     watch::CgroupWatch,
 };
 
+// Consts
 const POLL_INTERVAL: Duration = Duration::from_secs(2);
 const TOP_SYSCALLS: usize = 3;
 const MIB: u64 = 1024 * 1024;
@@ -72,7 +73,7 @@ impl Reporter {
         Ok(())
     }
 
-    // subjects adds, to the GPU holders, every process in a watched cgroup.
+    // subjects adds, to the GPU holders, every process in a watched cgroup except pod sandboxes.
     fn subjects(&self, ebpf: &Ebpf) -> anyhow::Result<Vec<Subject>> {
         let holders: HashMap<u32, GpuActivity> =
             maps::gpu_activity(ebpf)?.iter().flatten().collect();
@@ -97,7 +98,8 @@ impl Reporter {
                     tgid,
                     process: process::identify(tgid, Some(cgroup)),
                     activity: None,
-                }),
+                })
+                .filter(|subject| !subject.process.is_pod_sandbox()),
         );
         Ok(subjects)
     }
@@ -145,6 +147,7 @@ impl Reporter {
     }
 }
 
+// format_top returns a string of the top N syscalls and their rates, e.g. "ioctl:123/s read:45/s write:6/s".
 fn format_top(rates: &[SyscallRate]) -> String {
     rates
         .iter()

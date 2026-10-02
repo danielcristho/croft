@@ -1,4 +1,4 @@
-//! JSON Lines dataset, one row per GPU-holding process per poll, for labelling and training.
+//! JSON Lines dataset, one row per reported process per poll, for labelling and training.
 
 use std::{
     fs::OpenOptions,
@@ -18,6 +18,7 @@ use crate::{
     syscalls::SyscallRate,
 };
 
+// Consts for dataset path and default filename.
 const PATH_ENV: &str = "DATASET_PATH";
 const DEFAULT_PATH: &str = "croft-dataset.jsonl";
 
@@ -70,7 +71,7 @@ impl Dataset {
             since_last_gpu_ioctl_ms: sample.since_last_gpu_ioctl_ms,
             usage: sample.usage,
             cgroup_usage: sample.cgroup_usage,
-            syscalls: sample.syscalls.iter().map(rounded).collect(),
+            syscalls: active(sample.syscalls),
             label: None,
         };
         if let Err(e) = self.write_line(&record) {
@@ -88,6 +89,16 @@ impl Dataset {
     }
 }
 
+// active leaves out syscalls whose rounded rate is zero; a missing name reads as zero.
+fn active(rates: &[SyscallRate]) -> Vec<SyscallRate> {
+    rates
+        .iter()
+        .map(rounded)
+        .filter(|rate| rate.rate_per_sec > 0.0)
+        .collect()
+}
+
+// rounded rounds a syscall rate to two decimal places, so that a very low rate is treated as zero.
 fn rounded(rate: &SyscallRate) -> SyscallRate {
     SyscallRate {
         name: rate.name.clone(),
@@ -95,6 +106,7 @@ fn rounded(rate: &SyscallRate) -> SyscallRate {
     }
 }
 
+// now_unix_ms returns the current time in ms since the Unix epoch, or zero on error.
 fn now_unix_ms() -> u128 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -114,10 +126,16 @@ mod tests {
             count: 100,
             last_ns: 0,
         };
-        let syscalls = [SyscallRate {
-            name: "ioctl".into(),
-            rate_per_sec: 26.004,
-        }];
+        let syscalls = [
+            SyscallRate {
+                name: "ioctl".into(),
+                rate_per_sec: 26.004,
+            },
+            SyscallRate {
+                name: "futex".into(),
+                rate_per_sec: 0.001,
+            },
+        ];
 
         let process = ProcessInfo {
             comm: Some("python3".into()),
@@ -150,6 +168,7 @@ mod tests {
         assert!(parsed["cgroup_usage"].is_null());
         assert_eq!(parsed["syscalls"][0]["name"], "ioctl");
         assert_eq!(parsed["syscalls"][0]["rate_per_sec"], 26.0);
+        assert_eq!(parsed["syscalls"].as_array().unwrap().len(), 1);
         assert!(parsed["label"].is_null());
         std::fs::remove_file(&path).ok();
     }

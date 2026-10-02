@@ -10,6 +10,7 @@ use serde::Serialize;
 
 use crate::{delta::DeltaTracker, process::CGROUP_ROOT};
 
+// Consts for the network namespace files in /proc.
 const HOST_NETNS: &str = "/proc/1/ns/net";
 const LOOPBACK: &str = "lo";
 const KIB: u64 = 1024;

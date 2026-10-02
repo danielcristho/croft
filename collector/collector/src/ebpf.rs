@@ -4,6 +4,7 @@ use anyhow::Context as _;
 use aya::{Ebpf, programs::TracePoint};
 use log::warn;
 
+// Consts for the tracepoints to attach.
 const TRACEPOINTS: &[(&str, &str)] = &[
     ("syscalls", "sys_enter_openat"),
     ("syscalls", "sys_exit_openat"),
@@ -13,6 +14,7 @@ const TRACEPOINTS: &[(&str, &str)] = &[
     ("raw_syscalls", "sys_enter"),
 ];
 
+// load_and_attach loads the eBPF object from the compiled bytes, raises RLIMIT_MEMLOCK, and attaches the tracepoints.
 pub fn load_and_attach() -> anyhow::Result<Ebpf> {
     raise_memlock();
     let mut ebpf = Ebpf::load(aya::include_bytes_aligned!(concat!(
@@ -26,6 +28,7 @@ pub fn load_and_attach() -> anyhow::Result<Ebpf> {
     Ok(ebpf)
 }
 
+// attach finds the tracepoint program with the given name in the eBPF object, loads it, and attaches it to the given category and name.
 fn attach(ebpf: &mut Ebpf, category: &str, name: &str) -> anyhow::Result<()> {
     let program: &mut TracePoint = ebpf
         .program_mut(name)
@@ -67,7 +70,7 @@ fn bridge_ebpf_logger(ebpf: &mut Ebpf) -> anyhow::Result<()> {
             guard.get_inner_mut().flush();
             guard.clear_ready();
         }
-        warn!("eBPF log stream closed");
+        warn!("eBPF log stream closed"); // Warniing: this will be printed on shutdown, but also if the eBPF program panics and the log stream closes.
     });
     Ok(())
 }
