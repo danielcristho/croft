@@ -11,6 +11,7 @@ collector-common = { path = "../collector-common", features = ["user"] }
 anyhow = { workspace = true, default-features = true }
 aya = { workspace = true }
 aya-log = { workspace = true }
+clap = { workspace = true, features = ["derive", "env", "help", "usage", "error-context"] }
 env_logger = { workspace = true }
 libc = { workspace = true }
 log = { workspace = true }
@@ -43,5 +44,5 @@ cargo_metadata = { workspace = true }
 collector-ebpf = { path = "../collector-ebpf" }
 
 [[bin]]
-name = "collector"
+name = "croft"
 path = "src/main.rs"
