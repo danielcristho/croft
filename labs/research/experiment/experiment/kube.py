@@ -22,5 +22,20 @@ def wait(condition: str, target: str, namespace: str, timeout_s: int) -> bool:
     return subprocess.run(command, capture_output=True).returncode == 0
 
 
+# container_id strips the runtime scheme, matching the id croft reads from the cgroup path.
+def container_id(status: dict) -> str:
+    return status.get("containerID", "").partition("://")[2]
+
+
+def containers(namespace: str, *selector: str) -> dict[str, str]:
+    """Maps each started container of the selected pods to its node."""
+    return {
+        container_id(status): pod["spec"].get("nodeName")
+        for pod in get("pods", namespace, *selector)["items"]
+        for status in pod["status"].get("containerStatuses", [])
+        if status.get("containerID")
+    }
+
+
 def epoch_ms(timestamp: str) -> int:
     return int(datetime.fromisoformat(timestamp.replace("Z", "+00:00")).timestamp() * 1000)

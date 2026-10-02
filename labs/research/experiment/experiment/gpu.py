@@ -138,7 +138,7 @@ def run_one(label: str, params: dict, seconds: float, node: str | None) -> dict:
         "image": SCENARIOS[label].image,
         "node": pod["spec"].get("nodeName"),
         "pod": pod["metadata"]["name"],
-        "container_id": container.get("containerID", "").removeprefix("containerd://"),
+        "container_id": kube.container_id(container),
         "started_ms": kube.epoch_ms(terminated["startedAt"]) if "startedAt" in terminated else None,
         "ended_ms": kube.epoch_ms(terminated["finishedAt"]) if "finishedAt" in terminated else records.now_ms(),
         "succeeded": succeeded,

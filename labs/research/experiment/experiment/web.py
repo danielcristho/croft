@@ -21,14 +21,14 @@ READY_CHECKS = 3
 READY_TIMEOUT_S = 120
 
 
+# deploy starts an HPA run from one replica and a new HPA, so no scale-down window carries over from the last run.
 def deploy(replicas: int | None) -> None:
     kube.apply((MANIFESTS / "k8s.yaml").read_text())
+    kube.kubectl("delete", "hpa", DEPLOYMENT, "-n", NAMESPACE, "--ignore-not-found")
+    kube.kubectl("scale", f"deployment/{DEPLOYMENT}", "-n", NAMESPACE, f"--replicas={replicas or 1}")
+    kube.kubectl("rollout", "status", f"deployment/{DEPLOYMENT}", "-n", NAMESPACE, "--timeout=300s")
     if replicas is None:
         kube.apply((MANIFESTS / "hpa.yaml").read_text())
-    else:
-        kube.kubectl("delete", "hpa", DEPLOYMENT, "-n", NAMESPACE, "--ignore-not-found")
-        kube.kubectl("scale", f"deployment/{DEPLOYMENT}", "-n", NAMESPACE, f"--replicas={replicas}")
-    kube.kubectl("rollout", "status", f"deployment/{DEPLOYMENT}", "-n", NAMESPACE, "--timeout=300s")
     wait_for_ingress()
 
 
@@ -57,16 +57,50 @@ def locust(users: int, seconds: int, csv_prefix: Path | None, env: dict[str, str
     subprocess.run(command, check=True, env={**os.environ, **(env or {})}, capture_output=csv_prefix is None)
 
 
+def rescales(since_ms: int) -> list[dict]:
+    """HPA scaling decisions since a run started, from the namespace's events."""
+    events = kube.get("events", NAMESPACE, "--field-selector", "involvedObject.kind=HorizontalPodAutoscaler")["items"]
+    found = []
+    for event in events:
+        if event.get("reason") != "SuccessfulRescale" or not event.get("lastTimestamp"):
+            continue
+        last_ms = kube.epoch_ms(event["lastTimestamp"])
+        if last_ms >= since_ms:
+            first_ms = kube.epoch_ms(event.get("firstTimestamp") or event["lastTimestamp"])
+            found.append({"first_ms": first_ms, "last_ms": last_ms, "count": event.get("count", 1), "message": event["message"]})
+    return sorted(found, key=lambda rescale: rescale["first_ms"])
+
+
+# pods records when each webapp pod was created and last turned Ready, to the second.
+def pods() -> list[dict]:
+    found = []
+    for pod in kube.get("pods", NAMESPACE, "-l", f"app={DEPLOYMENT}")["items"]:
+        ready = next((c for c in pod["status"].get("conditions", []) if c["type"] == "Ready"), {})
+        found.append({
+            "pod": pod["metadata"]["name"],
+            "node": pod["spec"].get("nodeName"),
+            "created_ms": kube.epoch_ms(pod["metadata"]["creationTimestamp"]),
+            "ready_ms": kube.epoch_ms(ready["lastTransitionTime"]) if ready.get("status") == "True" else None,
+            "container_ids": [kube.container_id(status) for status in pod["status"].get("containerStatuses", [])],
+        })
+    return found
+
+
 def run_level(name: str, users: int, warmup: int, seconds: int, replicas: int | None, steps: str | None, step_seconds: int) -> dict:
     directory = records.DATA / "web" / name
     directory.mkdir(parents=True, exist_ok=True)
     if warmup:
         locust(users, warmup, None)
+    # Containers are read at both ends: the HPA adds pods during a run, and croft rows join on their ids.
+    containers = kube.containers(NAMESPACE, "-l", f"app={DEPLOYMENT}")
     start_ms = records.now_ms()
     env = {"LOAD_STEPS": steps, "STEP_SECONDS": str(step_seconds)} if steps else None
     locust(users, seconds, directory / "locust", env)
     end_ms = records.now_ms()
+    containers |= kube.containers(NAMESPACE, "-l", f"app={DEPLOYMENT}")
     prometheus.export(directory / "prometheus.csv", NAMESPACE, DEPLOYMENT, start_ms // 1000, end_ms // 1000)
+    timeline = {"rescales": rescales(start_ms), "pods": pods()}
+    (directory / "timeline.json").write_text(json.dumps(timeline, indent=1))
     return {
         "run_id": name,
         "users": users,
@@ -75,6 +109,7 @@ def run_level(name: str, users: int, warmup: int, seconds: int, replicas: int | 
         "autoscaling": "hpa" if replicas is None else "static",
         "started_ms": start_ms,
         "ended_ms": end_ms,
+        "containers": containers,
         "directory": str(directory.relative_to(ROOT)),
     }
 

@@ -55,6 +55,9 @@ version than `k3s_version`, or when its systemd unit still carries flags.
 - **No flags in the systemd unit.** Flags and `config.yaml` are merged, so a
   value set in both, like `node-ip`, becomes a list of two and the kubelet
   refuses to start.
+- **Image GC at 95%, not 85%.** Lab nodes are shared workstations whose disks
+  sit above 85%; the kubelet then deletes every unused image each five minutes,
+  including images loaded with `load-image.yml`, which no registry can restore.
 - **`ansible_become_exe=sudo.ws` on Ubuntu 26.04.** Its default sudo is
   sudo-rs, whose password prompt Ansible cannot read.
 - **Device plugin with `runtimeClassName: nvidia`.** Without it the plugin

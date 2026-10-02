@@ -10,7 +10,8 @@ from pathlib import Path
 # Consts
 PROMETHEUS = os.environ.get("PROM_HOST", "http://prometheus.127.0.0.1.sslip.io:30080")
 STEP_S = 5
-WINDOW = "30s"
+# rate needs at least two samples per window; cAdvisor is scraped every 10 s, so 30 s drops pods at random.
+WINDOW = "1m"
 
 
 def queries(namespace: str, deployment: str) -> dict[str, str]:

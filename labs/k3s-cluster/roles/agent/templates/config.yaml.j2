@@ -1,3 +1,7 @@
 server: https://{{ k3s_server_ip }}:6443
 token: {{ hostvars[groups['server'][0]].k3s_token }}
 node-ip: {{ ansible_host }}
+kubelet-arg:
+{% for arg in k3s_kubelet_args %}
+  - {{ arg }}
+{% endfor %}
