@@ -59,7 +59,7 @@ LLVM_SYS_231_PREFIX=/usr/lib/llvm-23 PATH=/usr/lib/llvm-23/bin:$PATH \
 ```sh
 cd croft
 just build-release
-sudo install -m 0755 collector/target/release/collector /usr/local/bin/croft-collector
+sudo install -m 0755 collector/target/release/croft /usr/local/bin/croft
 sudo cp deploy/systemd/croft-collector.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now croft-collector
@@ -74,7 +74,7 @@ The dataset lands in `/var/lib/croft/croft-dataset.jsonl`.
 ```sh
 git pull
 just build-release
-sudo install -m 0755 collector/target/release/collector /usr/local/bin/croft-collector
+sudo install -m 0755 collector/target/release/croft /usr/local/bin/croft
 sudo systemctl restart croft-collector
 ```
 
@@ -131,7 +131,7 @@ docker rm -f croft-collector
 
 # systemd
 sudo systemctl disable --now croft-collector
-sudo rm /etc/systemd/system/croft-collector.service /usr/local/bin/croft-collector
+sudo rm /etc/systemd/system/croft-collector.service /usr/local/bin/croft
 sudo systemctl daemon-reload
 ```
 

@@ -28,9 +28,10 @@ RUN cargo build --manifest-path collector/Cargo.toml -p collector --release
 
 FROM debian:bookworm-slim
 
-COPY --from=builder /src/collector/target/release/collector /usr/local/bin/collector
+COPY --from=builder /src/collector/target/release/croft /usr/local/bin/croft
 
 ENV RUST_LOG=info
 ENV DATASET_PATH=/data/croft-dataset.jsonl
 
-ENTRYPOINT ["/usr/local/bin/collector"]
+ENTRYPOINT ["/usr/local/bin/croft"]
+CMD ["run"]

@@ -17,7 +17,7 @@ build-release:
 # Run the collector. Needs root to load and attach eBPF programs.
 run:
     cargo build --manifest-path {{ manifest }} -p collector
-    sudo RUST_LOG=info ./collector/target/debug/collector
+    sudo RUST_LOG=info ./collector/target/debug/croft run
 
 # Format check and clippy, userspace and shared crates only. Nightly: rustfmt.toml
 # opts into unstable options that stable rustfmt silently ignores.

@@ -117,6 +117,22 @@ host tracefs; `just docker-up` passes all of them. The
 [deployment guide](deploy/README.md) covers each flag, a native build under
 systemd, and how to check it works.
 
+## Commands
+
+```sh
+croft run [--dataset PATH] [--watch kubepods]   # the collector; needs root
+croft top [--dataset PATH] [--once]             # processes of the newest poll: CPU, RSS, throttling, PSI, top syscalls
+croft stats [PATH ...]                          # rows, size, span, rows per node, workload and label
+croft deploy docker|kubernetes [--image IMG] [--watch ...] [--dry-run]
+croft collect [--namespace croft] [--out DIR]   # append each node's new rows from the DaemonSet to DIR/<node>.jsonl
+```
+
+`--dataset` and `--watch` fall back to `DATASET_PATH` and `WATCH_CGROUPS`.
+`top` and `stats` read the file and need neither root nor eBPF, so they also
+work on a copied dataset or inside the collector container:
+`docker exec -it croft-collector croft top`,
+`kubectl -n croft exec -it ds/croft-collector -- croft top`.
+
 ## Where this is going
 
 <p align="center">
@@ -137,7 +153,7 @@ CloudX croft predicts which node should be warm and CloudX provisions it.
 |---|---|
 | `collector/collector-ebpf/` | The eBPF program: `gpu`, `syscalls`, `exit` tracepoints, `maps`, record `context` |
 | `collector/collector-common/` | Types and helpers shared across the kernel/userspace boundary |
-| `collector/collector/` | Userspace: loads and attaches, backfills, polls the maps, writes the dataset |
+| `collector/collector/` | Userspace, the `croft` binary: loads and attaches, backfills, polls the maps, writes the dataset; `command/` holds the subcommands |
 | `deploy/docker/` | Image that builds its own nightly, LLVM and `bpf-linker` |
 | `deploy/systemd/` | Unit for a native install |
 
