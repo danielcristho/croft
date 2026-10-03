@@ -37,6 +37,7 @@ uv run run.py gpu --node gpu-node-1                # pin to one node
 uv run run.py web --prefix r10 --replicas 10        # 10, 20, 40, 80 users at 10 fixed replicas
 uv run run.py web --prefix hpa                      # the same levels under the HPA
 uv run run.py web --prefix lead --steps 2,4,8,12   # one run climbing the steps, for lead time
+uv run run.py web --prefix lead --steps 2,4,8,12 --shape ramp  # the same counts, one user at a time
 ```
 
 Only one experiment runs at a time (`data/experiment.lock`): two workloads
@@ -79,6 +80,9 @@ data/
 - One Locust user costs about 0.5 core (45 ms of CPU per request). Steps
   2, 4, 8, 12 ask the HPA for about 2, 3, 6 and 9 pods; beyond 16 users ten pods
   saturate.
+- A step jumps the load at once, so every signal reacts within a poll and croft
+  can lead the SLO by a poll at most; the ramp spreads the same rise over each
+  step and shows lead time.
 - Locust runs with `--exit-code-on-error 0`: failed requests are data.
 - The first run on a node pulls the PyTorch or ollama image; ollama models are
   cached per node in `/var/lib/croft/ollama`.

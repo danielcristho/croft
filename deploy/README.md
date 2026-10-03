@@ -110,7 +110,7 @@ python3 -c "import torch, time; x = torch.zeros(1).cuda(); time.sleep(30)"
 Within a poll interval (2s) the log shows:
 
 ```
-[ INFO] workload classified: gpu-onset tgid=<pid> comm=<name> ioctl_count=<n> top_syscalls=[...]
+22:31:07.412  INFO  reporter  workload=gpu-onset comm=<name> tgid=<pid> cpu=0.95 rss_mib=1412 ioctl=<n> syscalls=futex:282/s,...
 ```
 
 and a line is appended to the dataset. The dataset gets a row for every process

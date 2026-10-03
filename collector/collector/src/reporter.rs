@@ -19,9 +19,12 @@ use crate::{
 };
 
 // Consts
-const POLL_INTERVAL: Duration = Duration::from_secs(2);
+pub const POLL_INTERVAL: Duration = Duration::from_secs(2);
 const TOP_SYSCALLS: usize = 3;
 const MIB: u64 = 1024 * 1024;
+const SHORT_ID_LEN: usize = 12;
+// 15 polls of 2 s: one summary line every 30 s.
+const SUMMARY_POLLS: u32 = 15;
 
 pub async fn run(ebpf: Ebpf, dataset: Dataset, watch: CgroupWatch) {
     let mut interval = tokio::time::interval(POLL_INTERVAL);
@@ -46,6 +49,14 @@ struct Reporter {
     drops: DropWatcher,
     rates: RateTracker,
     resources: ResourceTracker,
+    summary: Summary,
+}
+
+#[derive(Default)]
+struct Summary {
+    polls: u32,
+    rows: u64,
+    by_workload: [u64; 3],
 }
 
 impl Reporter {
@@ -56,6 +67,7 @@ impl Reporter {
             drops: DropWatcher::default(),
             rates: RateTracker::default(),
             resources: ResourceTracker::new(),
+            summary: Summary::default(),
         }
     }
 
@@ -70,6 +82,7 @@ impl Reporter {
         }
         self.rates.end_poll();
         self.resources.end_poll();
+        self.summary.end_poll();
         Ok(())
     }
 
@@ -119,15 +132,37 @@ impl Reporter {
             .cgroup
             .as_deref()
             .map(|cgroup| self.resources.cgroup(cgroup, now));
-        let line = format!(
-            "workload classified: {} tgid={tgid} comm={} cpu_cores={:.2} rss_mib={} ioctl_count={} top_syscalls=[{}]",
+        let mut line = format!(
+            "workload={} comm={} tgid={tgid}",
             workload.label(),
             process.comm.as_deref().unwrap_or("?"),
-            usage.cpu_cores.unwrap_or(0.0),
-            usage.rss_bytes.unwrap_or(0) / MIB,
-            activity.map_or(0, |activity| activity.count),
-            format_top(&rates)
         );
+        if let Some(container) = &process.container_id {
+            line.push_str(&format!(
+                " container={}",
+                &container[..SHORT_ID_LEN.min(container.len())]
+            ));
+        }
+        line.push_str(&format!(
+            " cpu={:.2} rss_mib={}",
+            usage.cpu_cores.unwrap_or(0.0),
+            usage.rss_bytes.unwrap_or(0) / MIB
+        ));
+        if let Some(cgroup) = &cgroup_usage {
+            if let Some(throttled) = cgroup.cpu_throttled_fraction {
+                line.push_str(&format!(" throttled={:.0}%", throttled * 100.0));
+            }
+            if let Some(pressure) = cgroup.cpu_pressure_avg10 {
+                line.push_str(&format!(" psi={pressure:.1}"));
+            }
+        }
+        if let Some(activity) = activity {
+            line.push_str(&format!(" ioctl={}", activity.count));
+        }
+        if !rates.is_empty() {
+            line.push_str(&format!(" syscalls={}", format_top(&rates)));
+        }
+        self.summary.count(workload);
         if workload == Workload::GpuOnset {
             info!("{line}");
         } else {
@@ -154,5 +189,27 @@ fn format_top(rates: &[SyscallRate]) -> String {
         .take(TOP_SYSCALLS)
         .map(|r| format!("{}:{:.0}/s", r.name, r.rate_per_sec))
         .collect::<Vec<_>>()
-        .join(" ")
+        .join(",")
+}
+
+impl Summary {
+    fn count(&mut self, workload: Workload) {
+        self.rows += 1;
+        self.by_workload[workload as usize] += 1;
+    }
+
+    // end_poll logs the counts since the last summary every SUMMARY_POLLS polls.
+    fn end_poll(&mut self) {
+        self.polls += 1;
+        if self.polls < SUMMARY_POLLS {
+            return;
+        }
+        let [onset, held, no_gpu] = self.by_workload;
+        info!(
+            "summary window={}s rows={} gpu-onset={onset} gpu-held={held} no-gpu={no_gpu}",
+            self.polls as u64 * POLL_INTERVAL.as_secs(),
+            self.rows
+        );
+        *self = Self::default();
+    }
 }

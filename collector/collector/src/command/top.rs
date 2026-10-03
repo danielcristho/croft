@@ -86,8 +86,7 @@ fn render(path: &Path, poll: &[Row], now_ms: u64) -> String {
     );
     let mut out = format!(
         "croft top  {}  {} processes  {age}\n\n",
-        path.display(),const TAIL_BYTES: u64 = 4 * 1024 * 1024;
-
+        path.display(),
         poll.len()
     );
     out.push_str(&format!(

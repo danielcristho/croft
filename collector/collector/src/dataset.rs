@@ -56,6 +56,10 @@ impl Dataset {
         Self { path: path.into() }
     }
 
+    pub fn path(&self) -> &std::path::Path {
+        &self.path
+    }
+
     // append logs a write error instead of returning it, so a dataset problem does not stop reporting.
     pub fn append(&self, sample: &Sample) {
         let record = Record {

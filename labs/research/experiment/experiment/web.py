@@ -86,7 +86,7 @@ def pods() -> list[dict]:
     return found
 
 
-def run_level(name: str, users: int, warmup: int, seconds: int, replicas: int | None, steps: str | None, step_seconds: int) -> dict:
+def run_level(name: str, users: int, warmup: int, seconds: int, replicas: int | None, steps: str | None, step_seconds: int, shape: str = "step") -> dict:
     directory = records.DATA / "web" / name
     directory.mkdir(parents=True, exist_ok=True)
     if warmup:
@@ -94,7 +94,7 @@ def run_level(name: str, users: int, warmup: int, seconds: int, replicas: int | 
     # Containers are read at both ends: the HPA adds pods during a run, and croft rows join on their ids.
     containers = kube.containers(NAMESPACE, "-l", f"app={DEPLOYMENT}")
     start_ms = records.now_ms()
-    env = {"LOAD_STEPS": steps, "STEP_SECONDS": str(step_seconds)} if steps else None
+    env = {"LOAD_STEPS": steps, "STEP_SECONDS": str(step_seconds), "LOAD_SHAPE": shape} if steps else None
     locust(users, seconds, directory / "locust", env)
     end_ms = records.now_ms()
     containers |= kube.containers(NAMESPACE, "-l", f"app={DEPLOYMENT}")
@@ -105,6 +105,7 @@ def run_level(name: str, users: int, warmup: int, seconds: int, replicas: int | 
         "run_id": name,
         "users": users,
         "steps": steps,
+        "shape": shape if steps else None,
         "replicas": replicas,
         "autoscaling": "hpa" if replicas is None else "static",
         "started_ms": start_ms,
@@ -114,16 +115,17 @@ def run_level(name: str, users: int, warmup: int, seconds: int, replicas: int | 
     }
 
 
-def run(prefix: str, levels: list[int], warmup: int, seconds: int, cooldown: int, replicas: int | None, steps: str | None, step_seconds: int) -> None:
+def run(prefix: str, levels: list[int], warmup: int, seconds: int, cooldown: int, replicas: int | None, steps: str | None, step_seconds: int, shape: str = "step") -> None:
     deploy(replicas)
     if steps:
         # One run that climbs through every step; the shape in the locustfile sets the users.
-        plan = [(f"{prefix}-steps", max(int(users) for users in steps.split(",")))]
+        suffix = "steps" if shape == "step" else shape
+        plan = [(f"{prefix}-{suffix}", max(int(users) for users in steps.split(",")))]
         seconds = len(steps.split(",")) * step_seconds
     else:
         plan = [(f"{prefix}-u{users}", users) for users in levels]
     for i, (name, users) in enumerate(plan, 1):
-        record = run_level(name, users, 0 if steps else warmup, seconds, replicas, steps, step_seconds)
+        record = run_level(name, users, 0 if steps else warmup, seconds, replicas, steps, step_seconds, shape)
         records.append("web", record)
         print(f"[{i}/{len(plan)}] {name}: {json.dumps({k: record[k] for k in ('users', 'autoscaling', 'replicas')})}")
         time.sleep(cooldown)
