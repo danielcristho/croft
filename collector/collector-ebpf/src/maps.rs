@@ -6,7 +6,7 @@ use aya_ebpf::{
 };
 use collector_common::{DropSite, GpuActivity};
 
-// Consts
+// Consts for the maximum number of entries in the eBPF maps.
 const MAX_TRACKED: u32 = 10240;
 const MAX_SYSCALL_ENTRIES: u32 = 65536;
 

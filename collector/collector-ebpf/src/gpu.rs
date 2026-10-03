@@ -12,6 +12,7 @@ use crate::{
     maps::{GPU_ACTIVITY, GPU_FDS, PENDING_GPU_OPEN, count_on_err},
 };
 
+// Consts for the offsets of the fields in the fixed tracepoint records.
 const PATH_PREFIX_LEN: usize = 16;
 const FD_ARG: usize = 0;
 const FILENAME_ARG: usize = 1;
@@ -36,6 +37,7 @@ pub fn sys_enter_close(ctx: TracePointContext) -> u32 {
     tracepoint_ret(forget_gpu_fd(&ctx))
 }
 
+// mark_gpu_open is called on openat entry, and records the pid in a map if the open is for a GPU device.
 fn mark_gpu_open(ctx: &TracePointContext) -> Result<(), i32> {
     let filename: u64 = arg(ctx, FILENAME_ARG)?;
     let mut buf = [0u8; PATH_PREFIX_LEN];
@@ -51,6 +53,7 @@ fn mark_gpu_open(ctx: &TracePointContext) -> Result<(), i32> {
     Ok(())
 }
 
+// record_gpu_fd is called on openat exit, and records the fd if the open was for a GPU device.
 fn record_gpu_fd(ctx: &TracePointContext) -> Result<(), i32> {
     if PENDING_GPU_OPEN.remove(bpf_get_current_pid_tgid()).is_err() {
         return Ok(());
@@ -64,6 +67,7 @@ fn record_gpu_fd(ctx: &TracePointContext) -> Result<(), i32> {
     Ok(())
 }
 
+// record_gpu_ioctl is called on ioctl, and increments the count of ioctls for the process if the fd is tracked.
 fn record_gpu_ioctl(ctx: &TracePointContext) -> Result<(), i32> {
     let fd: u64 = arg(ctx, FD_ARG)?;
     let tgid = current_tgid();
@@ -82,6 +86,7 @@ fn record_gpu_ioctl(ctx: &TracePointContext) -> Result<(), i32> {
     Ok(())
 }
 
+// forget_gpu_fd is called on close, and removes the fd from the map of tracked fds.
 fn forget_gpu_fd(ctx: &TracePointContext) -> Result<(), i32> {
     let fd: u64 = arg(ctx, FD_ARG)?;
     let _ = GPU_FDS.remove(pack_key(current_tgid(), fd as u32));

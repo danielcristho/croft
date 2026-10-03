@@ -2,7 +2,7 @@
 
 use aya_ebpf::{helpers::bpf_get_current_pid_tgid, programs::TracePointContext};
 
-// Offsets into the fixed tracepoint record layouts.
+// Consts for the offsets of the fields in the fixed tracepoint records.
 const ARGS_OFFSET: usize = 16;
 const RET_OFFSET: usize = 16;
 const SYSCALL_NR_OFFSET: usize = 8;
