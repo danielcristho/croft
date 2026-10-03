@@ -1,0 +1,30 @@
+#!/bin/sh
+set -e
+
+MANIFEST=collector/Cargo.toml
+
+# Rust checks run only when a staged change touches the collector.
+if ! git diff --cached --name-only | grep -qE '^collector/'; then
+  echo "✓ no collector changes"
+  exit 0
+fi
+
+# rustfmt.toml opts into unstable options that stable rustfmt ignores.
+if ! cargo +nightly fmt --manifest-path "$MANIFEST" --all -- --check > /dev/null; then
+  echo "✗ rustfmt: unformatted files"
+  echo "  Run: just fmt"
+  exit 1
+fi
+echo "✓ rustfmt"
+
+# clippy and tests build the eBPF program, which needs bpf-linker.
+if ! command -v bpf-linker > /dev/null 2>&1; then
+  echo "· clippy and tests skipped: bpf-linker not found"
+  exit 0
+fi
+
+cargo clippy --manifest-path "$MANIFEST" --quiet -- -D warnings
+echo "✓ clippy"
+
+cargo test --manifest-path "$MANIFEST" --quiet > /dev/null
+echo "✓ tests"
