@@ -8,7 +8,7 @@ use std::{
 use crate::process::CGROUP_ROOT;
 
 // Consts for the WATCH_CGROUPS environment variable and the cgroup.procs file.
-const ENV: &str = "WATCH_CGROUPS";
+pub const ENV: &str = "WATCH_CGROUPS";
 const PROCS_FILE: &str = "cgroup.procs";
 
 #[derive(Debug, Default)]
@@ -26,10 +26,6 @@ impl CgroupWatch {
                 .map(str::to_string)
                 .collect(),
         }
-    }
-
-    pub fn from_env() -> Self {
-        Self::new(&std::env::var(ENV).unwrap_or_default())
     }
 
     pub fn is_empty(&self) -> bool {

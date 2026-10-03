@@ -2,7 +2,7 @@
 
 use std::{fs, path::PathBuf};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 pub const CGROUP_ROOT: &str = "/sys/fs/cgroup";
 const CONTAINER_ID_LEN: usize = 64;
@@ -10,7 +10,7 @@ const RUNTIME_PREFIXES: &[&str] = &["docker-", "cri-containerd-", "crio-", "libp
 const SANDBOX_EXE: &str = "/pause";
 
 // The command line is left out on purpose: its arguments can carry tokens and passwords.
-#[derive(Clone, Debug, Default, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct ProcessInfo {
     pub comm: Option<String>,
     pub exe: Option<String>,

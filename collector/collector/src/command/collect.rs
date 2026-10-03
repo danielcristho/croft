@@ -11,9 +11,9 @@ use anyhow::{Context, bail};
 use super::{external, stats::human_bytes};
 use crate::cli::CollectArgs;
 
+// Consts for the kubectl selector for the collector pods, the chunk size for each pull, and the jsonpath for the pod and node names.
 const SELECTOR: &str = "app=croft-collector";
-// One kubectl exec stream broke after 3.8 GiB on the lab cluster; chunks keep each stream short.
-const CHUNK_BYTES: u64 = 256 * 1024 * 1024;
+const CHUNK_BYTES: u64 = 256 * 1024 * 1024; // Keep the chunk size small enough to avoid OOM on the collector pod.
 const POD_AND_NODE: &str =
     "jsonpath={range .items[*]}{.metadata.name} {.spec.nodeName}{\"\\n\"}{end}";
 

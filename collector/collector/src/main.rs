@@ -1,10 +1,12 @@
-//! Entry point for the croft collector.
+//! Entry point for the croft binary.
 
 mod ansi;
 mod backfill;
 mod banner;
 mod classifier;
+mod cli;
 mod clock;
+mod command;
 mod dataset;
 mod delta;
 mod drops;
@@ -15,39 +17,22 @@ mod namespace;
 mod process;
 mod reporter;
 mod resources;
+mod rows;
 mod syscalls;
 mod watch;
 
-use log::info;
-use tokio::signal;
+use clap::Parser;
 
-use crate::{dataset::Dataset, watch::CgroupWatch};
+use crate::cli::{Cli, Command};
 
 fn main() -> anyhow::Result<()> {
+    let cli = Cli::parse();
     logging::init();
-    banner::print();
-    namespace::join_host_cgroup();
-    tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .build()?
-        .block_on(run())
-}
-
-// Run the collector, polling eBPF maps and reporting to the dataset.
-async fn run() -> anyhow::Result<()> {
-    let mut ebpf = ebpf::load_and_attach()?;
-    backfill::scan_gpu_fds(&mut ebpf)?;
-    let watch = CgroupWatch::from_env();
-    if !watch.is_empty() {
-        info!(
-            "recording every process in cgroups matching {:?}",
-            watch.patterns()
-        );
+    match cli.command {
+        Command::Run(args) => command::run::execute(&args),
+        Command::Top(args) => command::top::execute(&args),
+        Command::Stats(args) => command::stats::execute(&args),
+        Command::Deploy(args) => command::deploy::execute(&args),
+        Command::Collect(args) => command::collect::execute(&args),
     }
-    tokio::task::spawn(reporter::run(ebpf, Dataset::from_env(), watch));
-
-    info!("collector running, Ctrl-C to stop");
-    signal::ctrl_c().await?;
-    info!("exiting");
-    Ok(())
 }

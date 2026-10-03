@@ -15,6 +15,7 @@ use crate::{
     rows::{self, Line},
 };
 
+// Consts for the dataset file extension, the label for unlabelled rows, and the number of milliseconds per hour.
 const DATASET_EXTENSION: &str = "jsonl";
 const UNLABELLED: &str = "unlabelled";
 const MS_PER_HOUR: f64 = 3_600_000.0;

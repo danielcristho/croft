@@ -19,8 +19,8 @@ use crate::{
 };
 
 // Consts for dataset path and default filename.
-const PATH_ENV: &str = "DATASET_PATH";
-const DEFAULT_PATH: &str = "croft-dataset.jsonl";
+pub const PATH_ENV: &str = "DATASET_PATH";
+pub const DEFAULT_PATH: &str = "croft-dataset.jsonl";
 
 pub struct Sample<'a> {
     pub tgid: u32,
@@ -54,10 +54,6 @@ pub struct Dataset {
 impl Dataset {
     pub fn new(path: impl Into<PathBuf>) -> Self {
         Self { path: path.into() }
-    }
-
-    pub fn from_env() -> Self {
-        Self::new(std::env::var(PATH_ENV).unwrap_or_else(|_| DEFAULT_PATH.to_string()))
     }
 
     // append logs a write error instead of returning it, so a dataset problem does not stop reporting.
@@ -107,7 +103,7 @@ fn rounded(rate: &SyscallRate) -> SyscallRate {
 }
 
 // now_unix_ms returns the current time in ms since the Unix epoch, or zero on error.
-fn now_unix_ms() -> u128 {
+pub fn now_unix_ms() -> u128 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_millis())

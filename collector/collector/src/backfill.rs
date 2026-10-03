@@ -12,6 +12,7 @@ use log::warn;
 
 use crate::maps;
 
+// scan_gpu_fds scans /proc for open GPU fds and inserts them into the eBPF GPU_FDS map.
 pub fn scan_gpu_fds(ebpf: &mut Ebpf) -> anyhow::Result<()> {
     let mut gpu_fds = maps::gpu_fds(ebpf)?;
     let mut refused = 0;
@@ -26,6 +27,7 @@ pub fn scan_gpu_fds(ebpf: &mut Ebpf) -> anyhow::Result<()> {
     Ok(())
 }
 
+// open_gpu_fds returns an iterator over the (tgid, fd) pairs of all open GPU fds in the system.
 fn open_gpu_fds() -> impl Iterator<Item = (u32, u32)> {
     numeric_entries(PathBuf::from("/proc")).flat_map(|(tgid, proc_dir)| {
         numeric_entries(proc_dir.join("fd"))
@@ -46,6 +48,7 @@ fn numeric_entries(dir: PathBuf) -> impl Iterator<Item = (u32, PathBuf)> {
         })
 }
 
+// points_at_gpu returns true if the fd_path is a symlink to a GPU device.
 fn points_at_gpu(fd_path: &Path) -> bool {
     fs::read_link(fd_path).is_ok_and(|target| is_gpu_path(target.as_os_str().as_bytes()))
 }

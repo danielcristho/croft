@@ -1,0 +1,101 @@
+//! Command line of the croft binary.
+
+use std::path::PathBuf;
+
+use clap::{Args, Parser, Subcommand, ValueEnum};
+
+use crate::{dataset, watch};
+
+#[derive(Parser)]
+#[command(
+    name = "croft",
+    version,
+    about = "Workload-aware autoscaling: eBPF collector and dataset tools"
+)]
+pub struct Cli {
+    #[command(subcommand)]
+    pub command: Command,
+}
+
+#[derive(Subcommand)]
+pub enum Command {
+    /// Run the collector on this host; needs root
+    Run(RunArgs),
+    /// Show the processes of the newest poll in a dataset
+    Top(TopArgs),
+    /// Summarize datasets: files, or directories of per-node files
+    Stats(StatsArgs),
+    /// Start the collector on Docker or Kubernetes
+    Deploy(DeployArgs),
+    /// Append what each node's dataset gained since the last collect, from the Kubernetes DaemonSet
+    Collect(CollectArgs),
+}
+
+#[derive(Args)]
+pub struct DatasetArg {
+    /// Dataset file, JSON Lines
+    #[arg(long, env = dataset::PATH_ENV, default_value = dataset::DEFAULT_PATH)]
+    pub dataset: PathBuf,
+}
+
+#[derive(Args)]
+pub struct RunArgs {
+    #[command(flatten)]
+    pub dataset: DatasetArg,
+    /// Also record every process in cgroups whose path contains one of these comma-separated substrings
+    #[arg(long, env = watch::ENV, default_value = "")]
+    pub watch: String,
+}
+
+#[derive(Args)]
+pub struct TopArgs {
+    #[command(flatten)]
+    pub dataset: DatasetArg,
+    /// Seconds between refreshes
+    #[arg(long, default_value_t = 2)]
+    pub interval: u64,
+    /// Print once and exit
+    #[arg(long)]
+    pub once: bool,
+}
+
+#[derive(Args)]
+pub struct StatsArgs {
+    /// Dataset files or directories of *.jsonl files
+    #[arg(env = dataset::PATH_ENV, default_value = dataset::DEFAULT_PATH, num_args = 1..)]
+    pub paths: Vec<PathBuf>,
+}
+
+#[derive(Clone, Copy, ValueEnum)]
+pub enum Platform {
+    Docker,
+    Kubernetes,
+}
+
+#[derive(Args)]
+pub struct DeployArgs {
+    #[arg(value_enum)]
+    pub platform: Platform,
+    /// Collector image; defaults to croft-collector on Docker and the manifest's image on Kubernetes
+    #[arg(long)]
+    pub image: Option<String>,
+    /// WATCH_CGROUPS for the collector; defaults to none on Docker and kubepods on Kubernetes
+    #[arg(long)]
+    pub watch: Option<String>,
+    /// Print the command or manifest instead of applying it
+    #[arg(long)]
+    pub dry_run: bool,
+}
+
+#[derive(Args)]
+pub struct CollectArgs {
+    /// Namespace of the collector DaemonSet
+    #[arg(long, default_value = "croft")]
+    pub namespace: String,
+    /// Directory for the per-node files, <node>.jsonl
+    #[arg(long, default_value = ".")]
+    pub out: PathBuf,
+    /// Dataset path inside the collector pods
+    #[arg(long, default_value = "/data/croft-dataset.jsonl")]
+    pub remote: String,
+}

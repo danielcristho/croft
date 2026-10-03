@@ -6,7 +6,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::{delta::DeltaTracker, process::CGROUP_ROOT};
 
@@ -17,7 +17,7 @@ const KIB: u64 = 1024;
 const USEC_PER_SEC: f64 = 1_000_000.0;
 const FALLBACK_TICKS_PER_SEC: f64 = 100.0;
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct ProcessUsage {
     pub cpu_cores: Option<f64>,
     pub rss_bytes: Option<u64>,
@@ -30,7 +30,7 @@ pub struct ProcessUsage {
     pub network_tx_bytes_s: Option<f64>,
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct CgroupUsage {
     pub cpu_cores: Option<f64>,
     pub cpu_throttled_fraction: Option<f64>,

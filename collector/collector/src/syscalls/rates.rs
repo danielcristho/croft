@@ -1,11 +1,11 @@
 //! Turns cumulative eBPF syscall counters into per-second rates.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use super::{SyscallCount, names};
 use crate::delta::DeltaTracker;
 
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SyscallRate {
     pub name: String,
     pub rate_per_sec: f64,

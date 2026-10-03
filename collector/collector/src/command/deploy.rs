@@ -3,6 +3,7 @@
 use super::external;
 use crate::cli::{DeployArgs, Platform};
 
+// Consts for the manifest template, the container name, the default Docker image, and the paths for the data directory and tracefs.
 const MANIFEST: &str = include_str!("../../../../deploy/kubernetes/collector.yaml");
 const MANIFEST_IMAGE: &str = "image: croft-collector:dev";
 const MANIFEST_WATCH: &str = "value: kubepods";
