@@ -84,6 +84,7 @@ def infer_generate_lm(p: dict, deadline: float) -> None:
         tokens.cpu()
 
 
+# Starts a local HTTP server that serves a CNN model, and sends requests to it until the deadline.
 def serve_http(p: dict, deadline: float) -> None:
     model = cnn(p["width"]).eval()
 
@@ -111,6 +112,7 @@ def serve_http(p: dict, deadline: float) -> None:
     client.join()
 
 
+# Sends HTTP requests to the local server until the deadline, with a think time between requests.
 def send_requests(p: dict, deadline: float) -> None:
     body = json.dumps({"batch": p["batch"]}).encode()
     while time.time() < deadline:
