@@ -1,8 +1,10 @@
 //! Live table of the processes in a dataset's newest poll.
 
+mod view;
+
 use std::{
     fs::File,
-    io::{Read, Seek, SeekFrom},
+    io::{IsTerminal, Read, Seek, SeekFrom, Write},
     path::Path,
     thread,
     time::Duration,
@@ -10,33 +12,86 @@ use std::{
 
 use anyhow::Context;
 
+use self::view::Style;
 use crate::{
+    ansi::{CLEAR_BELOW, CLEAR_LINE_END, ENTER_SCREEN, HOME, LEAVE_SCREEN},
     cli::TopArgs,
     dataset::now_unix_ms,
     rows::{self, Line, Row},
+    signals,
 };
 
 // Consts for the number of bytes to read from the end of the dataset file, the time window for a poll, and the number of top syscalls to display.
 const TAIL_BYTES: u64 = 4 * 1024 * 1024;
 const POLL_SPREAD_MS: u64 = 1_000;
-const TOP_SYSCALLS: usize = 3;
-const SHORT_ID_LEN: usize = 12;
-const MIB: f64 = 1024.0 * 1024.0;
-const CLEAR_SCREEN: &str = "\x1b[2J\x1b[H";
+const NO_COLOR_ENV: &str = "NO_COLOR";
 
 // execute runs the top command, printing the newest poll of the dataset every interval seconds until interrupted.
 pub fn execute(args: &TopArgs) -> anyhow::Result<()> {
     let path = &args.dataset.dataset;
-    loop {
+    let style =
+        Style::new(std::io::stdout().is_terminal() && std::env::var_os(NO_COLOR_ENV).is_none());
+    let cores = thread::available_parallelism().map_or(1, |cores| cores.get());
+    let frame = || -> anyhow::Result<String> {
         let poll = newest_poll(read_tail(path)?);
-        if !args.once {
-            print!("{CLEAR_SCREEN}");
+        Ok(view::render(
+            &style,
+            path,
+            &poll,
+            now_unix_ms() as u64,
+            cores,
+        ))
+    };
+    if args.once {
+        print!("{}", frame()?);
+        return Ok(());
+    }
+    let screen = Screen::enter();
+    let mut stdout = std::io::stdout();
+    loop {
+        let frame = frame()?;
+        if screen.active {
+            write!(stdout, "{}", redraw(&frame))?;
+        } else {
+            writeln!(stdout, "{frame}")?;
         }
-        print!("{}", render(path, &poll, now_unix_ms() as u64));
-        if args.once {
-            return Ok(());
-        }
+        stdout.flush()?;
         thread::sleep(Duration::from_secs(args.interval));
+    }
+}
+
+// redraw overwrites the previous frame in place instead of clearing, so the view does not flicker.
+fn redraw(frame: &str) -> String {
+    let lines: String = frame
+        .lines()
+        .map(|line| format!("{line}{CLEAR_LINE_END}\n"))
+        .collect();
+    format!("{HOME}{lines}{CLEAR_BELOW}")
+}
+
+// Screen holds the alternate screen while top runs on a terminal; piped output gets plain frames.
+struct Screen {
+    active: bool,
+}
+
+impl Screen {
+    fn enter() -> Self {
+        let active = std::io::stdout().is_terminal();
+        if active {
+            print!("{ENTER_SCREEN}");
+            signals::alternate_screen(true);
+        }
+        Self { active }
+    }
+}
+
+impl Drop for Screen {
+    fn drop(&mut self) {
+        if self.active {
+            print!("{LEAVE_SCREEN}");
+            let _ = std::io::stdout().flush();
+            signals::alternate_screen(false);
+        }
     }
 }
 
@@ -74,83 +129,6 @@ fn cpu(row: &Row) -> f64 {
     row.usage.cpu_cores.unwrap_or(0.0)
 }
 
-fn render(path: &Path, poll: &[Row], now_ms: u64) -> String {
-    let age = poll.first().map_or_else(
-        || "no rows".to_string(),
-        |row| {
-            format!(
-                "newest row {}s ago",
-                now_ms.saturating_sub(row.unix_ms) / 1000
-            )
-        },
-    );
-    let mut out = format!(
-        "croft top  {}  {} processes  {age}\n\n",
-        path.display(),
-        poll.len()
-    );
-    out.push_str(&format!(
-        "{:>8} {:<15} {:<12} {:<9} {:>5} {:>8} {:>6} {:>6}  {}\n",
-        "TGID",
-        "COMM",
-        "CONTAINER",
-        "WORKLOAD",
-        "CPU",
-        "RSS_MIB",
-        "THROT%",
-        "PSI%",
-        "TOP SYSCALLS/S"
-    ));
-    for row in poll {
-        out.push_str(&line(row));
-        out.push('\n');
-    }
-    out
-}
-
-fn line(row: &Row) -> String {
-    let cgroup = row.cgroup_usage.as_ref();
-    format!(
-        "{:>8} {:<15} {:<12} {:<9} {:>5} {:>8} {:>6} {:>6}  {}",
-        row.tgid,
-        truncate(row.process.comm.as_deref().unwrap_or("?"), 15),
-        truncate(
-            row.process.container_id.as_deref().unwrap_or("-"),
-            SHORT_ID_LEN
-        ),
-        row.workload,
-        number(row.usage.cpu_cores, 2),
-        number(row.usage.rss_bytes.map(|bytes| bytes as f64 / MIB), 0),
-        number(
-            cgroup
-                .and_then(|usage| usage.cpu_throttled_fraction)
-                .map(|f| f * 100.0),
-            0
-        ),
-        number(cgroup.and_then(|usage| usage.cpu_pressure_avg10), 1),
-        top_syscalls(row),
-    )
-}
-
-fn top_syscalls(row: &Row) -> String {
-    row.syscalls
-        .iter()
-        .take(TOP_SYSCALLS)
-        .map(|rate| format!("{}:{:.0}", rate.name, rate.rate_per_sec))
-        .collect::<Vec<_>>()
-        .join(" ")
-}
-
-fn number(value: Option<f64>, decimals: usize) -> String {
-    value.map_or_else(|| "-".to_string(), |v| format!("{v:.decimals$}"))
-}
-
-fn truncate(text: &str, width: usize) -> &str {
-    text.char_indices()
-        .nth(width)
-        .map_or(text, |(end, _)| &text[..end])
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -180,10 +158,11 @@ mod tests {
     }
 
     #[test]
-    fn missing_values_render_as_dashes() {
-        assert_eq!(number(None, 2), "-");
-        assert_eq!(number(Some(1.234), 2), "1.23");
-        assert_eq!(truncate("0123456789abcdef", SHORT_ID_LEN), "0123456789ab");
-        assert_eq!(truncate("short", SHORT_ID_LEN), "short");
+    fn redraw_overwrites_each_line_and_clears_below() {
+        let drawn = redraw("a\nbb\n");
+        assert_eq!(
+            drawn,
+            format!("{HOME}a{CLEAR_LINE_END}\nbb{CLEAR_LINE_END}\n{CLEAR_BELOW}")
+        );
     }
 }
