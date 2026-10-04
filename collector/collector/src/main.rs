@@ -18,6 +18,7 @@ mod process;
 mod reporter;
 mod resources;
 mod rows;
+mod signals;
 mod syscalls;
 mod watch;
 
@@ -28,6 +29,9 @@ use crate::cli::{Cli, Command};
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     logging::init();
+    if !matches!(cli.command, Command::Run(_)) {
+        signals::exit_on_interrupt();
+    }
     match cli.command {
         Command::Run(args) => command::run::execute(&args),
         Command::Top(args) => command::top::execute(&args),

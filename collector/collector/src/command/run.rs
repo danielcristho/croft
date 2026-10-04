@@ -1,10 +1,10 @@
 //! The collector daemon: loads the eBPF programs and reports each poll to the dataset.
 
 use log::info;
-use tokio::signal;
 
 use crate::{
-    backfill, banner, cli::RunArgs, dataset::Dataset, ebpf, namespace, reporter, watch::CgroupWatch,
+    backfill, banner, cli::RunArgs, dataset::Dataset, ebpf, namespace, reporter, signals,
+    watch::CgroupWatch,
 };
 
 pub fn execute(args: &RunArgs) -> anyhow::Result<()> {
@@ -36,7 +36,7 @@ async fn collect(dataset: Dataset, watch: CgroupWatch) -> anyhow::Result<()> {
     tokio::task::spawn(reporter::run(ebpf, dataset, watch));
 
     info!("collector running, Ctrl-C to stop");
-    signal::ctrl_c().await?;
-    info!("exiting");
+    let received = signals::shutdown().await?;
+    info!("exiting signal={received}");
     Ok(())
 }
