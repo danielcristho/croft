@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import subprocess
 import time
 import urllib.error
@@ -23,6 +24,7 @@ READY_TIMEOUT_S = 120
 
 # deploy starts an HPA run from one replica and a new HPA, so no scale-down window carries over from the last run.
 def deploy(replicas: int | None) -> None:
+    check_image()
     kube.apply((MANIFESTS / "k8s.yaml").read_text())
     kube.kubectl("delete", "hpa", DEPLOYMENT, "-n", NAMESPACE, "--ignore-not-found")
     kube.kubectl("scale", f"deployment/{DEPLOYMENT}", "-n", NAMESPACE, f"--replicas={replicas or 1}")
@@ -30,6 +32,16 @@ def deploy(replicas: int | None) -> None:
     if replicas is None:
         kube.apply((MANIFESTS / "hpa.yaml").read_text())
     wait_for_ingress()
+
+
+# check_image stops before a run: a node without the image makes every pod scheduled there hang in ImagePullBackOff.
+def check_image() -> None:
+    image = re.search(r"image:\s*(\S+)", (MANIFESTS / "k8s.yaml").read_text()).group(1)
+    missing = kube.nodes_without(image)
+    if missing:
+        raise SystemExit(
+            f"{image} is missing on {', '.join(missing)}; load it with labs/k3s-cluster/load-image.yml -e image={image}"
+        )
 
 
 # wait_for_ingress waits past pod readiness: the ingress controller routes to a new backend a few seconds later.

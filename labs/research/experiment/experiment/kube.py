@@ -37,5 +37,17 @@ def containers(namespace: str, *selector: str) -> dict[str, str]:
     }
 
 
+# nodes_without reads each node's image list; the kubelet reports at most 50 images, largest first.
+def nodes_without(image: str) -> list[str]:
+    """Names of Ready nodes whose runtime does not hold the image."""
+    missing = []
+    for node in json.loads(kubectl("get", "nodes", "-o", "json"))["items"]:
+        ready = any(c["type"] == "Ready" and c["status"] == "True" for c in node["status"]["conditions"])
+        names = {name for entry in node["status"].get("images", []) for name in entry.get("names") or []}
+        if ready and not any(name == image or name.endswith("/" + image) for name in names):
+            missing.append(node["metadata"]["name"])
+    return missing
+
+
 def epoch_ms(timestamp: str) -> int:
     return int(datetime.fromisoformat(timestamp.replace("Z", "+00:00")).timestamp() * 1000)
