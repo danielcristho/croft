@@ -36,6 +36,7 @@ fn main() -> anyhow::Result<()> {
         Command::Run(args) => command::run::execute(&args),
         Command::Top(args) => command::top::execute(&args),
         Command::Stats(args) => command::stats::execute(&args),
+        Command::Profile(args) => command::profile::execute(&args),
         Command::Deploy(args) => command::deploy::execute(&args),
         Command::Collect(args) => command::collect::execute(&args),
     }

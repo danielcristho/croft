@@ -3,6 +3,7 @@
 pub mod collect;
 pub mod deploy;
 mod external;
+pub mod profile;
 pub mod run;
 pub mod stats;
 pub mod top;

@@ -30,7 +30,7 @@ pub fn execute(args: &StatsArgs) -> anyhow::Result<()> {
 }
 
 // dataset_files expands a directory to its *.jsonl files, as written by collect.
-fn dataset_files(paths: &[PathBuf]) -> anyhow::Result<Vec<PathBuf>> {
+pub(super) fn dataset_files(paths: &[PathBuf]) -> anyhow::Result<Vec<PathBuf>> {
     let mut files = Vec::new();
     for path in paths {
         if !path.is_dir() {

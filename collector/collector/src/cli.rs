@@ -25,6 +25,8 @@ pub enum Command {
     Top(TopArgs),
     /// Summarize datasets: files, or directories of per-node files
     Stats(StatsArgs),
+    /// Resource profile of a container over a window, as JSON
+    Profile(ProfileArgs),
     /// Start the collector on Docker or Kubernetes
     Deploy(DeployArgs),
     /// Append what each node's dataset gained since the last collect, from the Kubernetes DaemonSet
@@ -64,6 +66,21 @@ pub struct StatsArgs {
     /// Dataset files or directories of *.jsonl files
     #[arg(env = dataset::PATH_ENV, default_value = dataset::DEFAULT_PATH, num_args = 1..)]
     pub paths: Vec<PathBuf>,
+}
+
+#[derive(Args)]
+pub struct ProfileArgs {
+    /// Container id, or a prefix of at least 4 hex digits
+    pub container: String,
+    /// Dataset files or directories of *.jsonl files, one per node
+    #[arg(long = "dataset", env = dataset::PATH_ENV, default_value = dataset::DEFAULT_PATH, num_args = 1..)]
+    pub paths: Vec<PathBuf>,
+    /// Keep rows at or after this Unix time in milliseconds
+    #[arg(long)]
+    pub from_ms: Option<u64>,
+    /// Keep rows at or before this Unix time in milliseconds
+    #[arg(long)]
+    pub to_ms: Option<u64>,
 }
 
 #[derive(Clone, Copy, ValueEnum)]
