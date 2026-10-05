@@ -8,6 +8,7 @@ use crate::{
     watch::CgroupWatch,
 };
 
+// execute runs the collector daemon, loading the eBPF programs and reporting each poll to the dataset.
 pub fn execute(args: &RunArgs) -> anyhow::Result<()> {
     banner::print();
     namespace::join_host_cgroup();

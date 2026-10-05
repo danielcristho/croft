@@ -10,6 +10,7 @@ use crate::{
     rows::Row,
 };
 
+// Constants for the top command's layout and thresholds.
 const TOP_SYSCALLS: usize = 3;
 const SHORT_ID_LEN: usize = 12;
 const COMM_LEN: usize = 15;
@@ -17,11 +18,10 @@ const MIB: f64 = 1024.0 * 1024.0;
 const GIB: f64 = 1024.0 * MIB;
 const METER_CELLS: usize = 40;
 const CPU_CELLS: usize = 10;
-const STALE_MS: u64 = 4_000;
-
 const CPU_HIGH: f64 = 0.9;
 const CPU_MID: f64 = 0.5;
 const CPU_IDLE: f64 = 0.05;
+const STALE_MS: u64 = 4_000;
 const THROTTLED_HIGH: f64 = 20.0;
 const THROTTLED_MID: f64 = 5.0;
 const PSI_HIGH: f64 = 10.0;
@@ -99,6 +99,7 @@ const COLUMNS: [Column; 8] = [
     },
 ];
 
+// render builds the frame of croft top, with a title bar, meters, and a table of processes.
 pub fn render(style: &Style, path: &Path, poll: &[Row], now_ms: u64, cores: usize) -> String {
     let mut out = title(style, path, poll, now_ms);
     out.push_str(&meters(style, poll, cores));
@@ -111,6 +112,7 @@ pub fn render(style: &Style, path: &Path, poll: &[Row], now_ms: u64, cores: usiz
     out
 }
 
+// title shows the path, number of processes, and age of the newest row, in red if stale.
 fn title(style: &Style, path: &Path, poll: &[Row], now_ms: u64) -> String {
     let age = match poll.first() {
         None => style.paint(RED, "no rows"),
@@ -178,6 +180,7 @@ fn bar(style: &Style, fraction: f64, cells: usize) -> String {
     out
 }
 
+// header shows the column titles, with the rightmost column showing the top syscalls per second.
 fn header(style: &Style) -> String {
     let cells: Vec<String> = COLUMNS
         .iter()
@@ -187,6 +190,7 @@ fn header(style: &Style) -> String {
     format!("{}\n", style.paint(BAR_HEADER, &text))
 }
 
+// line shows a row of the process table, with the rightmost column showing the top syscalls per second.
 fn line(style: &Style, row: &Row) -> String {
     let cgroup = row.cgroup_usage.as_ref();
     let cpu = row.usage.cpu_cores;
@@ -235,6 +239,7 @@ fn line(style: &Style, row: &Row) -> String {
     format!("{}  {}", cells.join(" "), top_syscalls(style, row))
 }
 
+// workload_color picks a colour for the workload column, to match the meters.
 fn workload_color(workload: &str) -> &'static str {
     match workload {
         "gpu-onset" => BOLD_GREEN,
@@ -254,6 +259,7 @@ fn level(value: Option<f64>, high: f64, mid: f64, idle: f64) -> &'static str {
     }
 }
 
+// top_syscalls shows the top syscalls per second, up to a limit, with the syscall name in cyan and the rate in plain text.
 fn top_syscalls(style: &Style, row: &Row) -> String {
     row.syscalls
         .iter()
@@ -278,10 +284,12 @@ fn pad(text: &str, column: &Column) -> String {
     }
 }
 
+// number formats a floating point value to a string with the given number of decimal places, or "-" if missing.
 fn number(value: Option<f64>, decimals: usize) -> String {
     value.map_or_else(|| "-".to_string(), |v| format!("{v:.decimals$}"))
 }
 
+// truncate returns a slice of the text up to the given width in characters, or the whole text if shorter.
 fn truncate(text: &str, width: usize) -> &str {
     text.char_indices()
         .nth(width)

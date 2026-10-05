@@ -16,11 +16,12 @@ use crate::{
     rows::{self, Line, Row},
 };
 
-// One poll writes all its rows within this spread; polls are 2 s apart.
+// Const for the poll interval in milliseconds, the GPU workloads to check, and the percentile for the summary statistics.
 const POLL_MS: u64 = 2_000;
 const GPU_WORKLOADS: [&str; 2] = ["gpu-onset", "gpu-held"];
 const PERCENTILE: f64 = 0.95;
 
+// execute profiles the container with the given prefix in the dataset files, summarizing its resource usage over the given time window, and prints the result as JSON.
 pub fn execute(args: &ProfileArgs) -> anyhow::Result<()> {
     let prefix = args.container.to_ascii_lowercase();
     if prefix.len() < 4 || !prefix.bytes().all(|b| b.is_ascii_hexdigit()) {

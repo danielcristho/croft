@@ -15,6 +15,7 @@ pub struct IdleThrottle {
     seen: HashSet<u32>,
 }
 
+// IdleThrottle keeps track of which processes have been written recently, and thins the rows of idle processes to a heartbeat.
 impl IdleThrottle {
     pub fn new(every: u64) -> Self {
         Self {
@@ -44,6 +45,7 @@ impl IdleThrottle {
         write
     }
 
+    // end_poll increments the poll counter and removes any processes that were not seen in this poll from the written map.
     pub fn end_poll(&mut self) {
         self.poll += 1;
         let seen = std::mem::take(&mut self.seen);

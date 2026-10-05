@@ -16,6 +16,7 @@ pub struct RateTracker {
     deltas: DeltaTracker<(u32, u32)>,
 }
 
+// RateTracker keeps track of the previous counts for each process and syscall, so it can compute rates per second.
 impl RateTracker {
     // rates_for returns one process's syscall rates, busiest first.
     pub fn rates_for(

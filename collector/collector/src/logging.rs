@@ -12,10 +12,11 @@ use crate::ansi::{
     BOLD_MAGENTA, BOLD_RED, BOLD_YELLOW, BRIGHT_WHITE, DIM_GREY, GREY, RESET,
 };
 
-// NO_COLOR is the cross-tool convention for plain output: https://no-color.org.
+// Consts for the log formatter.
 const NO_COLOR_ENV: &str = "NO_COLOR";
 const CRATE_PREFIX: &str = "croft::";
 
+//
 fn badge(level: Level) -> &'static str {
     match level {
         Level::Error => BADGE_ERROR,
@@ -86,6 +87,7 @@ fn local_time() -> String {
     )
 }
 
+// init sets up the log formatter and initializes the logger.
 pub fn init() {
     let color = std::env::var_os(NO_COLOR_ENV).is_none();
     env_logger::Builder::from_default_env()

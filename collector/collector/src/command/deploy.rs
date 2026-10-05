@@ -13,6 +13,7 @@ const DOCKER_IMAGE: &str = "croft-collector";
 const DATA_DIR: &str = "/var/lib/croft";
 const TRACEFS: &str = "/sys/kernel/tracing";
 
+// execute deploys the collector on Docker or Kubernetes, with the given image and watch flags, and optionally prints the command or manifest instead of running it.
 pub fn execute(args: &DeployArgs) -> anyhow::Result<()> {
     match args.platform {
         Platform::Docker => {
@@ -21,6 +22,7 @@ pub fn execute(args: &DeployArgs) -> anyhow::Result<()> {
                 println!("{}", external::display("docker", &docker_args));
                 return Ok(());
             }
+            // Run the docker command with the given arguments and no input.
             external::run("docker", &docker_args, None)
         }
         Platform::Kubernetes => {
@@ -29,6 +31,7 @@ pub fn execute(args: &DeployArgs) -> anyhow::Result<()> {
                 print!("{manifest}");
                 return Ok(());
             }
+            // Run the kubectl apply command with the manifest as input.
             external::run(
                 "kubectl",
                 &["apply".into(), "-f".into(), "-".into()],

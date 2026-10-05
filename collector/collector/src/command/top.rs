@@ -85,6 +85,7 @@ impl Screen {
     }
 }
 
+// Drop leaves the alternate screen when top exits, so the terminal is restored to its previous state.
 impl Drop for Screen {
     fn drop(&mut self) {
         if self.active {

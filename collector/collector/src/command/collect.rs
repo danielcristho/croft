@@ -22,6 +22,7 @@ struct Pod {
     node: String,
 }
 
+// execute collects the dataset from each collector pod, appending only the bytes the local copy lacks, and reports the result for each node.
 pub fn execute(args: &CollectArgs) -> anyhow::Result<()> {
     fs::create_dir_all(&args.out).with_context(|| format!("create {}", args.out.display()))?;
     let mut failed = 0;
@@ -41,6 +42,7 @@ pub fn execute(args: &CollectArgs) -> anyhow::Result<()> {
     Ok(())
 }
 
+// pods lists the collector pods in the given namespace, returning their names and nodes.
 fn pods(namespace: &str) -> anyhow::Result<Vec<Pod>> {
     let listing = external::output(
         "kubectl",
@@ -102,12 +104,16 @@ fn pull(args: &CollectArgs, pod: &Pod, local: &Path, remote: u64) -> anyhow::Res
     Ok(())
 }
 
+// local_size returns the size of the local file, or 0 if it does not exist.
 fn local_size(local: &Path) -> u64 {
     fs::metadata(local).map_or(0, |meta| meta.len())
 }
 
+// remote_size returns the size of the remote file, or an error if it cannot be read.
 fn remote_size(args: &CollectArgs, pod: &Pod) -> anyhow::Result<u64> {
     let size = external::output(
+        // Use kubectl exec to run stat in the collector pod, 
+        // and read the size of the remote file.
         "kubectl",
         &exec(args, pod, &["stat", "-c", "%s", &args.remote]),
     )?;
@@ -142,12 +148,14 @@ fn append(
     external::to_file("kubectl", &exec(args, pod, &dd), file)
 }
 
+// exec builds the kubectl exec command to run the given command in the collector pod.
 fn exec(args: &CollectArgs, pod: &Pod, command: &[&str]) -> Vec<String> {
     let mut exec = strings(&["exec", "-n", &args.namespace, &pod.name, "--"]);
     exec.extend(strings(command));
     exec
 }
 
+// strings converts a slice of &str to a Vec<String>.
 fn strings(items: &[&str]) -> Vec<String> {
     items.iter().map(|item| item.to_string()).collect()
 }

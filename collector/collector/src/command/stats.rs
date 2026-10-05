@@ -62,6 +62,7 @@ struct Summary {
     by_label: BTreeMap<String, u64>,
 }
 
+// Summary holds the summary of one or more datasets: size, rows, time span and rows per node, workload and label.
 impl Summary {
     fn add_file(&mut self, path: &Path) -> anyhow::Result<()> {
         let file = File::open(path).with_context(|| format!("open {}", path.display()))?;
@@ -134,6 +135,7 @@ impl Summary {
     }
 }
 
+// human_bytes returns a human-readable string for the given number of bytes, using binary units (KiB, MiB, GiB, TiB).
 pub fn human_bytes(bytes: u64) -> String {
     const UNITS: [&str; 5] = ["B", "KiB", "MiB", "GiB", "TiB"];
     let mut value = bytes as f64;
