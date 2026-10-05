@@ -20,7 +20,7 @@ use crate::{
 
 // Consts for dataset path and default filename.
 pub const PATH_ENV: &str = "DATASET_PATH";
-pub const DEFAULT_PATH: &str = "croft-dataset.jsonl";
+pub const DEFAULT_PATH: &str = "/var/lib/croft/croft-dataset.jsonl";
 
 pub struct Sample<'a> {
     pub tgid: u32,

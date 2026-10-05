@@ -1,5 +1,6 @@
 //! The collector daemon: loads the eBPF programs and reports each poll to the dataset.
 
+use anyhow::Context;
 use log::info;
 
 use crate::{
@@ -10,7 +11,11 @@ use crate::{
 pub fn execute(args: &RunArgs) -> anyhow::Result<()> {
     banner::print();
     namespace::join_host_cgroup();
-    let dataset = Dataset::new(&args.dataset.dataset);
+    let path = &args.dataset.dataset;
+    if let Some(dir) = path.parent().filter(|dir| !dir.as_os_str().is_empty()) {
+        std::fs::create_dir_all(dir).with_context(|| format!("create {}", dir.display()))?;
+    }
+    let dataset = Dataset::new(path);
     let watch = CgroupWatch::new(&args.watch);
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
