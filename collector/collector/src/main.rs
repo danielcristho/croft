@@ -11,6 +11,7 @@ mod dataset;
 mod delta;
 mod drops;
 mod ebpf;
+mod idle;
 mod logging;
 mod maps;
 mod namespace;

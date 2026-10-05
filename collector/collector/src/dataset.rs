@@ -39,11 +39,14 @@ struct Record<'a> {
     tgid: u32,
     process: &'a ProcessInfo,
     workload: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
     ioctl_count: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     since_last_gpu_ioctl_ms: Option<u64>,
     usage: &'a ProcessUsage,
     cgroup_usage: Option<&'a CgroupUsage>,
     syscalls: Vec<SyscallRate>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     label: Option<String>,
 }
 

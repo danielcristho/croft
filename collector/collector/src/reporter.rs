@@ -11,6 +11,7 @@ use crate::{
     clock::{self, NANOS_PER_MS},
     dataset::{Dataset, Sample},
     drops::DropWatcher,
+    idle::IdleThrottle,
     maps,
     process::{self, ProcessInfo},
     resources::ResourceTracker,
@@ -25,6 +26,10 @@ const MIB: u64 = 1024 * 1024;
 const SHORT_ID_LEN: usize = 12;
 // 15 polls of 2 s: one summary line every 30 s.
 const SUMMARY_POLLS: u32 = 15;
+// An idle process writes one row every 15 polls (30 s); its row barely changes between them.
+const IDLE_HEARTBEAT_POLLS: u64 = 15;
+// Below this a CPU or syscall rate rounds to zero in the dataset.
+const IDLE_RATE: f64 = 0.005;
 
 pub async fn run(ebpf: Ebpf, dataset: Dataset, watch: CgroupWatch) {
     let mut interval = tokio::time::interval(POLL_INTERVAL);
@@ -49,6 +54,7 @@ struct Reporter {
     drops: DropWatcher,
     rates: RateTracker,
     resources: ResourceTracker,
+    idle: IdleThrottle,
     summary: Summary,
 }
 
@@ -56,6 +62,7 @@ struct Reporter {
 struct Summary {
     polls: u32,
     rows: u64,
+    idle_skipped: u64,
     by_workload: [u64; 3],
 }
 
@@ -67,6 +74,7 @@ impl Reporter {
             drops: DropWatcher::default(),
             rates: RateTracker::default(),
             resources: ResourceTracker::new(),
+            idle: IdleThrottle::new(IDLE_HEARTBEAT_POLLS),
             summary: Summary::default(),
         }
     }
@@ -82,6 +90,7 @@ impl Reporter {
         }
         self.rates.end_poll();
         self.resources.end_poll();
+        self.idle.end_poll();
         self.summary.end_poll();
         Ok(())
     }
@@ -132,6 +141,14 @@ impl Reporter {
             .cgroup
             .as_deref()
             .map(|cgroup| self.resources.cgroup(cgroup, now));
+        // GPU holders are never thinned: a process busy on mapped GPU queues looks idle to the CPU.
+        let idle = workload == Workload::NoGpu
+            && usage.cpu_cores.unwrap_or(0.0) < IDLE_RATE
+            && rates.iter().all(|rate| rate.rate_per_sec < IDLE_RATE);
+        if !self.idle.should_write(tgid, idle) {
+            self.summary.idle_skipped += 1;
+            return;
+        }
         let mut line = format!(
             "workload={} comm={} tgid={tgid}",
             workload.label(),
@@ -206,9 +223,10 @@ impl Summary {
         }
         let [onset, held, no_gpu] = self.by_workload;
         info!(
-            "summary window={}s rows={} gpu-onset={onset} gpu-held={held} no-gpu={no_gpu}",
+            "summary window={}s rows={} gpu-onset={onset} gpu-held={held} no-gpu={no_gpu} idle-skipped={}",
             self.polls as u64 * POLL_INTERVAL.as_secs(),
-            self.rows
+            self.rows,
+            self.idle_skipped
         );
         *self = Self::default();
     }
