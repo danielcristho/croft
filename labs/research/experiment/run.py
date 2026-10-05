@@ -1,4 +1,4 @@
-"""Runs the croft experiments on the k3s cluster: GPU workloads as Jobs, the webapp under Locust load."""
+"""Runs the croft experiments on the kubernetes cluster: GPU workloads as Jobs, the webapp under Locust load."""
 
 import argparse
 
@@ -24,6 +24,7 @@ def main() -> None:
     web_args.add_argument("--replicas", type=int, help="fixed replica count; omit to let the HPA scale")
     web_args.add_argument("--steps", help="one stepped run instead, e.g. 10,20,40,80")
     web_args.add_argument("--step-seconds", type=int, default=120)
+    web_args.add_argument("--node", help="pin every replica to one node")
     web_args.add_argument("--shape", choices=["step", "ramp"], default="step", help="hold each step, or ramp between them")
     web_args.add_argument("--warmup", type=int, default=60)
     web_args.add_argument("--seconds", type=int, default=300)
@@ -35,7 +36,7 @@ def main() -> None:
         gpu.run(args.only, args.reps, args.seconds, args.cooldown, args.seed, args.node, args.dry_run)
     else:
         lock = records.hold_lock()
-        web.run(args.prefix, args.users, args.warmup, args.seconds, args.cooldown, args.replicas, args.steps, args.step_seconds, args.shape)
+        web.run(args.prefix, args.users, args.warmup, args.seconds, args.cooldown, args.replicas, args.steps, args.step_seconds, args.shape, args.node)
     if lock:
         lock.close()
 
