@@ -1,8 +1,9 @@
 """Runs the croft experiments on the kubernetes cluster: GPU workloads as Jobs, the webapp under Locust load."""
 
 import argparse
+from pathlib import Path
 
-from experiment import gpu, records, web
+from experiment import calibrate, gpu, records, web
 
 
 def main() -> None:
@@ -30,10 +31,23 @@ def main() -> None:
     web_args.add_argument("--seconds", type=int, default=300)
     web_args.add_argument("--cooldown", type=int, default=30)
 
+    calibrate_args = suites.add_parser("calibrate", help="node speed: CPU per request with one pinned replica per node")
+    calibrate_args.add_argument("--prefix", default="speed", help="run name prefix; runs are <prefix>-<node>-u<users>")
+    calibrate_args.add_argument("--nodes", nargs="+", help="nodes to measure; default every Ready node")
+    calibrate_args.add_argument("--users", type=int, default=1)
+    calibrate_args.add_argument("--warmup", type=int, default=30)
+    calibrate_args.add_argument("--seconds", type=int, default=120)
+    calibrate_args.add_argument("--cooldown", type=int, default=10)
+    calibrate_args.add_argument("--croft-data", type=Path, default=calibrate.DEFAULT_CROFT_DATA, help="per-node croft datasets")
+    calibrate_args.add_argument("--from-runs", action="store_true", help="compute from existing runs, measure nothing")
+
     args = parser.parse_args()
     if args.suite == "gpu":
         lock = None if args.dry_run else records.hold_lock()
         gpu.run(args.only, args.reps, args.seconds, args.cooldown, args.seed, args.node, args.dry_run)
+    elif args.suite == "calibrate":
+        lock = None if args.from_runs else records.hold_lock()
+        calibrate.run(args.prefix, args.nodes, args.users, args.warmup, args.seconds, args.cooldown, args.croft_data, args.from_runs)
     else:
         lock = records.hold_lock()
         web.run(args.prefix, args.users, args.warmup, args.seconds, args.cooldown, args.replicas, args.steps, args.step_seconds, args.shape, args.node)

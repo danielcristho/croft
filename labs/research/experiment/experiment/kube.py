@@ -49,5 +49,13 @@ def nodes_without(image: str) -> list[str]:
     return missing
 
 
+def ready_nodes() -> list[str]:
+    return sorted(
+        node["metadata"]["name"]
+        for node in json.loads(kubectl("get", "nodes", "-o", "json"))["items"]
+        if any(c["type"] == "Ready" and c["status"] == "True" for c in node["status"]["conditions"])
+    )
+
+
 def epoch_ms(timestamp: str) -> int:
     return int(datetime.fromisoformat(timestamp.replace("Z", "+00:00")).timestamp() * 1000)

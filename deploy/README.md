@@ -81,7 +81,8 @@ sudo systemctl restart croft-collector
 ## Trying it without installing
 
 `just run` builds a debug binary and runs it under sudo in the foreground. The
-dataset goes to `croft-dataset.jsonl` in the current directory.
+dataset goes to `/var/lib/croft/croft-dataset.jsonl`, the same file the
+deployments write, so `croft top` and `croft stats` read it without `--dataset`.
 
 ## Recording processes without a GPU
 
