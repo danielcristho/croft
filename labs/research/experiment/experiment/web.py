@@ -9,7 +9,10 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-from . import kube, prometheus, records
+from dataclasses import asdict
+
+from . import kube, prometheus, records, rps
+from .profiles import PROFILES, Profile
 
 # Consts
 NAMESPACE = "croft-exp"
@@ -20,13 +23,23 @@ LOCUSTFILE = ROOT / "load" / "locustfile.py"
 APP_HOST = os.environ.get("APP_HOST", "http://web.127.0.0.1.sslip.io:30080")
 READY_CHECKS = 3
 READY_TIMEOUT_S = 120
+# cloud2023 warms up at 5 RPS for 30 s and cools down for 15 s.
+WARMUP_RPS = 5
+# relaxed keeps an overloaded pod alive and in its Service: no liveness restart, readiness tolerates 60 s of slow answers.
+PROBES = {
+    "default": None,
+    "relaxed": {"livenessProbe": None, "readinessProbe": {"timeoutSeconds": 10, "failureThreshold": 6}},
+}
 
 
 # deploy starts an HPA run from one replica and a new HPA, so no scale-down window carries over from the last run.
-def deploy(replicas: int | None, node: str | None = None) -> None:
+def deploy(replicas: int | None, node: str | None = None, probes: str = "default") -> None:
     check_image()
     kube.apply((MANIFESTS / "k8s.yaml").read_text())
     pin(node)
+    if PROBES[probes]:
+        patch = json.dumps({"spec": {"template": {"spec": {"containers": [{"name": DEPLOYMENT, **PROBES[probes]}]}}}})
+        kube.kubectl("patch", f"deployment/{DEPLOYMENT}", "-n", NAMESPACE, "--type=strategic", "-p", patch)
     kube.kubectl("delete", "hpa", DEPLOYMENT, "-n", NAMESPACE, "--ignore-not-found")
     kube.kubectl("scale", f"deployment/{DEPLOYMENT}", "-n", NAMESPACE, f"--replicas={replicas or 1}")
     kube.kubectl("rollout", "status", f"deployment/{DEPLOYMENT}", "-n", NAMESPACE, "--timeout=300s")
@@ -150,3 +163,39 @@ def run(prefix: str, levels: list[int], warmup: int, seconds: int, cooldown: int
         records.append("web", record)
         print(f"[{i}/{len(plan)}] {name}: {json.dumps({k: record[k] for k in ('users', 'autoscaling', 'replicas')})}")
         time.sleep(cooldown)
+
+
+def run_profile(prefix: str, name: str, scale: float, warmup: int, cooldown: int, replicas: int | None, node: str | None = None, probes: str = "default") -> None:
+    """One open-loop run of a cloud2023 load profile against the webapp's CPU endpoint."""
+    deploy(replicas, node, probes)
+    profile = PROFILES[name].scaled(scale)
+    run_id = f"{prefix}-{name}"
+    directory = records.DATA / "web" / run_id
+    directory.mkdir(parents=True, exist_ok=True)
+    url = f"{APP_HOST}/cpu"
+    if warmup:
+        rps.run(url, Profile("constant", warmup, rps=WARMUP_RPS), None)
+    containers = kube.containers(NAMESPACE, "-l", f"app={DEPLOYMENT}")
+    start_ms = records.now_ms()
+    rps.run(url, profile, directory / "workload.csv")
+    end_ms = records.now_ms()
+    containers |= kube.containers(NAMESPACE, "-l", f"app={DEPLOYMENT}")
+    prometheus.export(directory / "prometheus.csv", NAMESPACE, DEPLOYMENT, start_ms // 1000, end_ms // 1000)
+    (directory / "timeline.json").write_text(json.dumps({"rescales": rescales(start_ms), "pods": pods()}, indent=1))
+    record = {
+        "run_id": run_id,
+        "load": "open-loop",
+        "profile": asdict(profile),
+        "scale": scale,
+        "replicas": replicas,
+        "node": node,
+        "autoscaling": "hpa" if replicas is None else "static",
+        "probes": probes,
+        "started_ms": start_ms,
+        "ended_ms": end_ms,
+        "containers": containers,
+        "directory": str(directory.relative_to(ROOT)),
+    }
+    records.append("web", record)
+    print(f"{run_id}: {profile.name} x{scale:g} for {profile.duration_s:g} s, {record['autoscaling']}")
+    time.sleep(cooldown)

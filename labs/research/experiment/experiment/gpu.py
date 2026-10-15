@@ -69,7 +69,6 @@ SCENARIOS = {
     "gpu-idle": Scenario([{"width": 1024}, {"width": 4096}, {"width": 8192}]),
 }
 
-
 def plan(labels: list[str], reps: int, seed: int) -> list[tuple[str, dict]]:
     order = random.Random(seed)
     runs = []
@@ -118,7 +117,6 @@ def job_manifest(name: str, label: str, run_id: str, params: dict, seconds: floa
         },
     }
     return json.dumps(job)
-
 
 def run_one(label: str, params: dict, seconds: float, node: str | None) -> dict:
     run_id = uuid.uuid4().hex[:12]

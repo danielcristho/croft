@@ -22,6 +22,8 @@ def queries(namespace: str, deployment: str) -> dict[str, str]:
         "memory_bytes": f"sum(container_memory_working_set_bytes{{{containers}}})",
         "network_rx_bytes_s": f"sum(rate(container_network_receive_bytes_total{{{pods}}}[{WINDOW}]))",
         "network_tx_bytes_s": f"sum(rate(container_network_transmit_bytes_total{{{pods}}}[{WINDOW}]))",
+        "cpu_throttled_s": f"sum(rate(container_cpu_cfs_throttled_seconds_total{{{containers}}}[{WINDOW}]))",
+        "restarts": f"sum(kube_pod_container_status_restarts_total{{{pods}}})",
         "replicas": f'kube_deployment_status_replicas{{namespace="{namespace}",deployment="{deployment}"}}',
         "ready_replicas": f'kube_deployment_status_replicas_available{{namespace="{namespace}",deployment="{deployment}"}}',
         "desired_replicas": f'kube_horizontalpodautoscaler_status_desired_replicas{{namespace="{namespace}"}}',

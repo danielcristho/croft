@@ -4,6 +4,7 @@ import argparse
 from pathlib import Path
 
 from experiment import calibrate, gpu, records, web
+from experiment.profiles import PROFILES
 
 
 def main() -> None:
@@ -27,9 +28,12 @@ def main() -> None:
     web_args.add_argument("--step-seconds", type=int, default=120)
     web_args.add_argument("--node", help="pin every replica to one node")
     web_args.add_argument("--shape", choices=["step", "ramp"], default="step", help="hold each step, or ramp between them")
-    web_args.add_argument("--warmup", type=int, default=60)
+    web_args.add_argument("--profile", choices=sorted(PROFILES), help="one open-loop run of a cloud2023 RPS profile instead")
+    web_args.add_argument("--scale", type=float, default=1.0, help="multiply every rate of --profile")
+    web_args.add_argument("--probes", choices=sorted(web.PROBES), default="default", help="relaxed: no liveness restart, slower readiness")
+    web_args.add_argument("--warmup", type=int, help="seconds; default 60, or 30 with --profile.")
     web_args.add_argument("--seconds", type=int, default=300)
-    web_args.add_argument("--cooldown", type=int, default=30)
+    web_args.add_argument("--cooldown", type=int, help="seconds; default 30, or 15 with --profile.")
 
     calibrate_args = suites.add_parser("calibrate", help="node speed: CPU per request with one pinned replica per node")
     calibrate_args.add_argument("--prefix", default="speed", help="run name prefix; runs are <prefix>-<node>-u<users>")
@@ -50,7 +54,14 @@ def main() -> None:
         calibrate.run(args.prefix, args.nodes, args.users, args.warmup, args.seconds, args.cooldown, args.croft_data, args.from_runs)
     else:
         lock = records.hold_lock()
-        web.run(args.prefix, args.users, args.warmup, args.seconds, args.cooldown, args.replicas, args.steps, args.step_seconds, args.shape, args.node)
+        if args.profile:
+            warmup = 30 if args.warmup is None else args.warmup
+            cooldown = 15 if args.cooldown is None else args.cooldown
+            web.run_profile(args.prefix, args.profile, args.scale, warmup, cooldown, args.replicas, args.node, args.probes)
+        else:
+            warmup = 60 if args.warmup is None else args.warmup
+            cooldown = 30 if args.cooldown is None else args.cooldown
+            web.run(args.prefix, args.users, warmup, args.seconds, cooldown, args.replicas, args.steps, args.step_seconds, args.shape, args.node)
     if lock:
         lock.close()
 
