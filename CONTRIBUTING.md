@@ -26,7 +26,7 @@ kernel tracepoints (eBPF)
 collector ──> dataset (JSON Lines, one row per process per 2 s poll)
        |
        v
-burst detector ──> scaler ──> Kubernetes, Docker Swarm, Nomad, CloudX
+burst detector ──> scaler ──> Kubernetes, Docker Swarm, Nomad
    (not built)     (not built)
 ```
 
