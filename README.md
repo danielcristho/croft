@@ -2,10 +2,10 @@
 
 # Croft
 
-**Workload-aware autoscaling from what processes do in the kernel**
+**Proactive autoscaling from what processes do in the kernel**
 
-Watch every process that holds a GPU through eBPF, learn what kind of workload it
-is, and tell the orchestrator before the pod, job or node request says so.
+Read each pod's request rate and CPU pressure through eBPF, notice a workload
+burst within seconds, and add replicas before the application slows down.
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/Labs-CloudX/croft?style=flat)](https://github.com/Labs-CloudX/croft/stargazers)
@@ -20,21 +20,26 @@ is, and tell the orchestrator before the pod, job or node request says so.
 
 ---
 
-> **Status: the collector records a labelled dataset; nothing decides yet.**
-> The workload classifier and the decision engine are not built.
+> **Status: the collector records a dataset; nothing scales yet.**
+> Early burst detection is measured offline against the HPA; the detector and
+> the scaler are not built.
 
 ## What it does
 
-A workload declares its size up front, and what it then does can be something
-else entirely. Croft reads the other side: it attaches to stable kernel
-tracepoints, notices when a process starts driving a GPU, and records every two
-seconds its syscall rates, CPU, memory, throttling and pressure, with the
-container it runs in. That dataset is what a classifier learns workload kinds
-from, and what a decision engine will act on, on Kubernetes, Docker Swarm, Nomad
-or CloudX.
+The Kubernetes HPA scales on average CPU utilization, sampled every 15 s. When a
+burst arrives, the first replica is added half a minute later, and latency has
+already crossed its objective. Croft looks earlier in the chain: it attaches to
+stable kernel tracepoints and records, every two seconds and per container, the
+syscall rates, CPU, memory, throttling and pressure of each process, and which
+processes drive a GPU.
+
+Requests show up in the kernel before they show up as CPU. A web server answers
+each request with about two `sendto` calls, so their rate is the request rate,
+seen from inside the node. Multiplied by the CPU each request costs, it gives the
+replicas the burst will need, within one poll of its start.
 
 <p align="center">
-  <img src="assets/pipeline.svg" width="820" alt="Pipeline: eBPF collector, dataset, workload classifier, decision engine, then Kubernetes, Docker, CloudX or Nomad. The first two are built.">
+  <img src="assets/architecture.svg" width="860" alt="Architecture: the web app's syscalls and cgroup pressure are read in the kernel through eBPF by a collector on each node. The collector writes a dataset and will feed a burst detector, a scaler and OpenTelemetry towards Prometheus. The HPA scales the same pods from CPU utilization. Kernel, collector and dataset are built.">
 </p>
 
 ## Quick start
@@ -60,6 +65,17 @@ croft collect   # pull each node's dataset from the DaemonSet
 ```
 
 `croft <command> --help` lists the options.
+
+## Experiments
+
+Burst, ramp and step experiments on a k3s cluster, with the HPA as the baseline,
+live in [`labs/research/experiment`](labs/research/experiment/README.md); the
+analysis notebooks are in [`research`](research).
+
+```sh
+cd labs/research/experiment
+uv run run.py web --prefix burst-1 --profile burst --scale 0.5
+```
 
 ## Development
 
