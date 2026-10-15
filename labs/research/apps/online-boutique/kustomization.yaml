@@ -1,0 +1,31 @@
+# Online Boutique v0.10.7 as released, in its own namespace, without its load generator and external LoadBalancer.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: boutique
+resources:
+  - namespace.yaml
+  - kubernetes-manifests.yaml
+  - ingress.yaml
+  - hpa.yaml
+patches:
+  - target: {kind: Deployment, name: loadgenerator}
+    patch: |
+      $patch: delete
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: loadgenerator
+  - target: {kind: ServiceAccount, name: loadgenerator}
+    patch: |
+      $patch: delete
+      apiVersion: v1
+      kind: ServiceAccount
+      metadata:
+        name: loadgenerator
+  - target: {kind: Service, name: frontend-external}
+    patch: |
+      $patch: delete
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: frontend-external
