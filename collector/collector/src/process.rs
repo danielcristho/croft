@@ -4,6 +4,8 @@ use std::{fs, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
 
+use crate::framework::Framework;
+
 pub const CGROUP_ROOT: &str = "/sys/fs/cgroup";
 const CONTAINER_ID_LEN: usize = 64;
 const RUNTIME_PREFIXES: &[&str] = &["docker-", "cri-containerd-", "crio-", "libpod-"];
@@ -16,6 +18,8 @@ pub struct ProcessInfo {
     pub exe: Option<String>,
     pub cgroup: Option<String>,
     pub container_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub framework: Option<Framework>,
 }
 
 impl ProcessInfo {
@@ -48,6 +52,7 @@ pub fn identify(tgid: u32, cgroup: Option<String>) -> ProcessInfo {
             .map(|exe| exe.display().to_string()),
         container_id: cgroup.as_deref().and_then(container_id),
         cgroup,
+        framework: None,
     }
 }
 

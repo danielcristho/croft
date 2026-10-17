@@ -7,7 +7,7 @@ One JSON line per process per 2 s poll:
 | Field | Holds |
 |---|---|
 | `unix_ms`, `tgid` | time and process |
-| `process` | `comm`, `exe`, `cgroup`, `container_id` |
+| `process` | `comm`, `exe`, `cgroup`, `container_id`, `framework` (`pytorch`, `tensorflow`, `jax`; left out when none) |
 | `workload` | `gpu-onset`, `gpu-held` or `no-gpu` |
 | `usage` | process CPU, RSS, threads, context switches, I/O and network bytes per second |
 | `cgroup_usage` | `cpu_cores`, `cpu_throttled_fraction`, `memory_bytes`, `oom_kills`, PSI `*_pressure_avg10` |

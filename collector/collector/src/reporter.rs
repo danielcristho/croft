@@ -11,6 +11,7 @@ use crate::{
     clock::{self, NANOS_PER_MS},
     dataset::{Dataset, Sample},
     drops::DropWatcher,
+    framework::FrameworkTracker,
     idle::IdleThrottle,
     maps,
     process::{self, ProcessInfo},
@@ -24,12 +25,10 @@ pub const POLL_INTERVAL: Duration = Duration::from_secs(2);
 const TOP_SYSCALLS: usize = 3;
 const MIB: u64 = 1024 * 1024;
 const SHORT_ID_LEN: usize = 12;
-// 15 polls of 2 s: one summary line every 30 s.
 const SUMMARY_POLLS: u32 = 15;
-// An idle process writes one row every 15 polls (30 s); its row barely changes between them.
 const IDLE_HEARTBEAT_POLLS: u64 = 15;
-// Below this a CPU or syscall rate rounds to zero in the dataset.
 const IDLE_RATE: f64 = 0.005;
+const FRAMEWORK_RECHECK_POLLS: u64 = 30;
 
 pub async fn run(ebpf: Ebpf, dataset: Dataset, watch: CgroupWatch) {
     let mut interval = tokio::time::interval(POLL_INTERVAL);
@@ -55,6 +54,7 @@ struct Reporter {
     rates: RateTracker,
     resources: ResourceTracker,
     idle: IdleThrottle,
+    frameworks: FrameworkTracker,
     summary: Summary,
 }
 
@@ -75,6 +75,7 @@ impl Reporter {
             rates: RateTracker::default(),
             resources: ResourceTracker::new(),
             idle: IdleThrottle::new(IDLE_HEARTBEAT_POLLS),
+            frameworks: FrameworkTracker::new(FRAMEWORK_RECHECK_POLLS),
             summary: Summary::default(),
         }
     }
@@ -84,13 +85,15 @@ impl Reporter {
         let syscall_counts = maps::syscall_counts(ebpf)?;
         let by_tgid = syscalls::group_by_tgid(syscall_counts.iter().flatten());
         let now = clock::monotonic_ns();
-        for subject in self.subjects(ebpf)? {
+        for mut subject in self.subjects(ebpf)? {
+            subject.process.framework = self.frameworks.framework(subject.tgid);
             let counts = by_tgid.get(&subject.tgid).map_or(&[][..], Vec::as_slice);
             self.report(&subject, counts, now);
         }
         self.rates.end_poll();
         self.resources.end_poll();
         self.idle.end_poll();
+        self.frameworks.end_poll();
         self.summary.end_poll();
         Ok(())
     }
@@ -154,6 +157,9 @@ impl Reporter {
             workload.label(),
             process.comm.as_deref().unwrap_or("?"),
         );
+        if let Some(framework) = process.framework {
+            line.push_str(&format!(" framework={}", framework.label()));
+        }
         if let Some(container) = &process.container_id {
             line.push_str(&format!(
                 " container={}",
