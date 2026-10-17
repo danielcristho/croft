@@ -17,14 +17,16 @@ if ! cargo +nightly fmt --manifest-path "$MANIFEST" --all -- --check > /dev/null
 fi
 echo "✓ rustfmt"
 
-# clippy and tests build the eBPF program, which needs bpf-linker.
+# Without bpf-linker the eBPF build is skipped; clippy and the tests still cover the userspace code.
+PACKAGE=""
 if ! command -v bpf-linker > /dev/null 2>&1; then
-  echo "· clippy and tests skipped: bpf-linker not found"
-  exit 0
+  export AYA_BUILD_SKIP=1
+  PACKAGE="-p collector"
+  echo "· eBPF build skipped: bpf-linker not found"
 fi
 
-cargo clippy --manifest-path "$MANIFEST" --quiet -- -D warnings
+cargo clippy --manifest-path "$MANIFEST" --quiet $PACKAGE -- -D warnings
 echo "✓ clippy"
 
-cargo test --manifest-path "$MANIFEST" --quiet > /dev/null
+cargo test --manifest-path "$MANIFEST" --quiet $PACKAGE > /dev/null
 echo "✓ tests"

@@ -233,7 +233,8 @@ docs: trim readme, details move to docs
 ```
 
 The `pre-commit` hook runs `rustfmt`, clippy and the tests when a staged change
-touches `collector/`.
+touches `collector/`. Without `bpf-linker` it skips the eBPF build and checks
+the userspace crate (`AYA_BUILD_SKIP=1`, see [Testing changes](#testing-changes)).
 
 ## Pushing changes
 
