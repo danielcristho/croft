@@ -1,0 +1,8 @@
+# The collector image builds from collector/ and embeds deploy/kubernetes/collector.yaml; nothing else is needed.
+.git
+**/target
+research
+labs
+assets
+agent
+docs
