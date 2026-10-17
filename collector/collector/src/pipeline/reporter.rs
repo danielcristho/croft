@@ -13,7 +13,11 @@ use crate::{
         process::{self, ProcessInfo},
         resources::ResourceTracker,
     },
-    pipeline::{dataset::{self, Dataset, Sample}, idle::IdleThrottle, metrics::{Published, Snapshot}},
+    pipeline::{
+        dataset::{self, Dataset, Sample},
+        idle::IdleThrottle,
+        metrics::{Published, Snapshot},
+    },
     sensing::{
         clock::{self, NANOS_PER_MS},
         drops::DropWatcher,

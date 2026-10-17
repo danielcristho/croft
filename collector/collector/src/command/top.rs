@@ -15,8 +15,14 @@ use anyhow::Context;
 use self::view::Style;
 use crate::{
     cli::TopArgs,
-    pipeline::{dataset::now_unix_ms, rows::{self, Line, Row}},
-    runtime::{ansi::{CLEAR_BELOW, CLEAR_LINE_END, ENTER_SCREEN, HOME, LEAVE_SCREEN}, signals},
+    pipeline::{
+        dataset::now_unix_ms,
+        rows::{self, Line, Row},
+    },
+    runtime::{
+        ansi::{CLEAR_BELOW, CLEAR_LINE_END, ENTER_SCREEN, HOME, LEAVE_SCREEN},
+        signals,
+    },
 };
 
 // Consts for the number of bytes to read from the end of the dataset file, the time window for a poll, and the number of top syscalls to display.

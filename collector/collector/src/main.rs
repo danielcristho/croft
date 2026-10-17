@@ -9,8 +9,10 @@ mod sensing;
 
 use clap::Parser;
 
-use crate::cli::{Cli, Command};
-use crate::runtime::{logging, signals};
+use crate::{
+    cli::{Cli, Command},
+    runtime::{logging, signals},
+};
 
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
