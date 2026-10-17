@@ -1,0 +1,185 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 760" width="900" height="760" role="img" aria-label="Lab cluster: k3s with one control plane that also runs pods and has a GPU, and two workers, one with a GPU; clients reach the API server; add-ons are ingress-nginx, Prometheus, metrics-server and Linkerd; every node runs kubelet, kube-proxy and an eBPF collector">
+<style>
+  :root { --ink: #262626; --soft: #5f5f5f; --line: #8a8a8a; --cp: #eef2f7; --wk: #f0f4ee; --addon: #f3f3f3; --tile: #ffffff; --accent: #e8eef8; --bg: #ffffff; }
+  .ink { stroke: var(--ink); stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round; }
+  .frame { stroke: var(--line); stroke-width: 1; }
+  .head-fill { fill: var(--ink); }
+  text { fill: var(--ink); font-family: "Helvetica Neue", Helvetica, Arial, "Liberation Sans", sans-serif; text-anchor: middle; dominant-baseline: central; }
+  .head { font-size: 18px; font-weight: 600; }
+  .tile { font-size: 13px; }
+  .spec { font-size: 12.5px; fill: var(--soft); }
+</style>
+<rect width="900" height="760" fill="var(--bg)"/>
+<circle class="ink" cx="62.0" cy="190.0" r="8" fill="none"/>
+<path class="ink" fill="none" d="M46,210 A16,13 0 0 1 78,210"/>
+<circle class="ink" cx="62.0" cy="234.0" r="8" fill="none"/>
+<path class="ink" fill="none" d="M46,254 A16,13 0 0 1 78,254"/>
+<circle class="ink" cx="62.0" cy="278.0" r="8" fill="none"/>
+<path class="ink" fill="none" d="M46,298 A16,13 0 0 1 78,298"/>
+<text class="tile" x="62" y="326">harness</text>
+<text class="tile" x="62" y="344">kubectl</text>
+<rect class="frame" x="150.0" y="30.0" width="392.0" height="358.0" rx="6" fill="var(--cp)"/>
+<text class="head" x="346" y="56">Control plane</text>
+<text class="spec" x="346" y="77">24 CPU · 128 GB · 1 GPU</text>
+<rect class="ink" x="166.0" y="96.0" width="112.0" height="84.0" rx="3" fill="var(--tile)"/>
+<rect class="ink" x="209.0" y="113.5" width="26.0" height="7.0" rx="1.5" fill="none"/>
+<rect class="ink" x="209.0" y="122.5" width="26.0" height="7.0" rx="1.5" fill="none"/>
+<rect class="ink" x="209.0" y="131.5" width="26.0" height="7.0" rx="1.5" fill="none"/>
+<text class="tile" x="222" y="162">API server</text>
+<rect class="ink" x="290.0" y="96.0" width="112.0" height="84.0" rx="3" fill="var(--tile)"/>
+<circle class="ink" cx="346.0" cy="126.0" r="12" fill="none"/>
+<path class="ink" d="M346.0,119.0 L346.0,126.0 L352.0,129.0" fill="none"/>
+<text class="tile" x="346" y="162">scheduler</text>
+<rect class="ink" x="414.0" y="96.0" width="112.0" height="84.0" rx="3" fill="var(--tile)"/>
+<circle class="ink" cx="470.0" cy="126.0" r="7" fill="none"/>
+<path class="ink" d="M479.0,126.0 L483.0,126.0" fill="none"/>
+<path class="ink" d="M476.4,132.4 L479.2,135.2" fill="none"/>
+<path class="ink" d="M470.0,135.0 L470.0,139.0" fill="none"/>
+<path class="ink" d="M463.6,132.4 L460.8,135.2" fill="none"/>
+<path class="ink" d="M461.0,126.0 L457.0,126.0" fill="none"/>
+<path class="ink" d="M463.6,119.6 L460.8,116.8" fill="none"/>
+<path class="ink" d="M470.0,117.0 L470.0,113.0" fill="none"/>
+<path class="ink" d="M476.4,119.6 L479.2,116.8" fill="none"/>
+<text class="tile" x="470" y="162">controller</text>
+<rect class="ink" x="166.0" y="192.0" width="112.0" height="84.0" rx="3" fill="var(--tile)"/>
+<path class="ink" fill="none" d="M211.0,214 L211.0,230 A11,4.5 0 0 0 233.0,230 L233.0,214"/>
+<ellipse class="ink" fill="none" cx="222.0" cy="214" rx="11" ry="4.5"/>
+<text class="tile" x="222" y="258">SQLite</text>
+<rect class="ink" x="290.0" y="192.0" width="112.0" height="84.0" rx="3" fill="var(--tile)"/>
+<circle class="ink" cx="346.0" cy="222.0" r="11" fill="none"/>
+<circle class="ink" cx="346.0" cy="222.0" r="3" fill="none"/>
+<path class="ink" d="M349.0,222.0 L360.0,222.0" fill="none"/>
+<path class="ink" d="M347.5,224.6 L353.0,234.1" fill="none"/>
+<path class="ink" d="M344.5,224.6 L339.0,234.1" fill="none"/>
+<path class="ink" d="M343.0,222.0 L332.0,222.0" fill="none"/>
+<path class="ink" d="M344.5,219.4 L339.0,209.9" fill="none"/>
+<path class="ink" d="M347.5,219.4 L353.0,209.9" fill="none"/>
+<text class="tile" x="346" y="258">kubelet</text>
+<rect class="ink" x="414.0" y="192.0" width="112.0" height="84.0" rx="3" fill="var(--tile)"/>
+<path class="ink" d="M457.0,218.0 L483.0,218.0" fill="none"/>
+<path class="ink" d="M478.0,213.0 L483.0,218.0 L478.0,223.0" fill="none"/>
+<path class="ink" d="M483.0,227.0 L457.0,227.0" fill="none"/>
+<path class="ink" d="M462.0,222.0 L457.0,227.0 L462.0,232.0" fill="none"/>
+<text class="tile" x="470" y="258">kube-proxy</text>
+<rect class="ink" x="166.0" y="288.0" width="112.0" height="84.0" rx="3" fill="var(--accent)"/>
+<ellipse class="ink" fill="none" cx="222.0" cy="320" rx="8" ry="10"/>
+<path class="ink" d="M214.0,317.0 L230.0,317.0" fill="none"/>
+<path class="ink" d="M214.0,323.0 L230.0,323.0" fill="none"/>
+<ellipse class="ink" fill="none" cx="213.0" cy="308" rx="6" ry="3.5"/>
+<ellipse class="ink" fill="none" cx="231.0" cy="308" rx="6" ry="3.5"/>
+<text class="tile" x="222" y="354">eBPF collector</text>
+<rect class="ink" x="290.0" y="288.0" width="112.0" height="84.0" rx="3" fill="var(--tile)"/>
+<path class="ink" fill="none" d="M346.0,306 L357.0,312 L357.0,325 L346.0,331 L335.0,325 L335.0,312 Z M335.0,312 L346.0,318 L357.0,312 M346.0,318 L346.0,331"/>
+<text class="tile" x="346" y="354">pods</text>
+<rect class="ink" x="414.0" y="288.0" width="112.0" height="84.0" rx="3" fill="var(--tile)"/>
+<rect class="ink" x="461.0" y="309.0" width="18.0" height="18.0" rx="1.5" fill="none"/>
+<path class="ink" d="M466.0,309.0 L466.0,305.0" fill="none"/>
+<path class="ink" d="M466.0,327.0 L466.0,331.0" fill="none"/>
+<path class="ink" d="M461.0,314.0 L457.0,314.0" fill="none"/>
+<path class="ink" d="M479.0,314.0 L483.0,314.0" fill="none"/>
+<path class="ink" d="M474.0,309.0 L474.0,305.0" fill="none"/>
+<path class="ink" d="M474.0,327.0 L474.0,331.0" fill="none"/>
+<path class="ink" d="M461.0,322.0 L457.0,322.0" fill="none"/>
+<path class="ink" d="M479.0,322.0 L483.0,322.0" fill="none"/>
+<text class="tile" x="470" y="354">GPU</text>
+<path class="ink" d="M98.0,244.0 L146.0,244.0" fill="none"/>
+<path class="head-fill" d="M146.0,244.0 L137.0,240.0 L137.0,248.0 Z"/>
+<path class="head-fill" d="M98.0,244.0 L107.0,248.0 L107.0,240.0 Z"/>
+<rect class="frame" x="572.0" y="30.0" width="308.0" height="358.0" rx="6" fill="var(--addon)"/>
+<text class="head" x="726" y="56">Add-ons</text>
+<rect class="ink" x="588.0" y="80.0" width="276.0" height="65.5" rx="3" fill="var(--tile)"/>
+<rect class="ink" x="723.0" y="90.8" width="15.0" height="24.0" rx="1.5" fill="none"/>
+<path class="ink" d="M710.0,102.8 L730.0,102.8" fill="none"/>
+<path class="ink" d="M725.0,97.8 L730.0,102.8 L725.0,107.8" fill="none"/>
+<text class="tile" x="726" y="130">ingress-nginx</text>
+<rect class="ink" x="588.0" y="155.5" width="276.0" height="65.5" rx="3" fill="var(--tile)"/>
+<rect class="ink" x="713.0" y="181.2" width="5.0" height="8.0" rx="0.5" fill="none"/>
+<rect class="ink" x="720.0" y="173.2" width="5.0" height="16.0" rx="0.5" fill="none"/>
+<rect class="ink" x="727.0" y="178.2" width="5.0" height="11.0" rx="0.5" fill="none"/>
+<rect class="ink" x="734.0" y="167.2" width="5.0" height="22.0" rx="0.5" fill="none"/>
+<text class="tile" x="726" y="205">Prometheus</text>
+<rect class="ink" x="588.0" y="231.0" width="276.0" height="65.5" rx="3" fill="var(--tile)"/>
+<path class="ink" fill="none" d="M713.0,259.75 A13,13 0 0 1 739.0,259.75 Z"/>
+<path class="ink" d="M726.0,259.8 L733.0,249.8" fill="none"/>
+<text class="tile" x="726" y="280">metrics-server</text>
+<rect class="ink" x="588.0" y="306.5" width="276.0" height="65.5" rx="3" fill="var(--tile)"/>
+<rect class="ink" fill="none" x="712.0" y="324.25" width="18" height="10" rx="5" transform="rotate(-30 721.0 329.25)"/>
+<rect class="ink" fill="none" x="722.0" y="324.25" width="18" height="10" rx="5" transform="rotate(-30 731.0 329.25)"/>
+<text class="tile" x="726" y="356">Linkerd</text>
+<path class="ink" d="M346.0,388.0 L346.0,433.0" fill="none"/>
+<text class="spec" x="376" y="419">flannel</text>
+<path class="ink" d="M236.0,433.0 L664.0,433.0" fill="none"/>
+<path class="ink" d="M236.0,433.0 L236.0,475.0" fill="none"/>
+<path class="head-fill" d="M236.0,475.0 L240.0,466.0 L232.0,466.0 Z"/>
+<rect class="frame" x="40.0" y="478.0" width="392.0" height="262.0" rx="6" fill="var(--wk)"/>
+<text class="head" x="236" y="504">Worker</text>
+<text class="spec" x="236" y="525">20 CPU · 32 GB</text>
+<rect class="ink" x="56.0" y="544.0" width="112.0" height="84.0" rx="3" fill="var(--tile)"/>
+<circle class="ink" cx="112.0" cy="574.0" r="11" fill="none"/>
+<circle class="ink" cx="112.0" cy="574.0" r="3" fill="none"/>
+<path class="ink" d="M115.0,574.0 L126.0,574.0" fill="none"/>
+<path class="ink" d="M113.5,576.6 L119.0,586.1" fill="none"/>
+<path class="ink" d="M110.5,576.6 L105.0,586.1" fill="none"/>
+<path class="ink" d="M109.0,574.0 L98.0,574.0" fill="none"/>
+<path class="ink" d="M110.5,571.4 L105.0,561.9" fill="none"/>
+<path class="ink" d="M113.5,571.4 L119.0,561.9" fill="none"/>
+<text class="tile" x="112" y="610">kubelet</text>
+<rect class="ink" x="180.0" y="544.0" width="112.0" height="84.0" rx="3" fill="var(--tile)"/>
+<path class="ink" d="M223.0,570.0 L249.0,570.0" fill="none"/>
+<path class="ink" d="M244.0,565.0 L249.0,570.0 L244.0,575.0" fill="none"/>
+<path class="ink" d="M249.0,579.0 L223.0,579.0" fill="none"/>
+<path class="ink" d="M228.0,574.0 L223.0,579.0 L228.0,584.0" fill="none"/>
+<text class="tile" x="236" y="610">kube-proxy</text>
+<rect class="ink" x="304.0" y="544.0" width="112.0" height="84.0" rx="3" fill="var(--accent)"/>
+<ellipse class="ink" fill="none" cx="360.0" cy="576" rx="8" ry="10"/>
+<path class="ink" d="M352.0,573.0 L368.0,573.0" fill="none"/>
+<path class="ink" d="M352.0,579.0 L368.0,579.0" fill="none"/>
+<ellipse class="ink" fill="none" cx="351.0" cy="564" rx="6" ry="3.5"/>
+<ellipse class="ink" fill="none" cx="369.0" cy="564" rx="6" ry="3.5"/>
+<text class="tile" x="360" y="610">eBPF collector</text>
+<rect class="ink" x="56.0" y="640.0" width="112.0" height="84.0" rx="3" fill="var(--tile)"/>
+<path class="ink" fill="none" d="M112.0,658 L123.0,664 L123.0,677 L112.0,683 L101.0,677 L101.0,664 Z M101.0,664 L112.0,670 L123.0,664 M112.0,670 L112.0,683"/>
+<text class="tile" x="112" y="706">pods</text>
+<path class="ink" d="M664.0,433.0 L664.0,475.0" fill="none"/>
+<path class="head-fill" d="M664.0,475.0 L668.0,466.0 L660.0,466.0 Z"/>
+<rect class="frame" x="468.0" y="478.0" width="392.0" height="262.0" rx="6" fill="var(--wk)"/>
+<text class="head" x="664" y="504">GPU worker</text>
+<text class="spec" x="664" y="525">24 CPU · 15 GB · 1 GPU</text>
+<rect class="ink" x="484.0" y="544.0" width="112.0" height="84.0" rx="3" fill="var(--tile)"/>
+<circle class="ink" cx="540.0" cy="574.0" r="11" fill="none"/>
+<circle class="ink" cx="540.0" cy="574.0" r="3" fill="none"/>
+<path class="ink" d="M543.0,574.0 L554.0,574.0" fill="none"/>
+<path class="ink" d="M541.5,576.6 L547.0,586.1" fill="none"/>
+<path class="ink" d="M538.5,576.6 L533.0,586.1" fill="none"/>
+<path class="ink" d="M537.0,574.0 L526.0,574.0" fill="none"/>
+<path class="ink" d="M538.5,571.4 L533.0,561.9" fill="none"/>
+<path class="ink" d="M541.5,571.4 L547.0,561.9" fill="none"/>
+<text class="tile" x="540" y="610">kubelet</text>
+<rect class="ink" x="608.0" y="544.0" width="112.0" height="84.0" rx="3" fill="var(--tile)"/>
+<path class="ink" d="M651.0,570.0 L677.0,570.0" fill="none"/>
+<path class="ink" d="M672.0,565.0 L677.0,570.0 L672.0,575.0" fill="none"/>
+<path class="ink" d="M677.0,579.0 L651.0,579.0" fill="none"/>
+<path class="ink" d="M656.0,574.0 L651.0,579.0 L656.0,584.0" fill="none"/>
+<text class="tile" x="664" y="610">kube-proxy</text>
+<rect class="ink" x="732.0" y="544.0" width="112.0" height="84.0" rx="3" fill="var(--accent)"/>
+<ellipse class="ink" fill="none" cx="788.0" cy="576" rx="8" ry="10"/>
+<path class="ink" d="M780.0,573.0 L796.0,573.0" fill="none"/>
+<path class="ink" d="M780.0,579.0 L796.0,579.0" fill="none"/>
+<ellipse class="ink" fill="none" cx="779.0" cy="564" rx="6" ry="3.5"/>
+<ellipse class="ink" fill="none" cx="797.0" cy="564" rx="6" ry="3.5"/>
+<text class="tile" x="788" y="610">eBPF collector</text>
+<rect class="ink" x="484.0" y="640.0" width="112.0" height="84.0" rx="3" fill="var(--tile)"/>
+<path class="ink" fill="none" d="M540.0,658 L551.0,664 L551.0,677 L540.0,683 L529.0,677 L529.0,664 Z M529.0,664 L540.0,670 L551.0,664 M540.0,670 L540.0,683"/>
+<text class="tile" x="540" y="706">pods</text>
+<rect class="ink" x="608.0" y="640.0" width="112.0" height="84.0" rx="3" fill="var(--tile)"/>
+<rect class="ink" x="655.0" y="661.0" width="18.0" height="18.0" rx="1.5" fill="none"/>
+<path class="ink" d="M660.0,661.0 L660.0,657.0" fill="none"/>
+<path class="ink" d="M660.0,679.0 L660.0,683.0" fill="none"/>
+<path class="ink" d="M655.0,666.0 L651.0,666.0" fill="none"/>
+<path class="ink" d="M673.0,666.0 L677.0,666.0" fill="none"/>
+<path class="ink" d="M668.0,661.0 L668.0,657.0" fill="none"/>
+<path class="ink" d="M668.0,679.0 L668.0,683.0" fill="none"/>
+<path class="ink" d="M655.0,674.0 L651.0,674.0" fill="none"/>
+<path class="ink" d="M673.0,674.0 L677.0,674.0" fill="none"/>
+<text class="tile" x="664" y="706">GPU</text>
+</svg>
