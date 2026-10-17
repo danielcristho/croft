@@ -1,4 +1,4 @@
-//! The daemon runtime: terminal output, signals, logging, HTTP serving and the scaler.
+//! The daemon runtime: terminal output, signals, logging and HTTP.
 
 pub mod ansi;
 pub mod banner;
