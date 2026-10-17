@@ -29,12 +29,14 @@ WARMUP_RPS = 5
 PROBES = {
     "default": None,
     "relaxed": {"livenessProbe": None, "readinessProbe": {"timeoutSeconds": 10, "failureThreshold": 6}},
+    "none": {"livenessProbe": None, "readinessProbe": None},
 }
 
 
-# deploy starts an HPA run from one replica and a new HPA, so no scale-down window carries over from the last run.
+# deploy starts an HPA run from one fresh replica and a new HPA, so no scale-down window or request backlog carries over.
 def deploy(replicas: int | None, node: str | None = None, probes: str = "default") -> None:
     check_image()
+    check_finished_pods()
     kube.apply((MANIFESTS / "k8s.yaml").read_text())
     pin(node)
     if PROBES[probes]:
@@ -42,6 +44,8 @@ def deploy(replicas: int | None, node: str | None = None, probes: str = "default
         kube.kubectl("patch", f"deployment/{DEPLOYMENT}", "-n", NAMESPACE, "--type=strategic", "-p", patch)
     kube.kubectl("delete", "hpa", DEPLOYMENT, "-n", NAMESPACE, "--ignore-not-found")
     kube.kubectl("scale", f"deployment/{DEPLOYMENT}", "-n", NAMESPACE, f"--replicas={replicas or 1}")
+    # Without probes nothing restarts an overloaded pod; a restart drops the requests queued by the last run.
+    kube.kubectl("rollout", "restart", f"deployment/{DEPLOYMENT}", "-n", NAMESPACE)
     kube.kubectl("rollout", "status", f"deployment/{DEPLOYMENT}", "-n", NAMESPACE, "--timeout=300s")
     if replicas is None:
         kube.apply((MANIFESTS / "hpa.yaml").read_text())
@@ -62,6 +66,20 @@ def check_image() -> None:
     if missing:
         raise SystemExit(
             f"{image} is missing on {', '.join(missing)}; load it with labs/k3s-cluster/load-image.yml -e image={image}"
+        )
+
+
+# check_finished_pods stops before a run: the HPA counts a Succeeded pod as a replica with 0% CPU and then never scales up.
+def check_finished_pods() -> None:
+    finished = [
+        pod["metadata"]["name"]
+        for pod in kube.get("pods", NAMESPACE, "-l", f"app={DEPLOYMENT}")["items"]
+        if pod["status"].get("phase") in ("Succeeded", "Failed")
+    ]
+    if finished:
+        raise SystemExit(
+            f"{len(finished)} finished {DEPLOYMENT} pods in {NAMESPACE} distort the HPA; delete them with "
+            f"kubectl delete pods -n {NAMESPACE} -l app={DEPLOYMENT} --field-selector=status.phase!=Running"
         )
 
 
@@ -104,10 +122,12 @@ def rescales(since_ms: int) -> list[dict]:
     return sorted(found, key=lambda rescale: rescale["first_ms"])
 
 
-# pods records when each webapp pod was created and last turned Ready, to the second.
-def pods() -> list[dict]:
+# pods records when each webapp pod created since the run's deploy was created and last turned Ready, to the second.
+def pods(since_ms: int) -> list[dict]:
     found = []
     for pod in kube.get("pods", NAMESPACE, "-l", f"app={DEPLOYMENT}")["items"]:
+        if kube.epoch_ms(pod["metadata"]["creationTimestamp"]) < since_ms:
+            continue
         ready = next((c for c in pod["status"].get("conditions", []) if c["type"] == "Ready"), {})
         found.append({
             "pod": pod["metadata"]["name"],
@@ -119,7 +139,7 @@ def pods() -> list[dict]:
     return found
 
 
-def run_level(name: str, users: int, warmup: int, seconds: int, replicas: int | None, steps: str | None, step_seconds: int, shape: str = "step", node: str | None = None) -> dict:
+def run_level(name: str, users: int, warmup: int, seconds: int, replicas: int | None, steps: str | None, step_seconds: int, deployed_ms: int, shape: str = "step", node: str | None = None) -> dict:
     directory = records.DATA / "web" / name
     directory.mkdir(parents=True, exist_ok=True)
     if warmup:
@@ -132,7 +152,7 @@ def run_level(name: str, users: int, warmup: int, seconds: int, replicas: int | 
     end_ms = records.now_ms()
     containers |= kube.containers(NAMESPACE, "-l", f"app={DEPLOYMENT}")
     prometheus.export(directory / "prometheus.csv", NAMESPACE, DEPLOYMENT, start_ms // 1000, end_ms // 1000)
-    timeline = {"rescales": rescales(start_ms), "pods": pods()}
+    timeline = {"rescales": rescales(start_ms), "pods": pods(deployed_ms)}
     (directory / "timeline.json").write_text(json.dumps(timeline, indent=1))
     return {
         "run_id": name,
@@ -150,6 +170,7 @@ def run_level(name: str, users: int, warmup: int, seconds: int, replicas: int | 
 
 
 def run(prefix: str, levels: list[int], warmup: int, seconds: int, cooldown: int, replicas: int | None, steps: str | None, step_seconds: int, shape: str = "step", node: str | None = None) -> None:
+    deployed_ms = records.now_ms()
     deploy(replicas, node)
     if steps:
         # One run that climbs through every step; the shape in the locustfile sets the users.
@@ -159,7 +180,7 @@ def run(prefix: str, levels: list[int], warmup: int, seconds: int, cooldown: int
     else:
         plan = [(f"{prefix}-u{users}", users) for users in levels]
     for i, (name, users) in enumerate(plan, 1):
-        record = run_level(name, users, 0 if steps else warmup, seconds, replicas, steps, step_seconds, shape, node)
+        record = run_level(name, users, 0 if steps else warmup, seconds, replicas, steps, step_seconds, deployed_ms, shape, node)
         records.append("web", record)
         print(f"[{i}/{len(plan)}] {name}: {json.dumps({k: record[k] for k in ('users', 'autoscaling', 'replicas')})}")
         time.sleep(cooldown)
@@ -167,6 +188,7 @@ def run(prefix: str, levels: list[int], warmup: int, seconds: int, cooldown: int
 
 def run_profile(prefix: str, name: str, scale: float, warmup: int, cooldown: int, replicas: int | None, node: str | None = None, probes: str = "default") -> None:
     """One open-loop run of a cloud2023 load profile against the webapp's CPU endpoint."""
+    deployed_ms = records.now_ms()
     deploy(replicas, node, probes)
     profile = PROFILES[name].scaled(scale)
     run_id = f"{prefix}-{name}"
@@ -181,7 +203,7 @@ def run_profile(prefix: str, name: str, scale: float, warmup: int, cooldown: int
     end_ms = records.now_ms()
     containers |= kube.containers(NAMESPACE, "-l", f"app={DEPLOYMENT}")
     prometheus.export(directory / "prometheus.csv", NAMESPACE, DEPLOYMENT, start_ms // 1000, end_ms // 1000)
-    (directory / "timeline.json").write_text(json.dumps({"rescales": rescales(start_ms), "pods": pods()}, indent=1))
+    (directory / "timeline.json").write_text(json.dumps({"rescales": rescales(start_ms), "pods": pods(deployed_ms)}, indent=1))
     record = {
         "run_id": run_id,
         "load": "open-loop",

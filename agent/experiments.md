@@ -20,6 +20,7 @@ done
 | `--scale` | multiplies every rate; burst at 0.5 is 5 → 75 RPS, about 6–7 pods at the HPA's 70% |
 | `--steps 2,4,8,12 [--shape ramp]` | Locust users, closed loop |
 | `--probes relaxed` | no liveness probe, readiness tolerates 60 s; an HPA baseline not killed by its own probes |
+| `--probes none` | no probes; the HPA's best case |
 | `--replicas N` | fixed replicas instead of the HPA |
 
 Every run redeploys at one replica and recreates the HPA, so runs carry no state
@@ -35,6 +36,13 @@ over. One experiment runs at a time (`data/experiment.lock`).
 - Do not edit the harness while a series runs. Each repetition starts a new
   Python process and loads whatever the files hold at that moment.
 - Test a Kubernetes patch with `--dry-run=server` before a series depends on it.
+- A finished pod (`Succeeded`) under the app's selector freezes the HPA: it counts
+  as a replica with 0% CPU, the average falls below target and no scale-up
+  happens. The six `burst-*` runs before 2026-10-17 had one; their "HPA never
+  scaled" result is not usable. The harness now refuses to run while finished
+  pods exist.
+- Every deploy restarts the pod. Without probes, an overloaded pod is never
+  restarted, and the next run would inherit hundreds of queued requests.
 
 ## Load: open loop for bursts
 
