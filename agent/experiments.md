@@ -21,6 +21,8 @@ done
 | `--steps 2,4,8,12 [--shape ramp]` | Locust users, closed loop |
 | `--probes relaxed` | no liveness probe, readiness tolerates 60 s; an HPA baseline not killed by its own probes |
 | `--probes none` | no probes; the HPA's best case |
+| `--app NAME` | an application of `apps.json`; `webapp` by default |
+| `--scaler croft` | `croft scale` next to the HPA for the run; needs `--profile` and the collector's `/metrics` |
 | `--replicas N` | fixed replicas instead of the HPA |
 
 Every run redeploys at one replica and recreates the HPA, so runs carry no state

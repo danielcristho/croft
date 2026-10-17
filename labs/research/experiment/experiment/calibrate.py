@@ -8,6 +8,10 @@ import subprocess
 from pathlib import Path
 
 from . import kube, records, web
+from .apps import APPS
+
+# Node speed is measured on the webapp, whose /cpu cost is the unit.
+APP = APPS["webapp"]
 
 # Speed is relative to the fastest node, so effective CPU capacity is cores × speed.
 OUTPUT = records.DATA / "node-speed.json"
@@ -21,9 +25,9 @@ def run_id(prefix: str, node: str, users: int) -> str:
 def measure(prefix: str, nodes: list[str], users: int, warmup: int, seconds: int, cooldown: int) -> None:
     try:
         for node in nodes:
-            web.run(f"{prefix}-{node}", [users], warmup, seconds, cooldown, 1, None, 0, node=node)
+            web.run(APP, f"{prefix}-{node}", [users], warmup, seconds, cooldown, 1, None, 0, node=node)
     finally:
-        web.pin(None)
+        web.pin(APP, None)
 
 
 def croft() -> str:

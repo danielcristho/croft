@@ -1,9 +1,10 @@
-"""Runs the croft experiments on the kubernetes cluster: GPU workloads as Jobs, the webapp under Locust load."""
+"""Runs the croft experiments on the kubernetes cluster: GPU workloads as Jobs, the apps of apps.json under load."""
 
 import argparse
 from pathlib import Path
 
 from experiment import calibrate, gpu, records, web
+from experiment.apps import APPS
 from experiment.profiles import PROFILES
 
 
@@ -20,7 +21,8 @@ def main() -> None:
     gpu_args.add_argument("--node", help="pin every run to one node")
     gpu_args.add_argument("--dry-run", action="store_true")
 
-    web_args = suites.add_parser("web", help="the webapp under Locust load")
+    web_args = suites.add_parser("web", help="an app of apps.json under Locust or open-loop load")
+    web_args.add_argument("--app", choices=sorted(APPS), default="webapp", help="application under test, from apps.json")
     web_args.add_argument("--prefix", required=True, help="run name prefix, e.g. r10 or hpa")
     web_args.add_argument("--users", nargs="+", type=int, default=[10, 20, 40, 80])
     web_args.add_argument("--replicas", type=int, help="fixed replica count; omit to let the HPA scale")
@@ -31,6 +33,7 @@ def main() -> None:
     web_args.add_argument("--profile", choices=sorted(PROFILES), help="one open-loop run of a cloud2023 RPS profile instead")
     web_args.add_argument("--scale", type=float, default=1.0, help="multiply every rate of --profile")
     web_args.add_argument("--probes", choices=sorted(web.PROBES), default="default", help="relaxed: no liveness restart, slower readiness; none: no probes, the HPA best case")
+    web_args.add_argument("--scaler", choices=["none", "croft"], default="none", help="croft: croft scale runs next to the HPA; needs --profile")
     web_args.add_argument("--warmup", type=int, help="seconds; default 60, or 30 with --profile.")
     web_args.add_argument("--seconds", type=int, default=300)
     web_args.add_argument("--cooldown", type=int, help="seconds; default 30, or 15 with --profile.")
@@ -53,15 +56,18 @@ def main() -> None:
         lock = None if args.from_runs else records.hold_lock()
         calibrate.run(args.prefix, args.nodes, args.users, args.warmup, args.seconds, args.cooldown, args.croft_data, args.from_runs)
     else:
+        if args.scaler == "croft" and (not args.profile or args.replicas):
+            parser.error("--scaler croft needs --profile and the HPA, so no --replicas")
         lock = records.hold_lock()
+        app = APPS[args.app]
         if args.profile:
             warmup = 30 if args.warmup is None else args.warmup
             cooldown = 15 if args.cooldown is None else args.cooldown
-            web.run_profile(args.prefix, args.profile, args.scale, warmup, cooldown, args.replicas, args.node, args.probes)
+            web.run_profile(app, args.prefix, args.profile, args.scale, warmup, cooldown, args.replicas, args.node, args.probes, args.scaler == "croft")
         else:
             warmup = 60 if args.warmup is None else args.warmup
             cooldown = 30 if args.cooldown is None else args.cooldown
-            web.run(args.prefix, args.users, warmup, args.seconds, cooldown, args.replicas, args.steps, args.step_seconds, args.shape, args.node)
+            web.run(app, args.prefix, args.users, warmup, args.seconds, cooldown, args.replicas, args.steps, args.step_seconds, args.shape, args.node)
     if lock:
         lock.close()
 

@@ -1,0 +1,16 @@
+{
+  "webapp": {
+    "namespace": "croft-exp",
+    "deployment": "webapp",
+    "container": "webapp",
+    "manifests": "workloads/webapp",
+    "host": "http://web.127.0.0.1.sslip.io:30080",
+    "path": "/cpu",
+    "health": "/health",
+    "scaler": {
+      "syscall": "sendto",
+      "calls_per_request": 2.06,
+      "cpu_per_request_ms": 50
+    }
+  }
+}

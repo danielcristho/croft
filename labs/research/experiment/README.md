@@ -155,6 +155,7 @@ uv run run.py web --prefix hpa                      # the same levels under the 
 uv run run.py web --prefix lead --steps 2,4,8,12    # one run climbing the steps, for lead time
 uv run run.py web --prefix lead --steps 2,4,8,12 --shape ramp  # the same counts, one user at a time
 uv run run.py web --prefix cd --profile ramp --scale 0.3       # an open-loop ramp at 30% of its rates
+uv run run.py web --prefix duo --profile burst --scale 0.5 --scaler croft  # croft scale next to the HPA
 uv run run.py calibrate                             # CPU per request on each node, into data/node-speed.json
 ```
 
@@ -173,7 +174,8 @@ data/
         ├── locust_*.csv      Locust runs: stats, history, failures, exceptions
         ├── workload.csv      open-loop runs: target and achieved RPS, latency per second
         ├── prometheus.csv    cpu_cores, cpu_throttled_s, memory_bytes, network, restarts, replicas
-        └── timeline.json     HPA rescale events and when each pod was created and turned Ready
+        ├── scaler.log        --scaler croft: the scaler's decisions, with timestamps
+        └── timeline.json     HPA rescales, replica set changes from any scaler, pod created and Ready times
 ```
 
 ---
@@ -186,6 +188,8 @@ data/
 - A step jumps the load at once, so every signal reacts within a poll and croft can lead the SLO by a poll at most; the ramp spreads the same rise over each step and shows lead time.
 - Locust runs with `--exit-code-on-error 0`: failed requests are data.
 - `--profile` follows cloud2023's `cloud-dynamics-experiments`: open-loop requests per second (constant, ramp, burst, periodic, variable) with its scenario parameters, a 30 s warm-up at 5 RPS and a 15 s cool-down, and a `workload.csv` with its columns. The webapp costs 40 to 65 ms of CPU per request against cloud2023's lighter `cpu-bound` app, so its rates may need `--scale` to stay within ten pods.
+- `apps.json` lists the applications under test: namespace, Deployment, container, manifest folder (`k8s.yaml` and `hpa.yaml`), host, request and health paths, and the calibration `croft scale` needs (syscall, calls and CPU milliseconds per request). `--app` picks one; a new app is a new entry, not new code.
+- `--scaler croft` deploys `deploy/kubernetes/scaler.yaml` for the app before the warm-up, saves its log and removes it after the run. It needs the collector DaemonSet with `CROFT_METRICS_ADDR` set and an image that has `croft scale`.
 - The first run on a node pulls the PyTorch or ollama image; ollama models are cached per node in `/var/lib/croft/ollama`.
 
 ---
