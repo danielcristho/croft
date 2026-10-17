@@ -1,6 +1,8 @@
 use which::which;
 
+// main reruns the build when bpf-linker changes; without it, the userspace tests still build with AYA_BUILD_SKIP=1.
 fn main() {
-    let bpf_linker = which("bpf-linker").unwrap();
-    println!("cargo:rerun-if-changed={}", bpf_linker.to_str().unwrap());
+    if let Ok(bpf_linker) = which("bpf-linker") {
+        println!("cargo:rerun-if-changed={}", bpf_linker.display());
+    }
 }

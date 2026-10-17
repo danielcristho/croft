@@ -176,6 +176,23 @@ just test    # unit tests
 just lint    # formatting and clippy
 ```
 
+Both build the eBPF program first, which needs `bpf-linker` and Rust nightly
+(see [Toolchain](#toolchain)). Without them, skip the eBPF build: the unit
+tests and clippy cover the userspace code and need no root, kernel or cluster.
+
+```sh
+cd collector
+AYA_BUILD_SKIP=1 cargo test -p collector
+AYA_BUILD_SKIP=1 cargo clippy -p collector --all-targets -- -D warnings
+cargo +nightly fmt --all -- --check
+```
+
+With `AYA_BUILD_SKIP=1` the binary embeds an empty eBPF object, so it builds
+but `croft run` cannot load its programs. Use it for tests only; build without
+it, or with the Docker image, before running the collector.
+
+Run one module's tests by name, for example `cargo test -p collector framework`.
+
 Changes to the eBPF programs or to how rows are written also need a run on a
 real host: start the collector, generate some load, and check the rows with
 `croft top` and `croft stats`.
