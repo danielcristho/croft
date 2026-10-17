@@ -8,7 +8,7 @@ use tokio::{
     net::{TcpListener, TcpStream},
 };
 
-use crate::metrics::Published;
+use crate::pipeline::metrics::Published;
 
 // Constants for the HTTP server.
 const READ_TIMEOUT: Duration = Duration::from_secs(5);

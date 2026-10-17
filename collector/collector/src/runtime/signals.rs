@@ -4,11 +4,10 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use tokio::signal::unix::{SignalKind, signal};
 
-use crate::ansi::LEAVE_SCREEN;
+use crate::runtime::ansi::LEAVE_SCREEN;
 
-// Shell convention: 128 plus the signal number.
+// Constants for the exit handler.
 const EXIT_BASE: i32 = 128;
-
 static ON_ALTERNATE_SCREEN: AtomicBool = AtomicBool::new(false);
 
 // The kernel applies no default action to PID 1, so without a handler Ctrl-C and `docker stop` do nothing.

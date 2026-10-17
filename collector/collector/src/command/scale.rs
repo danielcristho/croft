@@ -12,8 +12,8 @@ use serde_json::{Value, json};
 
 use crate::{
     cli::ScaleArgs,
-    http, metrics,
-    scaler::{self, Calibration, Confirm},
+    pipeline::metrics,
+    runtime::{http, scaler::{self, Calibration, Confirm}},
 };
 
 struct Target {

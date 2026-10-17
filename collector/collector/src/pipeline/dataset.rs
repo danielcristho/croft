@@ -12,10 +12,12 @@ use log::warn;
 use serde::Serialize;
 
 use crate::{
-    classifier::Workload,
-    process::ProcessInfo,
-    resources::{CgroupUsage, ProcessUsage},
-    syscalls::SyscallRate,
+    inspect::{
+        classifier::Workload,
+        process::ProcessInfo,
+        resources::{CgroupUsage, ProcessUsage},
+    },
+    sensing::syscalls::SyscallRate,
 };
 
 // Consts for dataset path and default filename.

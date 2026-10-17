@@ -3,9 +3,11 @@
 use serde::Deserialize;
 
 use crate::{
-    process::ProcessInfo,
-    resources::{CgroupUsage, ProcessUsage},
-    syscalls::SyscallRate,
+    inspect::{
+        process::ProcessInfo,
+        resources::{CgroupUsage, ProcessUsage},
+    },
+    sensing::syscalls::SyscallRate,
 };
 
 // Rows from before resource tracking lack usage; they parse with empty usage.

@@ -1,36 +1,16 @@
 //! Entry point for the croft binary.
 
-mod ansi;
-mod backfill;
-mod banner;
-mod classifier;
 mod cli;
-mod clock;
 mod command;
-mod dataset;
-mod delta;
-mod drops;
-mod ebpf;
-mod framework;
-mod http;
-mod idle;
-mod logging;
-mod maps;
-mod metrics;
-mod namespace;
-mod process;
-mod reporter;
-mod resources;
-mod rows;
-mod scaler;
-mod serve;
-mod signals;
-mod syscalls;
-mod watch;
+mod inspect;
+mod pipeline;
+mod runtime;
+mod sensing;
 
 use clap::Parser;
 
 use crate::cli::{Cli, Command};
+use crate::runtime::{logging, signals};
 
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();

@@ -4,8 +4,11 @@ use anyhow::Context;
 use log::info;
 
 use crate::{
-    backfill, banner, cli::RunArgs, dataset::Dataset, ebpf, framework::Catalog, metrics::Published,
-    namespace, reporter, serve, signals, watch::CgroupWatch,
+    cli::RunArgs,
+    inspect::{framework::Catalog, namespace},
+    pipeline::{dataset::Dataset, metrics::Published, reporter},
+    runtime::{banner, serve, signals},
+    sensing::{backfill, ebpf, watch::CgroupWatch},
 };
 
 // execute runs the collector daemon, loading the eBPF programs and reporting each poll to the dataset.

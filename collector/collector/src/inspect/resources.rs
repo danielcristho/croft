@@ -8,7 +8,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{delta::DeltaTracker, process::CGROUP_ROOT};
+use crate::{inspect::process::CGROUP_ROOT, pipeline::delta::DeltaTracker};
 
 // Consts for the network namespace files in /proc.
 const HOST_NETNS: &str = "/proc/1/ns/net";

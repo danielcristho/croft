@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
 
-use crate::{dataset, framework, watch};
+use crate::{inspect::framework, pipeline::dataset, sensing::watch};
 
 #[derive(Parser)]
 #[command(

@@ -13,7 +13,7 @@ use serde::Serialize;
 use super::stats::dataset_files;
 use crate::{
     cli::ProfileArgs,
-    rows::{self, Line, Row},
+    pipeline::rows::{self, Line, Row},
 };
 
 // Const for the poll interval in milliseconds, the GPU workloads to check, and the percentile for the summary statistics.

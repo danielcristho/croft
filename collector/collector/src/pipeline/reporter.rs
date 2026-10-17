@@ -7,18 +7,20 @@ use collector_common::GpuActivity;
 use log::{debug, info, warn};
 
 use crate::{
-    classifier::{self, Workload},
-    clock::{self, NANOS_PER_MS},
-    dataset::{self, Dataset, Sample},
-    drops::DropWatcher,
-    framework::{Catalog, FrameworkTracker},
-    idle::IdleThrottle,
-    maps,
-    metrics::{Published, Snapshot},
-    process::{self, ProcessInfo},
-    resources::ResourceTracker,
-    syscalls::{self, RateTracker, SyscallCount, SyscallRate},
-    watch::CgroupWatch,
+    inspect::{
+        classifier::{self, Workload},
+        framework::{Catalog, FrameworkTracker},
+        process::{self, ProcessInfo},
+        resources::ResourceTracker,
+    },
+    pipeline::{dataset::{self, Dataset, Sample}, idle::IdleThrottle, metrics::{Published, Snapshot}},
+    sensing::{
+        clock::{self, NANOS_PER_MS},
+        drops::DropWatcher,
+        maps,
+        syscalls::{self, RateTracker, SyscallCount, SyscallRate},
+        watch::CgroupWatch,
+    },
 };
 
 // Consts

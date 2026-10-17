@@ -11,8 +11,7 @@ use anyhow::Context;
 
 use crate::{
     cli::StatsArgs,
-    dataset::now_unix_ms,
-    rows::{self, Line},
+    pipeline::{dataset::now_unix_ms, rows::{self, Line}},
 };
 
 // Consts for the dataset file extension, the label for unlabelled rows, and the number of milliseconds per hour.

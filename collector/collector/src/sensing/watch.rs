@@ -5,7 +5,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::process::CGROUP_ROOT;
+use crate::inspect::process::CGROUP_ROOT;
 
 // Consts for the WATCH_CGROUPS environment variable and the cgroup.procs file.
 pub const ENV: &str = "WATCH_CGROUPS";

@@ -3,11 +3,11 @@
 use std::path::Path;
 
 use crate::{
-    ansi::{
+    pipeline::rows::Row,
+    runtime::ansi::{
         BAR_HEADER, BAR_TITLE, BOLD, BOLD_BLUE, BOLD_GREEN, BOLD_MAGENTA, BOLD_YELLOW, CYAN,
         DIM_GREY, GREEN, GREY, RED, RESET, YELLOW,
     },
-    rows::Row,
 };
 
 // Constants for the top command's layout and thresholds.
@@ -299,7 +299,7 @@ fn truncate(text: &str, width: usize) -> &str {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::resources::ProcessUsage;
+    use crate::inspect::resources::ProcessUsage;
 
     fn row(workload: &str, cpu_cores: f64) -> Row {
         Row {

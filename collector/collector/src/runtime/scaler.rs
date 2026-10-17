@@ -2,7 +2,7 @@
 
 use std::collections::HashSet;
 
-use crate::metrics::{SYSCALL_RATE, Sample};
+use crate::pipeline::metrics::{SYSCALL_RATE, Sample};
 
 // Calibration holds the parameters to turn a syscall rate into a replica count.
 #[derive(Clone, Debug)]

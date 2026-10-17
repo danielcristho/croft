@@ -4,7 +4,7 @@ use aya::Ebpf;
 use collector_common::DropSite;
 use log::warn;
 
-use crate::maps;
+use crate::sensing::maps;
 
 #[derive(Default)]
 pub struct DropWatcher {

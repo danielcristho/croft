@@ -1,6 +1,6 @@
 //! Startup banner.
 
-use crate::ansi::{BOLD_CYAN, RESET};
+use crate::runtime::ansi::{BOLD_CYAN, RESET};
 
 const GLYPH_ROWS: usize = 5;
 const WORD: &str = "CROFT";

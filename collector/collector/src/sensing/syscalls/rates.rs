@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::{SyscallCount, names};
-use crate::delta::DeltaTracker;
+use crate::pipeline::delta::DeltaTracker;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SyscallRate {
@@ -51,7 +51,7 @@ impl RateTracker {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::clock::NANOS_PER_SEC;
+    use crate::sensing::clock::NANOS_PER_SEC;
 
     const IOCTL: u32 = 16;
 

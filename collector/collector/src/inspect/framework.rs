@@ -11,7 +11,7 @@ use anyhow::{Context, bail};
 use serde::Deserialize;
 
 // Constant catalog is built into the binary, but can be overridden by a file path in the environment.
-const DEFAULT_CATALOG: &str = include_str!("../frameworks.json");
+const DEFAULT_CATALOG: &str = include_str!("../../frameworks.json");
 pub const ENV: &str = "CROFT_FRAMEWORKS";
 
 #[derive(Debug, Deserialize)]

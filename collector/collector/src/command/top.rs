@@ -14,11 +14,9 @@ use anyhow::Context;
 
 use self::view::Style;
 use crate::{
-    ansi::{CLEAR_BELOW, CLEAR_LINE_END, ENTER_SCREEN, HOME, LEAVE_SCREEN},
     cli::TopArgs,
-    dataset::now_unix_ms,
-    rows::{self, Line, Row},
-    signals,
+    pipeline::{dataset::now_unix_ms, rows::{self, Line, Row}},
+    runtime::{ansi::{CLEAR_BELOW, CLEAR_LINE_END, ENTER_SCREEN, HOME, LEAVE_SCREEN}, signals},
 };
 
 // Consts for the number of bytes to read from the end of the dataset file, the time window for a poll, and the number of top syscalls to display.
@@ -133,7 +131,7 @@ fn cpu(row: &Row) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::resources::ProcessUsage;
+    use crate::inspect::resources::ProcessUsage;
 
     fn row(unix_ms: u64, tgid: u32, cpu_cores: f64) -> Row {
         Row {

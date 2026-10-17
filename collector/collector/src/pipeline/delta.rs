@@ -2,7 +2,7 @@
 
 use std::{collections::HashMap, hash::Hash};
 
-use crate::clock::NANOS_PER_SEC;
+use crate::sensing::clock::NANOS_PER_SEC;
 
 struct Seen {
     value: u64,

@@ -2,7 +2,7 @@
 
 use collector_common::GpuActivity;
 
-use crate::clock::NANOS_PER_SEC;
+use crate::sensing::clock::NANOS_PER_SEC;
 
 const RECENT_WINDOW_NS: u64 = 5 * NANOS_PER_SEC;
 

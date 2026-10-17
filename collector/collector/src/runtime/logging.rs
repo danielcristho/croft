@@ -7,7 +7,7 @@ use std::{
 
 use log::Level;
 
-use crate::ansi::{
+use crate::runtime::ansi::{
     BADGE_DEBUG, BADGE_ERROR, BADGE_INFO, BADGE_TRACE, BADGE_WARN, BOLD, BOLD_BLUE, BOLD_GREEN,
     BOLD_MAGENTA, BOLD_RED, BOLD_YELLOW, BRIGHT_WHITE, DIM_GREY, GREY, RESET,
 };

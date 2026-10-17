@@ -6,7 +6,10 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use crate::{process::ProcessInfo, resources::CgroupUsage, syscalls::SyscallRate};
+use crate::{
+    inspect::{process::ProcessInfo, resources::CgroupUsage},
+    sensing::syscalls::SyscallRate,
+};
 
 pub const CPU_CORES: &str = "croft_container_cpu_cores";
 pub const CPU_PRESSURE: &str = "croft_container_cpu_pressure_avg10";

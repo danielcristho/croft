@@ -10,7 +10,7 @@ use aya::Ebpf;
 use collector_common::{PRESENT, is_gpu_path, pack_key};
 use log::warn;
 
-use crate::maps;
+use crate::sensing::maps;
 
 // scan_gpu_fds scans /proc for open GPU fds and inserts them into the eBPF GPU_FDS map.
 pub fn scan_gpu_fds(ebpf: &mut Ebpf) -> anyhow::Result<()> {
