@@ -222,3 +222,6 @@ __marimo__/
 
 # The real lab inventory holds host addresses and users
 labs/k3s-cluster/hosts.ini
+
+# Working design notes, kept local
+/docs/
