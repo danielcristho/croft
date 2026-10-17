@@ -16,8 +16,9 @@ Everyone taking part follows the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Pipeline
 
-croft reads what processes do in the kernel and, later, decides when to scale.
-Only the first two stages are built.
+croft reads what processes do in the kernel and decides when to scale. The
+scaler is built for Kubernetes and not yet validated against the HPA; Docker
+Swarm and Nomad are not built.
 
 ```text
 kernel tracepoints (eBPF)
@@ -25,9 +26,10 @@ kernel tracepoints (eBPF)
        v
 collector ──> dataset (JSON Lines, one row per process per 2 s poll)
        |
-       v
-burst detector ──> scaler ──> Kubernetes, Docker Swarm, Nomad
-   (not built)     (not built)
+       └────> /metrics (per container, latest poll)
+                  |
+                  v
+          croft scale ──> Kubernetes Deployment replicas
 ```
 
 Each stage stays replaceable: a stage never depends on one to its right.
@@ -38,7 +40,14 @@ Each stage stays replaceable: a stage never depends on one to its right.
 croft/
 ├── collector/                 Rust workspace
 │   ├── collector/             userspace: CLI, polling, dataset writer
-│   │   └── src/command/       one file per `croft` subcommand
+│   │   ├── frameworks.json    framework catalog, built in and replaceable
+│   │   └── src/
+│   │       ├── command/       one file per `croft` subcommand
+│   │       ├── sensing/       eBPF loading, maps, syscall names and rates
+│   │       ├── inspect/       /proc and cgroup readers, workload and framework
+│   │       ├── pipeline/      poll reporter, dataset rows, /metrics snapshot
+│   │       ├── decision/      replicas a workload needs
+│   │       └── runtime/       logging, signals, terminal, HTTP
 │   ├── collector-ebpf/        eBPF programs (nightly Rust, bpf-linker)
 │   └── collector-common/      types shared by both sides
 ├── deploy/                    Docker, Kubernetes and systemd deployment
@@ -72,10 +81,14 @@ GPU tracepoints ──> GPU_FDS, GPU_ACTIVITY maps (GPU device fds, ioctls sent 
 - `collector-ebpf/src/` holds the programs attached to the tracepoints
   (`syscalls.rs`, `gpu.rs`, and `exit.rs`, which clears a process's state when it
   exits) and the maps they fill (`maps.rs`).
-- `collector/src/` loads them (`ebpf.rs`), polls the maps (`reporter.rs`), names
-  syscalls (`syscalls.rs`), turns cumulative counters into rates (`delta.rs`),
-  reads a process's identity (`process.rs`) and its resources from `/proc` and
-  cgroups (`resources.rs`), and writes rows (`dataset.rs`).
+- `collector/src/sensing/` loads them (`ebpf.rs`), reads the maps (`maps.rs`)
+  and names syscalls (`syscalls.rs`).
+- `collector/src/inspect/` reads a process's identity (`process.rs`), its
+  resources from `/proc` and cgroups (`resources.rs`), its GPU state
+  (`classifier.rs`) and its framework (`framework.rs`).
+- `collector/src/pipeline/` polls every 2 s (`reporter.rs`), turns cumulative
+  counters into rates (`delta.rs`), writes rows (`dataset.rs`) and the
+  `/metrics` snapshot (`metrics.rs`).
 - Every row carries the container id, so experiments join their runs to the
   dataset by that id.
 
