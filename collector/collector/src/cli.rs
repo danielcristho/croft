@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
 
-use crate::{dataset, watch};
+use crate::{dataset, framework, watch};
 
 #[derive(Parser)]
 #[command(
@@ -47,6 +47,9 @@ pub struct RunArgs {
     /// Also record every process in cgroups whose path contains one of these comma-separated substrings
     #[arg(long, env = watch::ENV, default_value = "")]
     pub watch: String,
+    /// JSON catalog of frameworks to detect from mapped libraries; the built-in one when unset
+    #[arg(long, env = framework::ENV)]
+    pub frameworks: Option<PathBuf>,
 }
 
 #[derive(Args)]

@@ -11,7 +11,7 @@ use crate::{
     clock::{self, NANOS_PER_MS},
     dataset::{Dataset, Sample},
     drops::DropWatcher,
-    framework::FrameworkTracker,
+    framework::{Catalog, FrameworkTracker},
     idle::IdleThrottle,
     maps,
     process::{self, ProcessInfo},
@@ -30,9 +30,9 @@ const IDLE_HEARTBEAT_POLLS: u64 = 15;
 const IDLE_RATE: f64 = 0.005;
 const FRAMEWORK_RECHECK_POLLS: u64 = 30;
 
-pub async fn run(ebpf: Ebpf, dataset: Dataset, watch: CgroupWatch) {
+pub async fn run(ebpf: Ebpf, dataset: Dataset, watch: CgroupWatch, frameworks: Catalog) {
     let mut interval = tokio::time::interval(POLL_INTERVAL);
-    let mut reporter = Reporter::new(dataset, watch);
+    let mut reporter = Reporter::new(dataset, watch, frameworks);
     loop {
         interval.tick().await;
         if let Err(e) = reporter.poll(&ebpf) {
@@ -67,7 +67,7 @@ struct Summary {
 }
 
 impl Reporter {
-    fn new(dataset: Dataset, watch: CgroupWatch) -> Self {
+    fn new(dataset: Dataset, watch: CgroupWatch, frameworks: Catalog) -> Self {
         Self {
             dataset,
             watch,
@@ -75,7 +75,7 @@ impl Reporter {
             rates: RateTracker::default(),
             resources: ResourceTracker::new(),
             idle: IdleThrottle::new(IDLE_HEARTBEAT_POLLS),
-            frameworks: FrameworkTracker::new(FRAMEWORK_RECHECK_POLLS),
+            frameworks: FrameworkTracker::new(frameworks, FRAMEWORK_RECHECK_POLLS),
             summary: Summary::default(),
         }
     }
@@ -157,8 +157,8 @@ impl Reporter {
             workload.label(),
             process.comm.as_deref().unwrap_or("?"),
         );
-        if let Some(framework) = process.framework {
-            line.push_str(&format!(" framework={}", framework.label()));
+        if let Some(framework) = &process.framework {
+            line.push_str(&format!(" framework={framework}"));
         }
         if let Some(container) = &process.container_id {
             line.push_str(&format!(

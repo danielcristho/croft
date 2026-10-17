@@ -4,8 +4,8 @@ use anyhow::Context;
 use log::info;
 
 use crate::{
-    backfill, banner, cli::RunArgs, dataset::Dataset, ebpf, namespace, reporter, signals,
-    watch::CgroupWatch,
+    backfill, banner, cli::RunArgs, dataset::Dataset, ebpf, framework::Catalog, namespace,
+    reporter, signals, watch::CgroupWatch,
 };
 
 // execute runs the collector daemon, loading the eBPF programs and reporting each poll to the dataset.
@@ -18,14 +18,15 @@ pub fn execute(args: &RunArgs) -> anyhow::Result<()> {
     }
     let dataset = Dataset::new(path);
     let watch = CgroupWatch::new(&args.watch);
+    let frameworks = Catalog::load(args.frameworks.as_deref())?;
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?
-        .block_on(collect(dataset, watch))
+        .block_on(collect(dataset, watch, frameworks))
 }
 
 // Run the collector, polling eBPF maps and reporting to the dataset.
-async fn collect(dataset: Dataset, watch: CgroupWatch) -> anyhow::Result<()> {
+async fn collect(dataset: Dataset, watch: CgroupWatch, frameworks: Catalog) -> anyhow::Result<()> {
     let mut ebpf = ebpf::load_and_attach()?;
     backfill::scan_gpu_fds(&mut ebpf)?;
     info!(
@@ -39,7 +40,7 @@ async fn collect(dataset: Dataset, watch: CgroupWatch) -> anyhow::Result<()> {
         },
         reporter::POLL_INTERVAL.as_secs()
     );
-    tokio::task::spawn(reporter::run(ebpf, dataset, watch));
+    tokio::task::spawn(reporter::run(ebpf, dataset, watch, frameworks));
 
     info!("collector running, Ctrl-C to stop");
     let received = signals::shutdown().await?;

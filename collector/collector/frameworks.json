@@ -1,0 +1,15 @@
+[
+  {
+    "name": "pytorch",
+    "libraries": ["libtorch_cpu.so", "libtorch_cuda.so"]
+  },
+  {
+    "name": "tensorflow",
+    "libraries": ["libtensorflow_framework.so", "libtensorflow_cc.so", "_pywrap_tensorflow_internal.so"]
+  },
+  {
+    "name": "jax",
+    "libraries": ["xla_extension.so"],
+    "directories": ["/jaxlib/"]
+  }
+]

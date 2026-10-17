@@ -50,6 +50,21 @@ One source of truth per piece of knowledge:
 Extend an existing helper before writing a second one. Do not merge code that
 only looks alike: DRY is about one piece of knowledge, not similar lines.
 
+## Data in files, not in code
+
+Lists and tunable values that change per application, per cluster or per
+experiment live in a JSON file next to the code that reads it, not in the code:
+framework libraries (`collector/collector/frameworks.json`), applications under
+test, load profiles, probe settings, calibration numbers.
+
+- The file is read once at startup and validated; a bad file stops the program
+  with a clear error. Matching against it costs the same as a constant.
+- In Rust the file is embedded as the default with `include_str!`, and an
+  option with an env fallback replaces it (`--frameworks`, `CROFT_FRAMEWORKS`),
+  so a ConfigMap changes it without a rebuild.
+- Facts of a mechanism stay in code: kernel syscall numbers, `/proc` paths,
+  units, metric names that form a format contract.
+
 ## Research code
 
 - Anything that produced a number in a report is reproducible: pin the input,
