@@ -9,11 +9,12 @@ use log::{debug, info, warn};
 use crate::{
     classifier::{self, Workload},
     clock::{self, NANOS_PER_MS},
-    dataset::{Dataset, Sample},
+    dataset::{self, Dataset, Sample},
     drops::DropWatcher,
     framework::{Catalog, FrameworkTracker},
     idle::IdleThrottle,
     maps,
+    metrics::{Published, Snapshot},
     process::{self, ProcessInfo},
     resources::ResourceTracker,
     syscalls::{self, RateTracker, SyscallCount, SyscallRate},
@@ -30,9 +31,15 @@ const IDLE_HEARTBEAT_POLLS: u64 = 15;
 const IDLE_RATE: f64 = 0.005;
 const FRAMEWORK_RECHECK_POLLS: u64 = 30;
 
-pub async fn run(ebpf: Ebpf, dataset: Dataset, watch: CgroupWatch, frameworks: Catalog) {
+pub async fn run(
+    ebpf: Ebpf,
+    dataset: Dataset,
+    watch: CgroupWatch,
+    frameworks: Catalog,
+    published: Option<Published>,
+) {
     let mut interval = tokio::time::interval(POLL_INTERVAL);
-    let mut reporter = Reporter::new(dataset, watch, frameworks);
+    let mut reporter = Reporter::new(dataset, watch, frameworks, published);
     loop {
         interval.tick().await;
         if let Err(e) = reporter.poll(&ebpf) {
@@ -56,6 +63,8 @@ struct Reporter {
     idle: IdleThrottle,
     frameworks: FrameworkTracker,
     summary: Summary,
+    published: Option<Published>,
+    snapshot: Snapshot,
 }
 
 #[derive(Default)]
@@ -67,7 +76,12 @@ struct Summary {
 }
 
 impl Reporter {
-    fn new(dataset: Dataset, watch: CgroupWatch, frameworks: Catalog) -> Self {
+    fn new(
+        dataset: Dataset,
+        watch: CgroupWatch,
+        frameworks: Catalog,
+        published: Option<Published>,
+    ) -> Self {
         Self {
             dataset,
             watch,
@@ -77,6 +91,8 @@ impl Reporter {
             idle: IdleThrottle::new(IDLE_HEARTBEAT_POLLS),
             frameworks: FrameworkTracker::new(frameworks, FRAMEWORK_RECHECK_POLLS),
             summary: Summary::default(),
+            published,
+            snapshot: Snapshot::default(),
         }
     }
 
@@ -90,12 +106,26 @@ impl Reporter {
             let counts = by_tgid.get(&subject.tgid).map_or(&[][..], Vec::as_slice);
             self.report(&subject, counts, now);
         }
+        self.publish();
         self.rates.end_poll();
         self.resources.end_poll();
         self.idle.end_poll();
         self.frameworks.end_poll();
         self.summary.end_poll();
         Ok(())
+    }
+
+    // publish swaps in this poll's snapshot; containers that left are gone from it.
+    fn publish(&mut self) {
+        let snapshot = std::mem::take(&mut self.snapshot);
+        let Some(published) = &self.published else {
+            return;
+        };
+        let text = snapshot.render(dataset::now_unix_ms());
+        match published.write() {
+            Ok(mut current) => *current = text,
+            Err(poisoned) => *poisoned.into_inner() = text,
+        }
     }
 
     // subjects adds, to the GPU holders, every process in a watched cgroup except pod sandboxes.
@@ -144,6 +174,10 @@ impl Reporter {
             .cgroup
             .as_deref()
             .map(|cgroup| self.resources.cgroup(cgroup, now));
+        // The snapshot sees idle processes too: a container's rate must not drop out while its rows are thinned.
+        if self.published.is_some() {
+            self.snapshot.add(process, cgroup_usage.as_ref(), &rates);
+        }
         // GPU holders are never thinned: a process busy on mapped GPU queues looks idle to the CPU.
         let idle = workload == Workload::NoGpu
             && usage.cpu_cores.unwrap_or(0.0) < IDLE_RATE

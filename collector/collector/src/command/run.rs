@@ -4,8 +4,8 @@ use anyhow::Context;
 use log::info;
 
 use crate::{
-    backfill, banner, cli::RunArgs, dataset::Dataset, ebpf, framework::Catalog, namespace,
-    reporter, signals, watch::CgroupWatch,
+    backfill, banner, cli::RunArgs, dataset::Dataset, ebpf, framework::Catalog, metrics::Published,
+    namespace, reporter, serve, signals, watch::CgroupWatch,
 };
 
 // execute runs the collector daemon, loading the eBPF programs and reporting each poll to the dataset.
@@ -22,11 +22,26 @@ pub fn execute(args: &RunArgs) -> anyhow::Result<()> {
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?
-        .block_on(collect(dataset, watch, frameworks))
+        .block_on(collect(dataset, watch, frameworks, &args.metrics_addr))
 }
 
 // Run the collector, polling eBPF maps and reporting to the dataset.
-async fn collect(dataset: Dataset, watch: CgroupWatch, frameworks: Catalog) -> anyhow::Result<()> {
+async fn collect(
+    dataset: Dataset,
+    watch: CgroupWatch,
+    frameworks: Catalog,
+    metrics_addr: &str,
+) -> anyhow::Result<()> {
+    let published = if metrics_addr.is_empty() {
+        None
+    } else {
+        let listener = tokio::net::TcpListener::bind(metrics_addr)
+            .await
+            .with_context(|| format!("bind metrics address {metrics_addr}"))?;
+        let published = Published::default();
+        tokio::task::spawn(serve::run(listener, published.clone()));
+        Some(published)
+    };
     let mut ebpf = ebpf::load_and_attach()?;
     backfill::scan_gpu_fds(&mut ebpf)?;
     info!(
@@ -40,7 +55,7 @@ async fn collect(dataset: Dataset, watch: CgroupWatch, frameworks: Catalog) -> a
         },
         reporter::POLL_INTERVAL.as_secs()
     );
-    tokio::task::spawn(reporter::run(ebpf, dataset, watch, frameworks));
+    tokio::task::spawn(reporter::run(ebpf, dataset, watch, frameworks, published));
 
     info!("collector running, Ctrl-C to stop");
     let received = signals::shutdown().await?;

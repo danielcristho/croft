@@ -1,0 +1,84 @@
+# One scaler per Deployment it scales. It reads the collectors' /metrics and patches the Deployment's scale through a
+# kubectl proxy sidecar. The calibration arguments belong to the application: measure them before a run.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: croft-scaler
+  namespace: croft
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: croft-scaler
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get"]
+  - apiGroups: ["apps"]
+    resources: ["deployments/scale"]
+    verbs: ["get", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: croft-scaler
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: croft-scaler
+subjects:
+  - kind: ServiceAccount
+    name: croft-scaler
+    namespace: croft
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: croft-scaler-webapp
+  namespace: croft
+  labels:
+    app: croft-scaler
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: croft-scaler
+      target: webapp
+  template:
+    metadata:
+      labels:
+        app: croft-scaler
+        target: webapp
+    spec:
+      serviceAccountName: croft-scaler
+      containers:
+        - name: scaler
+          image: croft-collector:dev
+          imagePullPolicy: IfNotPresent
+          args:
+            - scale
+            - --namespace=croft-exp
+            - --deployment=webapp
+            - --calls-per-request=2.06
+            - --cpu-per-request-ms=50
+          env:
+            - name: RUST_LOG
+              value: info
+          resources:
+            requests:
+              cpu: 20m
+              memory: 16Mi
+            limits:
+              memory: 64Mi
+        - name: proxy
+          image: registry.k8s.io/kubectl:v1.36.4
+          args: ["proxy", "--port=8001", "--address=127.0.0.1"]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 128Mi

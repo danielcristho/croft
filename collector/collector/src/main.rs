@@ -12,14 +12,18 @@ mod delta;
 mod drops;
 mod ebpf;
 mod framework;
+mod http;
 mod idle;
 mod logging;
 mod maps;
+mod metrics;
 mod namespace;
 mod process;
 mod reporter;
 mod resources;
 mod rows;
+mod scaler;
+mod serve;
 mod signals;
 mod syscalls;
 mod watch;
@@ -41,5 +45,6 @@ fn main() -> anyhow::Result<()> {
         Command::Profile(args) => command::profile::execute(&args),
         Command::Deploy(args) => command::deploy::execute(&args),
         Command::Collect(args) => command::collect::execute(&args),
+        Command::Scale(args) => command::scale::execute(&args),
     }
 }
