@@ -112,7 +112,7 @@ fn local_size(local: &Path) -> u64 {
 // remote_size returns the size of the remote file, or an error if it cannot be read.
 fn remote_size(args: &CollectArgs, pod: &Pod) -> anyhow::Result<u64> {
     let size = external::output(
-        // Use kubectl exec to run stat in the collector pod, 
+        // Use kubectl exec to run stat in the collector pod,
         // and read the size of the remote file.
         "kubectl",
         &exec(args, pod, &["stat", "-c", "%s", &args.remote]),
