@@ -4,6 +4,5 @@ pub mod ansi;
 pub mod banner;
 pub mod http;
 pub mod logging;
-pub mod scaler;
 pub mod serve;
 pub mod signals;

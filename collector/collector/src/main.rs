@@ -2,6 +2,7 @@
 
 mod cli;
 mod command;
+mod decision;
 mod inspect;
 mod pipeline;
 mod runtime;
