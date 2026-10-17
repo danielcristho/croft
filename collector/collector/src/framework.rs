@@ -1,4 +1,4 @@
-//! Detects the ML framework a process runs from the libraries mapped into it, by a catalog read once at startup.
+//! Framework detection reads a process's /proc/<pid>/maps to find a framework in the catalog.
 
 use std::{
     collections::{HashMap, HashSet},
@@ -10,7 +10,7 @@ use std::{
 use anyhow::{Context, bail};
 use serde::Deserialize;
 
-// The catalog built into the binary; --frameworks replaces it without a rebuild.
+// Constant catalog is built into the binary, but can be overridden by a file path in the environment.
 const DEFAULT_CATALOG: &str = include_str!("../frameworks.json");
 pub const ENV: &str = "CROFT_FRAMEWORKS";
 
@@ -18,15 +18,12 @@ pub const ENV: &str = "CROFT_FRAMEWORKS";
 #[serde(deny_unknown_fields)]
 struct Entry {
     name: String,
-    // File name prefixes, so versioned names such as libtensorflow_framework.so.2 match.
     #[serde(default)]
     libraries: Vec<String>,
-    // Path substrings, for packages that rename their libraries between releases.
     #[serde(default)]
     directories: Vec<String>,
 }
 
-// Catalog keeps the file's order: when a process maps several frameworks, the earliest entry wins.
 #[derive(Debug)]
 pub struct Catalog {
     entries: Vec<Entry>,
@@ -80,6 +77,7 @@ impl Catalog {
         best
     }
 
+    // entry_of returns the index of the first entry that matches the path, or None if none match.
     fn entry_of(&self, path: &str) -> Option<usize> {
         let name = path.rsplit('/').next()?;
         self.entries.iter().position(|entry| {
@@ -94,6 +92,7 @@ impl Catalog {
         })
     }
 
+    // read_maps reads a process's /proc/<pid>/maps and returns the index of the earliest entry that matches, or None if none match.
     fn read_maps(&self, tgid: u32) -> Option<usize> {
         let file = File::open(format!("/proc/{tgid}/maps")).ok()?;
         self.detect(BufReader::new(file).lines().map_while(Result::ok))
@@ -138,7 +137,7 @@ impl FrameworkTracker {
         Some(self.catalog.name(index).to_string())
     }
 
-    // lookup keeps a found framework; a process with none is read again while it is younger than recheck_polls.
+    // lookup returns the index of the framework for a tgid, reading it if not known and not too many polls have passed.
     fn lookup(
         &mut self,
         tgid: u32,

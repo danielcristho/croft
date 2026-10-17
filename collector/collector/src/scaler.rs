@@ -1,10 +1,10 @@
-//! Scale-up decision from kernel-observed request rates: replicas a load needs before the CPU average shows it.
+//! Scaler turns syscall rates into replica counts, using a calibration and a target CPU limit.
 
 use std::collections::HashSet;
 
 use crate::metrics::{SYSCALL_RATE, Sample};
 
-// Calibration turns a syscall rate into CPU demand; both numbers are measured per application.
+// Calibration holds the parameters to turn a syscall rate into a replica count.
 #[derive(Clone, Debug)]
 pub struct Calibration {
     pub syscall: String,
@@ -13,7 +13,7 @@ pub struct Calibration {
     pub target_utilization: f64,
 }
 
-// requests_per_sec sums the syscall over the deployment's containers, wherever their collector runs.
+// requests_per_sec sums the syscall rates of the given samples, filtering by the given containers and calibration.
 pub fn requests_per_sec(
     samples: &[Sample],
     containers: &HashSet<String>,
@@ -32,7 +32,7 @@ pub fn requests_per_sec(
         / calibration.calls_per_request
 }
 
-// needed is the HPA's own formula fed with offered CPU instead of measured CPU.
+// needed returns the number of replicas needed to handle the given requests per second, given the CPU limit and calibration, clamped to [1, max_replicas].
 pub fn needed(
     requests_per_sec: f64,
     cpu_limit_cores: f64,
@@ -117,7 +117,6 @@ mod tests {
 
     #[test]
     fn needed_follows_offered_cpu() {
-        // 75 requests/s × 50 ms = 3.75 cores; one core at 70% → 6 replicas.
         assert_eq!(needed(75.0, 1.0, &calibration(), 10), 6);
         assert_eq!(needed(0.0, 1.0, &calibration(), 10), 1);
         assert_eq!(needed(1000.0, 1.0, &calibration(), 10), 10);

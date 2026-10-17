@@ -1,4 +1,4 @@
-//! Minimal blocking HTTP/1.0 client for plain-text endpoints: collector metrics and a `kubectl proxy`.
+//! HTTP client for the collector, used to fetch metrics and send them to the API.
 
 use std::{
     io::{Read, Write},

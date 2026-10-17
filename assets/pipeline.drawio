@@ -1,0 +1,71 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="croft pipeline" id="croft-pipeline">
+    <mxGraphModel dx="1200" dy="700" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1000" pageHeight="420" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Built stages -->
+        <mxCell id="ebpf" value="eBPF" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe9a8;strokeColor=#2b2b2b;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="40" y="60" width="140" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="dataset" value="dataset" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#cdeccd;strokeColor=#2b2b2b;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="220" y="60" width="140" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- Planned stages: dashed outline, no fill -->
+        <mxCell id="classify" value="classify" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#2b2b2b;dashed=1;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="400" y="60" width="140" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="decide" value="decide" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#2b2b2b;dashed=1;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="580" y="60" width="140" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="act" value="act" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#2b2b2b;dashed=1;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="760" y="60" width="140" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- Pipeline arrows: solid, the stages they connect are what's dashed/not -->
+        <mxCell id="e-ebpf-dataset" style="endArrow=block;html=1;strokeColor=#2b2b2b;" edge="1" parent="1" source="ebpf" target="dataset">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-dataset-classify" style="endArrow=block;html=1;strokeColor=#2b2b2b;" edge="1" parent="1" source="dataset" target="classify">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-classify-decide" style="endArrow=block;html=1;strokeColor=#2b2b2b;" edge="1" parent="1" source="classify" target="decide">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-decide-act" style="endArrow=block;html=1;strokeColor=#2b2b2b;" edge="1" parent="1" source="decide" target="act">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Platform integration targets: dashed, not built yet -->
+        <mxCell id="k8s" value="K8s" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#6b6b6b;dashed=1;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="610" y="280" width="90" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="docker" value="Docker" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#6b6b6b;dashed=1;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="720" y="280" width="90" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="cloudx" value="CloudX" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#6b6b6b;dashed=1;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="830" y="280" width="90" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="nomad" value="Nomad" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#6b6b6b;dashed=1;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="940" y="280" width="90" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e-act-k8s" style="endArrow=block;html=1;dashed=1;strokeColor=#6b6b6b;exitX=0.3;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="act" target="k8s">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-act-docker" style="endArrow=block;html=1;dashed=1;strokeColor=#6b6b6b;exitX=0.4;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="act" target="docker">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-act-cloudx" style="endArrow=block;html=1;dashed=1;strokeColor=#6b6b6b;exitX=0.6;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="act" target="cloudx">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-act-nomad" style="endArrow=block;html=1;dashed=1;strokeColor=#6b6b6b;exitX=0.7;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="act" target="nomad">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

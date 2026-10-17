@@ -47,11 +47,8 @@ fn raise_memlock() {
         rlim_cur: libc::RLIM_INFINITY,
         rlim_max: libc::RLIM_INFINITY,
     };
-    // SAFETY: rl// Warning: this will be printed on shutdown, but also if the eBPF program panics and the log stream closes.im is a valid rlimit for setrlimit to read.
     let ret = unsafe { libc::setrlimit(libc::RLIMIT_MEMLOCK, &rlim) };
     if ret != 0 {
-        // WARNING: this is not fatal, because kernels 5.11+ do not charge eBPF maps against RLIMIT_MEMLOCK,
-        // but it may cause the eBPF program to fail to load on older kernels.
         warn!("raise RLIMIT_MEMLOCK: setrlimit returned {ret}");
     }
 }
@@ -72,8 +69,6 @@ fn bridge_ebpf_logger(ebpf: &mut Ebpf) -> anyhow::Result<()> {
             guard.get_inner_mut().flush();
             guard.clear_ready();
         }
-        // Warning: this will be printed on shutdown,
-        // but also if the eBPF program panics and the log stream closes.
         warn!("eBPF log stream closed");
     });
     Ok(())

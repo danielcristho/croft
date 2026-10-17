@@ -10,8 +10,8 @@ use tokio::{
 
 use crate::metrics::Published;
 
+// Constants for the HTTP server.
 const READ_TIMEOUT: Duration = Duration::from_secs(5);
-// A request line and headers from a scraper fit well under this; the body of a GET is empty.
 const MAX_REQUEST_BYTES: usize = 8 * 1024;
 
 pub async fn run(listener: TcpListener, published: Published) {
@@ -31,6 +31,7 @@ pub async fn run(listener: TcpListener, published: Published) {
     }
 }
 
+// answer reads a request from the stream, writes a response, and closes the connection.
 async fn answer(mut stream: TcpStream, published: Published) {
     let mut request = vec![0u8; MAX_REQUEST_BYTES];
     let read = match tokio::time::timeout(READ_TIMEOUT, stream.read(&mut request)).await {
