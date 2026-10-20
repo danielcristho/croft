@@ -1,0 +1,316 @@
+# One small CPU training job per ML framework, to check croft's framework detection on the cluster.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: croft-frameworks
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: train
+  namespace: croft-frameworks
+data:
+  # Fits a small model over and over for DURATION_S seconds, then exits, so the job has a start and an end.
+  train.py: |
+    import os
+    import time
+
+    import numpy as np
+
+    FRAMEWORK = os.environ["FRAMEWORK"]
+    DURATION_S = float(os.environ.get("DURATION_S", "600"))
+    x = np.random.rand(2000, 32).astype("float32")
+    y = (x.sum(axis=1) > 16).astype("float32")
+
+
+    def step_pytorch():
+        import torch
+        model = torch.nn.Sequential(torch.nn.Linear(32, 64), torch.nn.ReLU(), torch.nn.Linear(64, 1))
+        optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
+        loss = torch.nn.functional.binary_cross_entropy_with_logits(model(torch.from_numpy(x)).squeeze(1), torch.from_numpy(y))
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+
+    def step_tensorflow():
+        import tensorflow as tf
+        model = tf.keras.Sequential([tf.keras.Input((32,)), tf.keras.layers.Dense(64, activation="relu"), tf.keras.layers.Dense(1)])
+        model.compile(optimizer="sgd", loss=tf.keras.losses.BinaryCrossentropy(from_logits=True))
+        model.fit(x, y, epochs=1, verbose=0)
+
+
+    def step_jax():
+        import jax
+        import jax.numpy as jnp
+        w = jnp.zeros(32)
+        loss = lambda w: jnp.mean((jax.nn.sigmoid(x @ w) - y) ** 2)
+        for _ in range(50):
+            w = w - 0.1 * jax.grad(loss)(w)
+
+
+    def step_onnxruntime():
+        import onnx
+        import onnxruntime
+        from onnx import TensorProto, helper
+        weight = helper.make_tensor("w", TensorProto.FLOAT, [32, 1], np.random.rand(32).astype("float32").tolist())
+        graph = helper.make_graph([helper.make_node("MatMul", ["x", "w"], ["y"])], "score",
+                                  [helper.make_tensor_value_info("x", TensorProto.FLOAT, [None, 32])],
+                                  [helper.make_tensor_value_info("y", TensorProto.FLOAT, [None, 1])], [weight])
+        model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 17)])
+        session = onnxruntime.InferenceSession(model.SerializeToString())
+        for _ in range(200):
+            session.run(None, {"x": x})
+
+
+    def step_xgboost():
+        import xgboost
+        xgboost.train({"max_depth": 4}, xgboost.DMatrix(x, label=y), 20)
+
+
+    def step_sklearn():
+        from sklearn.ensemble import RandomForestClassifier
+        RandomForestClassifier(n_estimators=20).fit(x, y)
+
+
+    step = globals()[f"step_{FRAMEWORK}"]
+    started = time.time()
+    steps = 0
+    while time.time() - started < DURATION_S:
+        step()
+        steps += 1
+    print(f"{FRAMEWORK}: {steps} steps in {time.time() - started:.0f} s")
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: pytorch
+  namespace: croft-frameworks
+  labels: &labels
+    app: croft-frameworks
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels: *labels
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: train
+          image: python:3.12-slim
+          command: ["sh", "-c", "pip install -q --no-cache-dir $PACKAGES && exec python /train/train.py"]
+          env:
+            - name: FRAMEWORK
+              value: pytorch
+            - name: PACKAGES
+              value: "numpy torch --index-url https://download.pytorch.org/whl/cpu --extra-index-url https://pypi.org/simple"
+          resources:
+            requests:
+              cpu: "1"
+              memory: 1Gi
+            limits:
+              cpu: "1"
+              memory: 2Gi
+          volumeMounts:
+            - name: train
+              mountPath: /train
+      volumes:
+        - name: train
+          configMap:
+            name: train
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: tensorflow
+  namespace: croft-frameworks
+  labels: &labels
+    app: croft-frameworks
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels: *labels
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: train
+          image: python:3.12-slim
+          command: ["sh", "-c", "pip install -q --no-cache-dir $PACKAGES && exec python /train/train.py"]
+          env:
+            - name: FRAMEWORK
+              value: tensorflow
+            - name: PACKAGES
+              value: tensorflow-cpu
+          resources:
+            requests:
+              cpu: "1"
+              memory: 1Gi
+            limits:
+              cpu: "1"
+              memory: 2Gi
+          volumeMounts:
+            - name: train
+              mountPath: /train
+      volumes:
+        - name: train
+          configMap:
+            name: train
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: jax
+  namespace: croft-frameworks
+  labels: &labels
+    app: croft-frameworks
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels: *labels
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: train
+          image: python:3.12-slim
+          command: ["sh", "-c", "pip install -q --no-cache-dir $PACKAGES && exec python /train/train.py"]
+          env:
+            - name: FRAMEWORK
+              value: jax
+            - name: PACKAGES
+              value: jax
+          resources:
+            requests:
+              cpu: "1"
+              memory: 1Gi
+            limits:
+              cpu: "1"
+              memory: 2Gi
+          volumeMounts:
+            - name: train
+              mountPath: /train
+      volumes:
+        - name: train
+          configMap:
+            name: train
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: onnxruntime
+  namespace: croft-frameworks
+  labels: &labels
+    app: croft-frameworks
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels: *labels
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: train
+          image: python:3.12-slim
+          command: ["sh", "-c", "pip install -q --no-cache-dir $PACKAGES && exec python /train/train.py"]
+          env:
+            - name: FRAMEWORK
+              value: onnxruntime
+            - name: PACKAGES
+              value: onnxruntime onnx
+          resources:
+            requests:
+              cpu: "1"
+              memory: 1Gi
+            limits:
+              cpu: "1"
+              memory: 2Gi
+          volumeMounts:
+            - name: train
+              mountPath: /train
+      volumes:
+        - name: train
+          configMap:
+            name: train
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: xgboost
+  namespace: croft-frameworks
+  labels: &labels
+    app: croft-frameworks
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels: *labels
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: train
+          image: python:3.12-slim
+          command: ["sh", "-c", "pip install -q --no-cache-dir $PACKAGES && exec python /train/train.py"]
+          env:
+            - name: FRAMEWORK
+              value: xgboost
+            - name: PACKAGES
+              value: xgboost
+          resources:
+            requests:
+              cpu: "1"
+              memory: 1Gi
+            limits:
+              cpu: "1"
+              memory: 2Gi
+          volumeMounts:
+            - name: train
+              mountPath: /train
+      volumes:
+        - name: train
+          configMap:
+            name: train
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: sklearn
+  namespace: croft-frameworks
+  labels: &labels
+    app: croft-frameworks
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels: *labels
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: train
+          image: python:3.12-slim
+          command: ["sh", "-c", "pip install -q --no-cache-dir $PACKAGES && exec python /train/train.py"]
+          env:
+            - name: FRAMEWORK
+              value: sklearn
+            - name: PACKAGES
+              value: scikit-learn
+          resources:
+            requests:
+              cpu: "1"
+              memory: 1Gi
+            limits:
+              cpu: "1"
+              memory: 2Gi
+          volumeMounts:
+            - name: train
+              mountPath: /train
+      volumes:
+        - name: train
+          configMap:
+            name: train
