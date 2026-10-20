@@ -33,11 +33,20 @@ pub fn drops(ebpf: &Ebpf) -> anyhow::Result<PerCpuArray<&MapData, u64>> {
     Ok(PerCpuArray::try_from(find(ebpf, map_names::DROPS)?)?)
 }
 
+// find_mut returns a writable reference to the map with the given name, or an error if it is not present.
+fn find_mut<'a>(ebpf: &'a mut Ebpf, name: &str) -> anyhow::Result<&'a mut Map> {
+    ebpf.map_mut(name)
+        .with_context(|| format!("map {name} not in the eBPF object"))
+}
+
 // gpu_fds returns a typed view of the GPU FDS map.
 pub fn gpu_fds(ebpf: &mut Ebpf) -> anyhow::Result<HashMap<&mut MapData, u64, u8>> {
-    let name = map_names::GPU_FDS;
-    let map = ebpf
-        .map_mut(name)
-        .with_context(|| format!("map {name} not in the eBPF object"))?;
-    Ok(HashMap::try_from(map)?)
+    Ok(HashMap::try_from(find_mut(ebpf, map_names::GPU_FDS)?)?)
+}
+
+// gpu_activity_mut returns a writable view of the GPU activity map.
+pub fn gpu_activity_mut(
+    ebpf: &mut Ebpf,
+) -> anyhow::Result<HashMap<&mut MapData, u32, GpuActivity>> {
+    Ok(HashMap::try_from(find_mut(ebpf, map_names::GPU_ACTIVITY)?)?)
 }
