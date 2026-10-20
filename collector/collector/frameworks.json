@@ -1,5 +1,30 @@
 [
   {
+    "name": "sglang",
+    "directories": ["/sgl_kernel/"]
+  },
+  {
+    "name": "vllm",
+    "directories": ["/vllm/"]
+  },
+  {
+    "name": "ollama",
+    "libraries": ["ollama"],
+    "directories": ["/lib/ollama/"]
+  },
+  {
+    "name": "ray",
+    "directories": ["/ray/"]
+  },
+  {
+    "name": "spark",
+    "cmdline": ["org.apache.spark", "pyspark"]
+  },
+  {
+    "name": "transformers",
+    "directories": ["/tokenizers/", "/safetensors/"]
+  },
+  {
     "name": "pytorch",
     "libraries": ["libtorch_cpu.so", "libtorch_cuda.so"]
   },
@@ -23,5 +48,9 @@
   {
     "name": "scikit-learn",
     "directories": ["/sklearn/"]
+  },
+  {
+    "name": "pandas",
+    "directories": ["/pandas/"]
   }
 ]

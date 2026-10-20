@@ -1,4 +1,4 @@
-//! Framework detection reads a process's /proc/<pid>/maps to find a framework in the catalog.
+//! Framework detection reads a process's /proc/<pid>/maps, and its cmdline for frameworks that map no library of their own, to find a framework in the catalog.
 
 use std::{
     collections::{HashMap, HashSet},
@@ -22,6 +22,8 @@ struct Entry {
     libraries: Vec<String>,
     #[serde(default)]
     directories: Vec<String>,
+    #[serde(default)]
+    cmdline: Vec<String>,
 }
 
 #[derive(Debug)]
@@ -51,8 +53,14 @@ impl Catalog {
             if !names.insert(entry.name.as_str()) {
                 bail!("{} is listed twice", entry.name);
             }
-            if entry.libraries.is_empty() && entry.directories.is_empty() {
-                bail!("{} has no libraries or directories to match", entry.name);
+            if entry.libraries.is_empty()
+                && entry.directories.is_empty()
+                && entry.cmdline.is_empty()
+            {
+                bail!(
+                    "{} has no libraries, directories or cmdline to match",
+                    entry.name
+                );
             }
         }
         Ok(Self { entries })
@@ -92,10 +100,31 @@ impl Catalog {
         })
     }
 
-    // read_maps reads a process's /proc/<pid>/maps and returns the index of the earliest entry that matches, or None if none match.
-    fn read_maps(&self, tgid: u32) -> Option<usize> {
-        let file = File::open(format!("/proc/{tgid}/maps")).ok()?;
-        self.detect(BufReader::new(file).lines().map_while(Result::ok))
+    // detect_cmdline returns the index of the earliest entry whose cmdline pattern appears in the process's arguments.
+    pub fn detect_cmdline(&self, cmdline: &str) -> Option<usize> {
+        self.entries.iter().position(|entry| {
+            entry
+                .cmdline
+                .iter()
+                .any(|pattern| cmdline.contains(pattern.as_str()))
+        })
+    }
+
+    // read returns the earliest entry matched by a process's /proc/<pid>/maps or its cmdline, or None if none match.
+    fn read(&self, tgid: u32) -> Option<usize> {
+        let maps = File::open(format!("/proc/{tgid}/maps"))
+            .ok()
+            .and_then(|file| self.detect(BufReader::new(file).lines().map_while(Result::ok)));
+        let cmdline = if self.entries.iter().any(|entry| !entry.cmdline.is_empty()) {
+            fs::read(format!("/proc/{tgid}/cmdline"))
+                .ok()
+                .and_then(|bytes| {
+                    self.detect_cmdline(&String::from_utf8_lossy(&bytes).replace('\0', " "))
+                })
+        } else {
+            None
+        };
+        maps.into_iter().chain(cmdline).min()
     }
 }
 
@@ -112,7 +141,7 @@ struct Seen {
     framework: Option<usize>,
 }
 
-// FrameworkTracker reads a process's maps until a framework shows up or the process has been seen for `recheck_polls`.
+// FrameworkTracker reads a process's maps and cmdline until a framework shows up or the process has been seen for `recheck_polls`.
 pub struct FrameworkTracker {
     catalog: Catalog,
     recheck_polls: u64,
@@ -133,7 +162,7 @@ impl FrameworkTracker {
     }
 
     pub fn framework(&mut self, tgid: u32) -> Option<String> {
-        let index = self.lookup(tgid, |catalog, tgid| catalog.read_maps(tgid))?;
+        let index = self.lookup(tgid, |catalog, tgid| catalog.read(tgid))?;
         Some(self.catalog.name(index).to_string())
     }
 
@@ -182,6 +211,20 @@ mod tests {
 7f00aa000000-7f00ab000000 r-xp 00000000 08:01 42 /usr/local/lib/python3.12/site-packages/xgboost/lib/libxgboost.so";
     const SKLEARN: &str = "\
 7f00aa000000-7f00ab000000 r-xp 00000000 08:01 42 /usr/local/lib/python3.12/site-packages/sklearn/_cyutility.cpython-312-x86_64-linux-gnu.so";
+    const VLLM: &str = "\
+7f00aa000000-7f00ab000000 r-xp 00000000 08:01 42 /usr/local/lib/python3.12/site-packages/vllm/_C.abi3.so";
+    const SGLANG: &str = "\
+7f00aa000000-7f00ab000000 r-xp 00000000 08:01 42 /usr/local/lib/python3.12/site-packages/sgl_kernel/flash_ops.abi3.so";
+    const OLLAMA: &str = "\
+55d0c1a00000-55d0c1b00000 r-xp 00000000 08:01 7 /usr/bin/ollama
+7f00aa000000-7f00ab000000 r-xp 00000000 08:01 8 /usr/lib/ollama/libggml-base.so";
+    const RAY: &str = "\
+7f00aa000000-7f00ab000000 r-xp 00000000 08:01 42 /usr/local/lib/python3.12/site-packages/ray/_raylet.so";
+    const TRANSFORMERS: &str = "\
+7f00aa000000-7f00ab000000 r-xp 00000000 08:01 42 /usr/local/lib/python3.12/site-packages/tokenizers/tokenizers.abi3.so
+7f00ac000000-7f00ad000000 r-xp 00000000 08:01 43 /usr/local/lib/python3.12/site-packages/safetensors/_safetensors_rust.abi3.so";
+    const PANDAS: &str = "\
+7f00aa000000-7f00ab000000 r-xp 00000000 08:01 42 /usr/local/lib/python3.12/site-packages/pandas/_libs/algos.cpython-312-x86_64-linux-gnu.so";
     const PLAIN: &str = "\
 55d0c1a00000-55d0c1b00000 r-xp 00000000 08:01 7 /usr/bin/python3.12
 7f00aa000000-7f00ab000000 r-xp 00000000 08:01 8 /usr/lib/x86_64-linux-gnu/libc.so.6
@@ -203,7 +246,40 @@ mod tests {
         assert_eq!(from(ONNX).as_deref(), Some("onnxruntime"));
         assert_eq!(from(XGBOOST).as_deref(), Some("xgboost"));
         assert_eq!(from(SKLEARN).as_deref(), Some("scikit-learn"));
+        assert_eq!(from(VLLM).as_deref(), Some("vllm"));
+        assert_eq!(from(SGLANG).as_deref(), Some("sglang"));
+        assert_eq!(from(OLLAMA).as_deref(), Some("ollama"));
+        assert_eq!(from(RAY).as_deref(), Some("ray"));
+        assert_eq!(from(TRANSFORMERS).as_deref(), Some("transformers"));
+        assert_eq!(from(PANDAS).as_deref(), Some("pandas"));
         assert_eq!(from(PLAIN), None);
+    }
+
+    #[test]
+    fn serving_and_libraries_on_top_win_over_the_framework_below() {
+        assert_eq!(from(&format!("{TORCH}\n{VLLM}")).as_deref(), Some("vllm"));
+        assert_eq!(
+            from(&format!("{TORCH}\n{TRANSFORMERS}")).as_deref(),
+            Some("transformers")
+        );
+        assert_eq!(
+            from(&format!("{PANDAS}\n{SKLEARN}")).as_deref(),
+            Some("scikit-learn")
+        );
+    }
+
+    #[test]
+    fn spark_is_found_in_the_cmdline() {
+        let catalog = Catalog::load(None).unwrap();
+        let name = |cmdline| catalog.detect_cmdline(cmdline).map(|i| catalog.name(i));
+        assert_eq!(
+            name(
+                "/usr/lib/jvm/java-21/bin/java -cp /opt/spark/jars/* org.apache.spark.deploy.SparkSubmit"
+            ),
+            Some("spark")
+        );
+        assert_eq!(name("python3 -m pyspark.daemon"), Some("spark"));
+        assert_eq!(name("python3 train.py --epochs 3"), None);
     }
 
     #[test]

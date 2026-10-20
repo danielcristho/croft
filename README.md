@@ -55,7 +55,7 @@ files, at no cost to the traced processes.
 | eBPF, `raw_syscalls/sys_enter` | syscall rates; the request rate of a web server | `syscalls` |
 | eBPF, `sched_wakeup` / `sched_switch` | time each process waited for a CPU | `runqueue_s` |
 | eBPF, `openat`, `ioctl`, `close` on `/dev/nvidia*` | which processes hold a GPU and when they start using it; the only host processes recorded | `workload` |
-| `/proc/<pid>/maps` | ML framework, from the libraries the process loaded ([`frameworks.json`](collector/collector/frameworks.json)) | `framework` |
+| `/proc/<pid>/maps`, `cmdline` | framework, from the libraries the process loaded, or its arguments when it loads none of its own ([`frameworks.json`](collector/collector/frameworks.json)) | `framework` |
 | `/proc/<pid>/{stat,status,io,cwd,cgroup}`, `net/dev` | CPU, RSS, threads, context switches, disk and network bytes, working directory, container | `usage`, `process` |
 | cgroup v2 `cpu.stat`, `memory.current`, `*.pressure`, `memory.events` | throttling, container memory, PSI, OOM kills | `cgroup_usage` |
 

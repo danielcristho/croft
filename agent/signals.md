@@ -14,6 +14,11 @@ One JSON line per process per 2 s poll:
 | `syscalls` | list of `{name, rate_per_sec}` |
 | `label` | set by labelled experiments |
 
+A process matching several `frameworks.json` entries takes the earliest: serving and
+orchestration (sglang, vllm, ollama, ray, spark) before transformers, transformers before
+the ML frameworks, pandas last. transformers is seen through `tokenizers` and `safetensors`,
+its own code maps nothing; spark through `cmdline`, since the JVM reads jars without mapping them.
+
 Idle processes are written every 15 polls. Empty GPU fields are left out.
 A process that held a GPU fd before the collector started reads as `gpu-held` with `ioctl_count` 0.
 
