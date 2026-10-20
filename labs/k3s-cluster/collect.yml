@@ -1,9 +1,14 @@
-# Pulls each node's croft dataset into one directory, one file per node; reruns copy only what was appended.
+# Pulls the last collect_hours of each agent's croft dataset into one directory, one file per node.
+# The server's file is linked, not copied. -e collect_hours=0 pulls whole files, appending to the last copy.
 - name: Collect the croft datasets
   hosts: k3s
   vars:
     croft_dataset: /var/lib/croft/croft-dataset.jsonl
     collect_dir: "{{ playbook_dir }}/../../research/data/nodes"
+    collect_hours: 24
+    node: "{{ hostvars[inventory_hostname] }}"
+    is_local: "{{ node.ansible_connection | default('ssh') == 'local' }}"
+    node_copy: "{{ collect_dir }}/{{ ansible_facts['hostname'] }}.jsonl"
   tasks:
     - name: Create the collection directory
       ansible.builtin.file:
@@ -13,15 +18,34 @@
       delegate_to: localhost
       run_once: true
 
-    - name: Pull the dataset
+    - name: Link the server's dataset
+      ansible.builtin.file:
+        src: "{{ croft_dataset }}"
+        dest: "{{ node_copy }}"
+        state: link
+        force: true
+      delegate_to: localhost
+      when: is_local
+
+    # Streamed through ssh: an agent's /tmp can be a small tmpfs.
+    - name: Pull the last hours of the dataset
+      ansible.builtin.shell: >-
+        ssh -C {{ node.ansible_user }}@{{ node.ansible_host }}
+        python3 - {{ croft_dataset }} {{ collect_hours }}
+        < {{ playbook_dir }}/files/window.py > {{ node_copy }}.part
+        && mv {{ node_copy }}.part {{ node_copy }}
+      delegate_to: localhost
+      when: not is_local and collect_hours | float > 0
+      changed_when: true
+
+    - name: Pull the whole dataset
       ansible.builtin.command:
         argv:
           - rsync
           - --append-verify
           - --partial
-          - "{{ croft_dataset if node.ansible_connection | default('ssh') == 'local' else node.ansible_user ~ '@' ~ node.ansible_host ~ ':' ~ croft_dataset }}"
-          - "{{ collect_dir }}/{{ ansible_facts['hostname'] }}.jsonl"
-      vars:
-        node: "{{ hostvars[inventory_hostname] }}"
+          - "{{ node.ansible_user }}@{{ node.ansible_host }}:{{ croft_dataset }}"
+          - "{{ node_copy }}"
       delegate_to: localhost
+      when: not is_local and collect_hours | float == 0
       changed_when: true

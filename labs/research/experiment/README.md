@@ -134,7 +134,7 @@ cool-down, 15 s
 (cd ../../k3s-cluster && ansible-playbook collect.yml)
 ```
 
-Each node's dataset lands in `research/data/nodes/<node>.jsonl`; reruns copy only what was appended.
+Each node's dataset lands in `research/data/nodes/<node>.jsonl`: the last 24 hours of each agent, and a link to the server's file. `-e collect_hours=48` widens the window; `-e collect_hours=0` copies whole files, which older bursts need.
 
 ## Step 5: analyse
 
