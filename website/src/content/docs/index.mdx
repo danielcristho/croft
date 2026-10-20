@@ -1,0 +1,41 @@
+---
+title: Croft
+description: Proactive autoscaling from what processes do in the kernel.
+template: splash
+hero:
+  tagline: Read each pod's request rate through eBPF and its CPU pressure from cgroups, notice a workload burst within seconds, and add replicas before the application slows down.
+  actions:
+    - text: Introduction
+      link: /croft/start/introduction/
+      icon: right-arrow
+    - text: Quick start
+      link: /croft/start/quick-start/
+      variant: minimal
+    - text: GitHub
+      link: https://github.com/danielcristho/croft
+      icon: github
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+:::note[Status]
+The collector records a dataset; nothing scales yet. Early burst detection is measured offline against the HPA; the detector and the scaler are not validated.
+:::
+
+<CardGrid>
+	<Card title="Sees requests before CPU" icon="rocket">
+		A web server answers each request with about two `sendto` calls. Their rate is the request rate, seen from inside the node, within one 2 s poll of a burst.
+	</Card>
+	<Card title="eBPF, /proc and cgroups" icon="puzzle">
+		eBPF for events no file keeps: syscalls, waits for a CPU, calls into the GPU driver. Files for the counters the kernel already keeps.
+	</Card>
+	<Card title="Knows what a task runs" icon="list-format">
+		Framework from the libraries a process loaded: PyTorch, TensorFlow, JAX, vLLM, Ray, Spark and more, from a JSON catalog.
+	</Card>
+	<Card title="A dataset per node" icon="document">
+		One JSON line per process per poll, rotated hourly into zstd segments, joined to experiments by container id.
+	</Card>
+</CardGrid>
+
+![Architecture: the web app's syscalls and cgroup pressure are read in the kernel through eBPF by a collector on each node. The collector writes a dataset and will feed a burst detector, a scaler and OpenTelemetry towards Prometheus. The HPA scales the same pods from CPU utilization.](../../../../assets/architecture.svg)

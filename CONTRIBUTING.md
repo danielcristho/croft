@@ -58,6 +58,7 @@ croft/
 │       └── apps/              applications under test
 ├── research/                  analysis notebooks and dataset helpers (uv)
 ├── agent/                     working notes for coding agents
+├── website/                   documentation site (Starlight)
 ├── assets/                    images used by the docs
 └── justfile                   task recipes
 ```

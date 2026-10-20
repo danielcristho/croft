@@ -1,0 +1,11 @@
+/* Accent taken from the eBPF badge in the README. */
+:root {
+	--sl-color-accent-low: #3a1d05;
+	--sl-color-accent: #ff6600;
+	--sl-color-accent-high: #ffd2b0;
+}
+:root[data-theme='light'] {
+	--sl-color-accent-low: #ffe1cc;
+	--sl-color-accent: #c24e00;
+	--sl-color-accent-high: #5a2400;
+}
