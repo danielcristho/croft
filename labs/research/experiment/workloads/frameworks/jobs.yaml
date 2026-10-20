@@ -11,6 +11,7 @@ metadata:
   namespace: croft-frameworks
 data:
   train.py: |
+    import functools
     import os
     import time
 
@@ -32,11 +33,17 @@ data:
         optimizer.step()
 
 
-    def step_tensorflow():
+    # One Keras model for the whole run: each new model stays in TensorFlow's graph and memory grows until OOM.
+    @functools.cache
+    def keras_model():
         import tensorflow as tf
         model = tf.keras.Sequential([tf.keras.Input((32,)), tf.keras.layers.Dense(64, activation="relu"), tf.keras.layers.Dense(1)])
         model.compile(optimizer="sgd", loss=tf.keras.losses.BinaryCrossentropy(from_logits=True))
-        model.fit(x, y, epochs=1, verbose=0)
+        return model
+
+
+    def step_tensorflow():
+        keras_model().fit(x, y, epochs=1, verbose=0)
 
 
     def step_jax():
@@ -56,7 +63,8 @@ data:
         graph = helper.make_graph([helper.make_node("MatMul", ["x", "w"], ["y"])], "score",
                                   [helper.make_tensor_value_info("x", TensorProto.FLOAT, [None, 32])],
                                   [helper.make_tensor_value_info("y", TensorProto.FLOAT, [None, 1])], [weight])
-        model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 17)])
+        # IR 10 is read by every onnxruntime release since 1.16; a newer onnx writes a newer IR by default.
+        model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 17)], ir_version=10)
         session = onnxruntime.InferenceSession(model.SerializeToString())
         for _ in range(200):
             session.run(None, {"x": x})
