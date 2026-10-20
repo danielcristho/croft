@@ -34,4 +34,5 @@ ENV RUST_LOG=info
 ENV DATASET_PATH=/data/croft-dataset.jsonl
 
 ENTRYPOINT ["/usr/local/bin/croft"]
+
 CMD ["run"]
