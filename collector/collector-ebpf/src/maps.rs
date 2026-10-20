@@ -9,6 +9,7 @@ use collector_common::{DropSite, GpuActivity};
 // Consts for the maximum number of entries in the eBPF maps.
 const MAX_TRACKED: u32 = 10240;
 const MAX_SYSCALL_ENTRIES: u32 = 65536;
+const MAX_THREADS: u32 = 65536;
 
 #[map]
 pub static PENDING_GPU_OPEN: HashMap<u64, u8> = HashMap::with_max_entries(MAX_TRACKED, 0);
@@ -19,6 +20,16 @@ pub static GPU_FDS: LruHashMap<u64, u8> = LruHashMap::with_max_entries(MAX_TRACK
 
 #[map]
 pub static GPU_ACTIVITY: HashMap<u32, GpuActivity> = HashMap::with_max_entries(MAX_TRACKED, 0);
+
+// Keyed by thread id: when a runnable thread was queued, and the wait it has not yet charged to its process.
+#[map]
+pub static RUNQUEUE_SINCE: LruHashMap<u32, u64> = LruHashMap::with_max_entries(MAX_THREADS, 0);
+
+#[map]
+pub static RUNQUEUE_PENDING: LruHashMap<u32, u64> = LruHashMap::with_max_entries(MAX_THREADS, 0);
+
+#[map]
+pub static RUNQUEUE_NS: LruHashMap<u32, u64> = LruHashMap::with_max_entries(MAX_TRACKED, 0);
 
 #[map]
 pub static SYSCALL_BY_TYPE: LruHashMap<u64, u64> =

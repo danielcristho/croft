@@ -11,6 +11,9 @@ const TRACEPOINTS: &[(&str, &str)] = &[
     ("syscalls", "sys_enter_ioctl"),
     ("syscalls", "sys_enter_close"),
     ("sched", "sched_process_exit"),
+    ("sched", "sched_wakeup"),
+    ("sched", "sched_wakeup_new"),
+    ("sched", "sched_switch"),
     ("raw_syscalls", "sys_enter"),
 ];
 

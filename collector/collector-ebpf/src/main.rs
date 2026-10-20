@@ -5,6 +5,7 @@ mod context;
 mod exit;
 mod gpu;
 mod maps;
+mod runqueue;
 mod syscalls;
 
 #[cfg(not(test))]

@@ -106,11 +106,12 @@ impl Reporter {
         self.drops.warn_new(ebpf)?;
         let syscall_counts = maps::syscall_counts(ebpf)?;
         let by_tgid = syscalls::group_by_tgid(syscall_counts.iter().flatten());
+        let runqueue: HashMap<u32, u64> = maps::runqueue_ns(ebpf)?.iter().flatten().collect();
         let now = clock::monotonic_ns();
         for mut subject in self.subjects(ebpf)? {
             subject.process.framework = self.frameworks.framework(subject.tgid);
             let counts = by_tgid.get(&subject.tgid).map_or(&[][..], Vec::as_slice);
-            self.report(&subject, counts, now);
+            self.report(&subject, counts, runqueue.get(&subject.tgid).copied(), now);
         }
         self.publish();
         self.rates.end_poll();
@@ -166,7 +167,13 @@ impl Reporter {
     }
 
     // report writes every GPU holder: CUDA sends work through mapped queues, so a busy process can go quiet on ioctl.
-    fn report(&mut self, subject: &Subject, counts: &[SyscallCount], now: u64) {
+    fn report(
+        &mut self,
+        subject: &Subject,
+        counts: &[SyscallCount],
+        runqueue_ns: Option<u64>,
+        now: u64,
+    ) {
         let Subject {
             tgid,
             process,
@@ -175,14 +182,15 @@ impl Reporter {
         let tgid = *tgid;
         let workload = classifier::classify(activity.as_ref(), now);
         let rates = self.rates.rates_for(tgid, counts, now);
-        let usage = self.resources.process(tgid, now);
+        let usage = self.resources.process(tgid, runqueue_ns, now);
         let cgroup_usage = process
             .cgroup
             .as_deref()
             .map(|cgroup| self.resources.cgroup(cgroup, now));
         // The snapshot sees idle processes too: a container's rate must not drop out while its rows are thinned.
         if self.published.is_some() {
-            self.snapshot.add(process, cgroup_usage.as_ref(), &rates);
+            self.snapshot
+                .add(process, &usage, cgroup_usage.as_ref(), &rates);
         }
         // GPU holders are never thinned: a process busy on mapped GPU queues looks idle to the CPU.
         let idle = workload == Workload::NoGpu
@@ -211,6 +219,9 @@ impl Reporter {
             usage.cpu_cores.unwrap_or(0.0),
             usage.rss_bytes.unwrap_or(0) / MIB
         ));
+        if let Some(runqueue) = usage.runqueue_s.filter(|&s| s > 0.0) {
+            line.push_str(&format!(" rq={runqueue:.2}"));
+        }
         if let Some(cgroup) = &cgroup_usage {
             if let Some(throttled) = cgroup.cpu_throttled_fraction {
                 line.push_str(&format!(" throttled={:.0}%", throttled * 100.0));

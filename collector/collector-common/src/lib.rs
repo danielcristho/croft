@@ -13,6 +13,9 @@ pub mod map_names {
     pub const GPU_FDS: &str = "GPU_FDS";
     pub const GPU_ACTIVITY: &str = "GPU_ACTIVITY";
     pub const SYSCALL_BY_TYPE: &str = "SYSCALL_BY_TYPE";
+    pub const RUNQUEUE_SINCE: &str = "RUNQUEUE_SINCE";
+    pub const RUNQUEUE_PENDING: &str = "RUNQUEUE_PENDING";
+    pub const RUNQUEUE_NS: &str = "RUNQUEUE_NS";
     pub const DROPS: &str = "DROPS";
 }
 
@@ -59,14 +62,20 @@ pub enum DropSite {
     GpuFd,
     GpuActivity,
     SyscallCount,
+    RunqueueSince,
+    RunqueuePending,
+    RunqueueNs,
 }
 
 impl DropSite {
-    pub const ALL: [DropSite; 4] = [
+    pub const ALL: [DropSite; 7] = [
         DropSite::PendingOpen,
         DropSite::GpuFd,
         DropSite::GpuActivity,
         DropSite::SyscallCount,
+        DropSite::RunqueueSince,
+        DropSite::RunqueuePending,
+        DropSite::RunqueueNs,
     ];
 
     pub const fn index(self) -> u32 {
@@ -79,6 +88,9 @@ impl DropSite {
             DropSite::GpuFd => map_names::GPU_FDS,
             DropSite::GpuActivity => map_names::GPU_ACTIVITY,
             DropSite::SyscallCount => map_names::SYSCALL_BY_TYPE,
+            DropSite::RunqueueSince => map_names::RUNQUEUE_SINCE,
+            DropSite::RunqueuePending => map_names::RUNQUEUE_PENDING,
+            DropSite::RunqueueNs => map_names::RUNQUEUE_NS,
         }
     }
 }

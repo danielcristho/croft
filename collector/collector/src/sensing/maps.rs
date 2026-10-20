@@ -23,6 +23,11 @@ pub fn syscall_counts(ebpf: &Ebpf) -> anyhow::Result<HashMap<&MapData, u64, u64>
     Ok(HashMap::try_from(find(ebpf, map_names::SYSCALL_BY_TYPE)?)?)
 }
 
+// runqueue_ns returns a typed view of the per-process run queue wait, in nanoseconds since load.
+pub fn runqueue_ns(ebpf: &Ebpf) -> anyhow::Result<HashMap<&MapData, u32, u64>> {
+    Ok(HashMap::try_from(find(ebpf, map_names::RUNQUEUE_NS)?)?)
+}
+
 // drops returns a typed view of the drops map.
 pub fn drops(ebpf: &Ebpf) -> anyhow::Result<PerCpuArray<&MapData, u64>> {
     Ok(PerCpuArray::try_from(find(ebpf, map_names::DROPS)?)?)

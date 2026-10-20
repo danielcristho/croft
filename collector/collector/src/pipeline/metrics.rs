@@ -7,13 +7,18 @@ use std::{
 };
 
 use crate::{
-    inspect::{process::ProcessInfo, resources::CgroupUsage},
+    inspect::{
+        process::ProcessInfo,
+        resources::{CgroupUsage, ProcessUsage},
+    },
     sensing::syscalls::SyscallRate,
 };
 
 pub const CPU_CORES: &str = "croft_container_cpu_cores";
 pub const CPU_PRESSURE: &str = "croft_container_cpu_pressure_avg10";
 pub const CPU_THROTTLED: &str = "croft_container_cpu_throttled_fraction";
+// Seconds per second the container's threads waited on a run queue.
+pub const RUNQUEUE: &str = "croft_container_runqueue_wait";
 pub const SYSCALL_RATE: &str = "croft_container_syscall_rate";
 pub const POLL_UNIX_MS: &str = "croft_poll_unix_ms";
 
@@ -22,6 +27,7 @@ pub struct ContainerSignals {
     pub cpu_cores: Option<f64>,
     pub cpu_pressure: Option<f64>,
     pub cpu_throttled: Option<f64>,
+    pub runqueue: Option<f64>,
     pub syscalls: BTreeMap<String, f64>,
 }
 
@@ -38,6 +44,7 @@ impl Snapshot {
     pub fn add(
         &mut self,
         process: &ProcessInfo,
+        usage: &ProcessUsage,
         cgroup: Option<&CgroupUsage>,
         rates: &[SyscallRate],
     ) {
@@ -50,6 +57,9 @@ impl Snapshot {
             signals.cpu_pressure = cgroup.cpu_pressure_avg10;
             signals.cpu_throttled = cgroup.cpu_throttled_fraction;
         }
+        if let Some(runqueue) = usage.runqueue_s {
+            *signals.runqueue.get_or_insert(0.0) += runqueue;
+        }
         for rate in rates {
             *signals.syscalls.entry(rate.name.clone()).or_default() += rate.rate_per_sec;
         }
@@ -57,10 +67,11 @@ impl Snapshot {
 
     pub fn render(&self, poll_unix_ms: u128) -> String {
         let mut text = format!("# TYPE {POLL_UNIX_MS} gauge\n{POLL_UNIX_MS} {poll_unix_ms}\n");
-        let gauges: [(&str, Field); 3] = [
+        let gauges: [(&str, Field); 4] = [
             (CPU_CORES, |s| s.cpu_cores),
             (CPU_PRESSURE, |s| s.cpu_pressure),
             (CPU_THROTTLED, |s| s.cpu_throttled),
+            (RUNQUEUE, |s| s.runqueue),
         ];
         for (name, value) in gauges {
             let _ = writeln!(text, "# TYPE {name} gauge");
@@ -148,15 +159,31 @@ mod tests {
             cpu_cores: Some(0.9),
             ..CgroupUsage::default()
         };
-        snapshot.add(&process("a"), Some(&cgroup), &[rate("sendto", 10.0)]);
+        let waiting = |runqueue_s| ProcessUsage {
+            runqueue_s: Some(runqueue_s),
+            ..ProcessUsage::default()
+        };
         snapshot.add(
             &process("a"),
+            &waiting(0.5),
+            Some(&cgroup),
+            &[rate("sendto", 10.0)],
+        );
+        snapshot.add(
+            &process("a"),
+            &waiting(1.25),
             Some(&cgroup),
             &[rate("sendto", 5.0), rate("read", 1.0)],
         );
-        snapshot.add(&ProcessInfo::default(), None, &[rate("sendto", 99.0)]);
+        snapshot.add(
+            &ProcessInfo::default(),
+            &waiting(9.0),
+            None,
+            &[rate("sendto", 99.0)],
+        );
         let a = &snapshot.containers["a"];
         assert_eq!(a.syscalls["sendto"], 15.0);
+        assert_eq!(a.runqueue, Some(1.75));
         assert_eq!(a.cpu_cores, Some(0.9));
         assert_eq!(snapshot.containers.len(), 1);
     }
@@ -169,13 +196,19 @@ mod tests {
             cpu_pressure_avg10: Some(12.5),
             ..CgroupUsage::default()
         };
-        snapshot.add(&process("abc"), Some(&cgroup), &[rate("sendto", 34.0)]);
+        snapshot.add(
+            &process("abc"),
+            &ProcessUsage::default(),
+            Some(&cgroup),
+            &[rate("sendto", 34.0)],
+        );
         let samples = parse(&snapshot.render(1_700_000_000_000));
         let find = |name: &str| samples.iter().find(|s| s.name == name).map(|s| s.value);
         assert_eq!(find(POLL_UNIX_MS), Some(1.7e12));
         assert_eq!(find(CPU_CORES), Some(0.5));
         assert_eq!(find(CPU_PRESSURE), Some(12.5));
         assert_eq!(find(CPU_THROTTLED), None);
+        assert_eq!(find(RUNQUEUE), None);
         let sendto = samples.iter().find(|s| s.name == SYSCALL_RATE).unwrap();
         assert_eq!(sendto.labels["container_id"], "abc");
         assert_eq!(sendto.labels["syscall"], "sendto");

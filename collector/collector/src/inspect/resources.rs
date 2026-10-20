@@ -15,6 +15,7 @@ const HOST_NETNS: &str = "/proc/1/ns/net";
 const LOOPBACK: &str = "lo";
 const KIB: u64 = 1024;
 const USEC_PER_SEC: f64 = 1_000_000.0;
+const NSEC_PER_SEC: f64 = 1_000_000_000.0;
 const FALLBACK_TICKS_PER_SEC: f64 = 100.0;
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -28,6 +29,8 @@ pub struct ProcessUsage {
     pub write_bytes_s: Option<f64>,
     pub network_rx_bytes_s: Option<f64>,
     pub network_tx_bytes_s: Option<f64>,
+    // Seconds per second the process's threads waited on a run queue, summed over threads; above 1 when several wait.
+    pub runqueue_s: Option<f64>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -50,6 +53,7 @@ enum Counter {
     WriteBytes,
     NetworkRx,
     NetworkTx,
+    RunqueueNs,
     CgroupCpuUsec,
     CgroupThrottledUsec,
 }
@@ -78,7 +82,8 @@ impl ResourceTracker {
         }
     }
 
-    pub fn process(&mut self, tgid: u32, now_ns: u64) -> ProcessUsage {
+    // process takes the run queue wait from the eBPF side; the rest it reads from /proc.
+    pub fn process(&mut self, tgid: u32, runqueue_ns: Option<u64>, now_ns: u64) -> ProcessUsage {
         let dir = PathBuf::from(format!("/proc/{tgid}"));
         let status = read_fields(&dir.join("status"));
         let io = read_fields(&dir.join("io"));
@@ -127,6 +132,9 @@ impl ResourceTracker {
                 network.map(|(_, tx)| tx),
                 now_ns,
             ),
+            runqueue_s: self
+                .rate(&owner, Counter::RunqueueNs, runqueue_ns, now_ns)
+                .map(|ns_s| ns_s / NSEC_PER_SEC),
         }
     }
 
@@ -302,9 +310,18 @@ mod tests {
     #[test]
     fn this_process_reads_back() {
         let mut tracker = ResourceTracker::new();
-        let usage = tracker.process(std::process::id(), 0);
+        let usage = tracker.process(std::process::id(), None, 0);
         assert!(usage.rss_bytes.is_some_and(|rss| rss > 0));
         assert!(usage.threads.is_some_and(|threads| threads >= 1));
         assert_eq!(usage.cpu_cores, None);
+    }
+
+    #[test]
+    fn runqueue_wait_is_a_rate_in_seconds() {
+        let mut tracker = ResourceTracker::new();
+        let tgid = std::process::id();
+        tracker.process(tgid, Some(0), 0);
+        let usage = tracker.process(tgid, Some(3_000_000_000), 2_000_000_000);
+        assert_eq!(usage.runqueue_s, Some(1.5));
     }
 }
