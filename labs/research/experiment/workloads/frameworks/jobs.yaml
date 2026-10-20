@@ -10,7 +10,6 @@ metadata:
   name: train
   namespace: croft-frameworks
 data:
-  # Fits a small model over and over for DURATION_S seconds, then exits, so the job has a start and an end.
   train.py: |
     import os
     import time

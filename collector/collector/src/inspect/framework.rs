@@ -10,7 +10,7 @@ use std::{
 use anyhow::{Context, bail};
 use serde::Deserialize;
 
-// Constant catalog is built into the binary, but can be overridden by a file path in the environment.
+// Framework catalog for detecting frameworks in a process's /proc/<pid>/maps.
 const DEFAULT_CATALOG: &str = include_str!("../../frameworks.json");
 pub const ENV: &str = "CROFT_FRAMEWORKS";
 
