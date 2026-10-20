@@ -1,19 +1,17 @@
 //! Resource profile of one or more containers over a window, as JSON, for allocation decisions.
 
-use std::{
-    collections::BTreeMap,
-    fs::File,
-    io::{BufRead, BufReader},
-    path::Path,
-};
+use std::{collections::BTreeMap, io::BufRead, path::Path};
 
 use anyhow::{Context, bail};
 use serde::Serialize;
 
-use super::stats::dataset_files;
+use super::stats::{dataset_files, node_name};
 use crate::{
     cli::ProfileArgs,
-    pipeline::rows::{self, Line, Row},
+    pipeline::{
+        rows::{self, Line, Row},
+        segments,
+    },
 };
 
 // Const for the poll interval in milliseconds, the GPU workloads to check, and the percentile for the summary statistics.
@@ -75,12 +73,10 @@ impl Polls {
         from_ms: Option<u64>,
         to_ms: Option<u64>,
     ) -> anyhow::Result<()> {
-        let file = File::open(path).with_context(|| format!("open {}", path.display()))?;
-        let node = path
-            .file_stem()
-            .map_or_else(String::new, |stem| stem.to_string_lossy().into_owned());
+        let mut reader =
+            segments::open(path).with_context(|| format!("open {}", path.display()))?;
+        let node = node_name(path);
         let needle = format!("\"container_id\":\"{prefix}");
-        let mut reader = BufReader::new(file);
         let mut buffer = Vec::new();
         while reader.read_until(b'\n', &mut buffer)? > 0 {
             // Only lines naming the container are parsed; a dataset holds gigabytes of other rows.

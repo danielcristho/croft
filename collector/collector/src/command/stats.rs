@@ -2,8 +2,8 @@
 
 use std::{
     collections::BTreeMap,
-    fs::{self, File},
-    io::{BufRead, BufReader},
+    fs,
+    io::BufRead,
     path::{Path, PathBuf},
 };
 
@@ -12,13 +12,13 @@ use anyhow::Context;
 use crate::{
     cli::StatsArgs,
     pipeline::{
-        dataset::now_unix_ms,
+        dataset::{self, now_unix_ms},
         rows::{self, Line},
+        segments,
     },
 };
 
-// Consts for the dataset file extension, the label for unlabelled rows, and the number of milliseconds per hour.
-const DATASET_EXTENSION: &str = "jsonl";
+// Consts for the label for unlabelled rows and the number of milliseconds per hour.
 const UNLABELLED: &str = "unlabelled";
 const MS_PER_HOUR: f64 = 3_600_000.0;
 
@@ -31,7 +31,7 @@ pub fn execute(args: &StatsArgs) -> anyhow::Result<()> {
     Ok(())
 }
 
-// dataset_files expands a directory to its *.jsonl files, as written by collect.
+// dataset_files expands a directory to its dataset files and those of its node directories, as written by collect.
 pub(super) fn dataset_files(paths: &[PathBuf]) -> anyhow::Result<Vec<PathBuf>> {
     let mut files = Vec::new();
     for path in paths {
@@ -39,16 +39,61 @@ pub(super) fn dataset_files(paths: &[PathBuf]) -> anyhow::Result<Vec<PathBuf>> {
             files.push(path.clone());
             continue;
         }
-        let mut found: Vec<PathBuf> = fs::read_dir(path)
+        let entries: Vec<PathBuf> = fs::read_dir(path)
             .with_context(|| format!("read {}", path.display()))?
             .flatten()
             .map(|entry| entry.path())
-            .filter(|file| file.extension().is_some_and(|ext| ext == DATASET_EXTENSION))
             .collect();
+        let mut found: Vec<PathBuf> = entries
+            .iter()
+            .filter(|file| is_dataset_file(file))
+            .cloned()
+            .collect();
+        for node_dir in entries.iter().filter(|entry| entry.is_dir()) {
+            found.extend(
+                fs::read_dir(node_dir)
+                    .into_iter()
+                    .flatten()
+                    .flatten()
+                    .map(|entry| entry.path())
+                    .filter(|file| is_dataset_file(file)),
+            );
+        }
+        // Segments sort before the live file of their node, so rows come in time order.
         found.sort();
         files.extend(found);
     }
     Ok(files)
+}
+
+fn is_dataset_file(path: &Path) -> bool {
+    let name = path.to_string_lossy();
+    path.is_file()
+        && (name.ends_with(segments::LIVE_SUFFIX) || name.ends_with(segments::COMPRESSED_SUFFIX))
+}
+
+// node_name is the directory of a segment or live file, and the file name of a <node>.jsonl copy.
+pub(super) fn node_name(path: &Path) -> String {
+    let name = path
+        .file_name()
+        .map_or_else(String::new, |name| name.to_string_lossy().into_owned());
+    let live = Path::new(dataset::DEFAULT_PATH)
+        .file_name()
+        .map(|live| live.to_string_lossy());
+    // absolute keeps a symlinked node directory's own name, as a canonical path would not.
+    if (segments::is_segment_name(&name) || live.is_some_and(|live| live == name))
+        && let Some(dir) = std::path::absolute(path)
+            .ok()
+            .as_deref()
+            .and_then(Path::parent)
+            .and_then(Path::file_name)
+    {
+        return dir.to_string_lossy().into_owned();
+    }
+    name.strip_suffix(segments::COMPRESSED_SUFFIX)
+        .or_else(|| name.strip_suffix(segments::LIVE_SUFFIX))
+        .unwrap_or(&name)
+        .to_string()
 }
 
 #[derive(Default)]
@@ -67,13 +112,11 @@ struct Summary {
 // Summary holds the summary of one or more datasets: size, rows, time span and rows per node, workload and label.
 impl Summary {
     fn add_file(&mut self, path: &Path) -> anyhow::Result<()> {
-        let file = File::open(path).with_context(|| format!("open {}", path.display()))?;
+        let mut reader =
+            segments::open(path).with_context(|| format!("open {}", path.display()))?;
         self.files += 1;
-        self.bytes += file.metadata()?.len();
-        let node = path
-            .file_stem()
-            .map_or_else(String::new, |stem| stem.to_string_lossy().into_owned());
-        let mut reader = BufReader::new(file);
+        self.bytes += fs::metadata(path)?.len();
+        let node = node_name(path);
         let mut buffer = Vec::new();
         while reader.read_until(b'\n', &mut buffer)? > 0 {
             self.add_line(&node, &String::from_utf8_lossy(&buffer));
@@ -179,6 +222,30 @@ mod tests {
         assert_eq!(summary.by_workload["gpu-held"], 2);
         assert_eq!(summary.by_label[UNLABELLED], 2);
         assert_eq!(summary.by_label["web"], 1);
+    }
+
+    #[test]
+    fn node_directories_name_their_segments_and_live_file() {
+        let dir = std::env::temp_dir().join(format!("croft-stats-nodes-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        let node = dir.join("node-a");
+        fs::create_dir_all(&node).unwrap();
+        for name in [
+            "croft-dataset.jsonl",
+            "croft-dataset-20261020T090000Z.jsonl.zst",
+            "notes.txt",
+        ] {
+            fs::write(node.join(name), "").unwrap();
+        }
+        fs::write(dir.join("node-b.jsonl"), "").unwrap();
+
+        let files = dataset_files(std::slice::from_ref(&dir)).unwrap();
+        let names: Vec<String> = files.iter().map(|file| node_name(file)).collect();
+        assert_eq!(files.len(), 3);
+        assert!(files[0].ends_with("node-a/croft-dataset-20261020T090000Z.jsonl.zst"));
+        assert!(files[1].ends_with("node-a/croft-dataset.jsonl"));
+        assert_eq!(names, ["node-a", "node-a", "node-b"]);
+        fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]

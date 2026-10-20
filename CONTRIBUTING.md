@@ -75,7 +75,8 @@ GPU tracepoints ──> GPU_FDS, GPU_ACTIVITY maps (GPU device fds, ioctls sent 
            + cgroup v2 (CPU, throttling, memory, PSI per container)
                                   |
                                   v
-            one JSON line per process in /var/lib/croft/croft-dataset.jsonl
+            one JSON line per process in /var/lib/croft/croft-dataset.jsonl,
+            rotated hourly into zstd segments beside it
 ```
 
 - `collector-ebpf/src/` holds the programs attached to the tracepoints

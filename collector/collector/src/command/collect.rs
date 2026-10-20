@@ -1,4 +1,4 @@
-//! Pulls each node's dataset from the collector DaemonSet, appending only the bytes the local copy lacks.
+//! Pulls each node's dataset files from the collector DaemonSet into <out>/<node>/, appending only the bytes a local copy lacks.
 
 use std::{
     cmp::Ordering,
@@ -9,7 +9,7 @@ use std::{
 use anyhow::{Context, bail};
 
 use super::{external, stats::human_bytes};
-use crate::cli::CollectArgs;
+use crate::{cli::CollectArgs, pipeline::segments};
 
 // Consts for the kubectl selector for the collector pods, the chunk size for each pull, and the jsonpath for the pod and node names.
 const SELECTOR: &str = "app=croft-collector";
@@ -27,8 +27,8 @@ pub fn execute(args: &CollectArgs) -> anyhow::Result<()> {
     fs::create_dir_all(&args.out).with_context(|| format!("create {}", args.out.display()))?;
     let mut failed = 0;
     for pod in pods(&args.namespace)? {
-        let local = args.out.join(format!("{}.jsonl", pod.node));
-        match sync(args, &pod, &local) {
+        let local = args.out.join(&pod.node);
+        match sync_node(args, &pod, &local) {
             Ok(report) => println!("{:<20} {report}", pod.node),
             Err(e) => {
                 eprintln!("{:<20} {e:#}", pod.node);
@@ -67,34 +67,65 @@ fn pods(namespace: &str) -> anyhow::Result<Vec<Pod>> {
         .collect())
 }
 
-// sync appends like rsync --append: a dataset only grows, so the local file is a prefix of the remote one.
-fn sync(args: &CollectArgs, pod: &Pod, local: &Path) -> anyhow::Result<String> {
-    let have = local_size(local);
-    let remote = remote_size(args, pod)?;
-    match remote.cmp(&have) {
-        Ordering::Equal => Ok("up to date".into()),
-        Ordering::Less => bail!(
-            "remote has {} but the local copy {}; move {} aside to start over",
-            human_bytes(remote),
-            human_bytes(have),
-            local.display()
-        ),
-        Ordering::Greater => {
-            pull(args, pod, local, remote)?;
-            Ok(format!(
-                "+{}, {} total",
-                human_bytes(remote - have),
-                human_bytes(remote)
-            ))
-        }
+// sync_node pulls the node's compressed segments and its live file; a segment still being compressed waits for the next collect.
+fn sync_node(args: &CollectArgs, pod: &Pod, local_dir: &Path) -> anyhow::Result<String> {
+    fs::create_dir_all(local_dir).with_context(|| format!("create {}", local_dir.display()))?;
+    let remote = Path::new(&args.remote);
+    let dir = remote.parent().unwrap_or(Path::new("/"));
+    let live = remote
+        .file_name()
+        .map_or_else(String::new, |name| name.to_string_lossy().into_owned());
+    let stem = live.strip_suffix(segments::LIVE_SUFFIX).unwrap_or(&live);
+    let listing = external::output(
+        "kubectl",
+        &exec(args, pod, &["ls", "-1", &dir.to_string_lossy()]),
+    )?;
+    let names = listing.lines().filter(|name| {
+        *name == live
+            || segments::parse_segment(stem, name).is_some_and(|(_, compressed)| compressed)
+    });
+    let (mut files, mut gained) = (0, 0);
+    for name in names {
+        gained += sync(args, pod, &dir.join(name), &local_dir.join(name))?;
+        files += 1;
     }
+    Ok(format!("+{} over {files} file(s)", human_bytes(gained)))
+}
+
+// sync appends like rsync --append: a segment only grows until it is closed; a live file smaller than the copy was rotated, so it starts over.
+fn sync(args: &CollectArgs, pod: &Pod, remote: &Path, local: &Path) -> anyhow::Result<u64> {
+    let remote_bytes = remote_size(args, pod, remote)?;
+    let mut have = local_size(local);
+    match remote_bytes.cmp(&have) {
+        Ordering::Equal => return Ok(0),
+        Ordering::Less => {
+            fs::remove_file(local).with_context(|| format!("remove {}", local.display()))?;
+            have = 0;
+        }
+        Ordering::Greater => {}
+    }
+    pull(args, pod, remote, local, remote_bytes)?;
+    Ok(remote_bytes - have)
 }
 
 // pull resumes each chunk from the bytes that arrived, and gives up when a chunk brings none.
-fn pull(args: &CollectArgs, pod: &Pod, local: &Path, remote: u64) -> anyhow::Result<()> {
+fn pull(
+    args: &CollectArgs,
+    pod: &Pod,
+    remote: &Path,
+    local: &Path,
+    remote_bytes: u64,
+) -> anyhow::Result<()> {
     let mut have = local_size(local);
-    while have < remote {
-        let result = append(args, pod, local, have, CHUNK_BYTES.min(remote - have));
+    while have < remote_bytes {
+        let result = append(
+            args,
+            pod,
+            remote,
+            local,
+            have,
+            CHUNK_BYTES.min(remote_bytes - have),
+        );
         let now = local_size(local);
         if now == have {
             return result.and_then(|()| bail!("no bytes from {}", pod.name));
@@ -110,22 +141,24 @@ fn local_size(local: &Path) -> u64 {
 }
 
 // remote_size returns the size of the remote file, or an error if it cannot be read.
-fn remote_size(args: &CollectArgs, pod: &Pod) -> anyhow::Result<u64> {
+fn remote_size(args: &CollectArgs, pod: &Pod, remote: &Path) -> anyhow::Result<u64> {
+    let remote = remote.to_string_lossy();
     let size = external::output(
         // Use kubectl exec to run stat in the collector pod,
         // and read the size of the remote file.
         "kubectl",
-        &exec(args, pod, &["stat", "-c", "%s", &args.remote]),
+        &exec(args, pod, &["stat", "-c", "%s", &remote]),
     )?;
     size.trim()
         .parse()
-        .with_context(|| format!("read size of {}", args.remote))
+        .with_context(|| format!("read size of {remote}"))
 }
 
 // append stops at the size read before, so a row the collector is writing arrives whole on the next collect.
 fn append(
     args: &CollectArgs,
     pod: &Pod,
+    remote: &Path,
     local: &Path,
     skip: u64,
     count: u64,
@@ -137,7 +170,7 @@ fn append(
         .with_context(|| format!("open {}", local.display()))?;
     let dd = [
         "dd".to_string(),
-        format!("if={}", args.remote),
+        format!("if={}", remote.display()),
         "iflag=skip_bytes,count_bytes".into(),
         format!("skip={skip}"),
         format!("count={count}"),

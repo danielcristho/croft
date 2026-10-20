@@ -69,6 +69,17 @@ journalctl -u croft-collector -f
 
 The dataset lands in `/var/lib/croft/croft-dataset.jsonl`.
 
+### Rotation and retention
+
+Every hour, or at 1 GiB, the collector renames the live file to
+`croft-dataset-<UTC start>.jsonl` and compresses it with zstd on a separate thread
+(about 13x smaller), then deletes segments older than 30 days and the oldest while
+all of them exceed 10 GiB. `CROFT_ROTATE_SECS`, `CROFT_ROTATE_BYTES`,
+`CROFT_RETAIN_DAYS` and `CROFT_RETAIN_BYTES` change the limits; 0 turns one off.
+A live file left by an older collector becomes a segment on the first poll.
+`croft stats` and `croft profile` read the segments directly; elsewhere,
+`zstd -dc` or Python's `zstandard` decompresses them.
+
 ### Upgrade
 
 ```sh

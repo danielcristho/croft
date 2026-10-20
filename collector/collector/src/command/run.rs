@@ -1,12 +1,14 @@
 //! The collector daemon: loads the eBPF programs and reports each poll to the dataset.
 
+use std::time::Duration;
+
 use anyhow::Context;
 use log::info;
 
 use crate::{
     cli::RunArgs,
     inspect::{framework::Catalog, namespace},
-    pipeline::{dataset::Dataset, metrics::Published, reporter},
+    pipeline::{dataset::Dataset, metrics::Published, reporter, segments::Policy},
     runtime::{banner, serve, signals},
     sensing::{backfill, ebpf, watch::CgroupWatch},
 };
@@ -19,13 +21,24 @@ pub fn execute(args: &RunArgs) -> anyhow::Result<()> {
     if let Some(dir) = path.parent().filter(|dir| !dir.as_os_str().is_empty()) {
         std::fs::create_dir_all(dir).with_context(|| format!("create {}", dir.display()))?;
     }
-    let dataset = Dataset::new(path);
+    let dataset = Dataset::with_rotation(path, policy(args));
     let watch = CgroupWatch::new(&args.watch);
     let frameworks = Catalog::load(args.frameworks.as_deref())?;
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?
         .block_on(collect(dataset, watch, frameworks, &args.metrics_addr))
+}
+
+// policy reads the rotation and retention limits; zero turns one off.
+fn policy(args: &RunArgs) -> Policy {
+    let nonzero = |value: u64| (value > 0).then_some(value);
+    Policy {
+        rotate_after: nonzero(args.rotate_secs).map(Duration::from_secs),
+        rotate_bytes: nonzero(args.rotate_bytes),
+        retain: nonzero(args.retain_days).map(|days| Duration::from_secs(days * 86_400)),
+        retain_bytes: nonzero(args.retain_bytes),
+    }
 }
 
 // Run the collector, polling eBPF maps and reporting to the dataset.

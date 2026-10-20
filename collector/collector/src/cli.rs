@@ -29,7 +29,7 @@ pub enum Command {
     Profile(ProfileArgs),
     /// Start the collector on Docker or Kubernetes
     Deploy(DeployArgs),
-    /// Append what each node's dataset gained since the last collect, from the Kubernetes DaemonSet
+    /// Pull each node's dataset segments and live file, appending what they gained, from the Kubernetes DaemonSet
     Collect(CollectArgs),
     /// Add replicas to a Deployment from the request rate the collectors see, ahead of the HPA
     Scale(ScaleArgs),
@@ -55,6 +55,18 @@ pub struct RunArgs {
     /// Serve the latest poll's per-container signals at http://ADDR/metrics, e.g. 0.0.0.0:9464; off when empty
     #[arg(long, env = "CROFT_METRICS_ADDR", default_value = "")]
     pub metrics_addr: String,
+    /// Rotate the live dataset into a zstd segment once it is this many seconds old; 0 turns it off
+    #[arg(long, env = "CROFT_ROTATE_SECS", default_value_t = 3600)]
+    pub rotate_secs: u64,
+    /// Rotate the live dataset once it reaches this many bytes; 0 turns it off
+    #[arg(long, env = "CROFT_ROTATE_BYTES", default_value_t = 1 << 30)]
+    pub rotate_bytes: u64,
+    /// Delete segments last written more than this many days ago; 0 keeps them
+    #[arg(long, env = "CROFT_RETAIN_DAYS", default_value_t = 30)]
+    pub retain_days: u64,
+    /// Delete the oldest segments while all of them together exceed this many bytes; 0 keeps them
+    #[arg(long, env = "CROFT_RETAIN_BYTES", default_value_t = 10 << 30)]
+    pub retain_bytes: u64,
 }
 
 #[derive(Args)]
@@ -163,10 +175,10 @@ pub struct CollectArgs {
     /// Namespace of the collector DaemonSet
     #[arg(long, default_value = "croft")]
     pub namespace: String,
-    /// Directory for the per-node files, <node>.jsonl
+    /// Directory for the per-node directories, <node>/
     #[arg(long, default_value = ".")]
     pub out: PathBuf,
-    /// Dataset path inside the collector pods
+    /// Live dataset path inside the collector pods; its segments sit beside it
     #[arg(long, default_value = "/data/croft-dataset.jsonl")]
     pub remote: String,
 }

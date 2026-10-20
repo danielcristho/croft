@@ -43,10 +43,10 @@ croft top       # processes of the newest poll
 croft stats     # dataset summary
 croft profile   # resource profile of a container over a window, as JSON
 croft deploy    # start the collector on Docker or Kubernetes
-croft collect   # append what each node's dataset gained, from the DaemonSet
+croft collect   # pull each node's segments and live file into <out>/<node>/, from the DaemonSet
 ```
 
-The default dataset is `/var/lib/croft/croft-dataset.jsonl`.
+The default dataset is `/var/lib/croft/croft-dataset.jsonl`; older rows sit in zstd segments `croft-dataset-<UTC start>.jsonl.zst` beside it.
 
 ## Applications under test
 

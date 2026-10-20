@@ -114,6 +114,7 @@ impl Reporter {
             self.report(&subject, counts, runqueue.get(&subject.tgid).copied(), now);
         }
         self.publish();
+        self.dataset.end_poll();
         self.rates.end_poll();
         self.resources.end_poll();
         self.idle.end_poll();

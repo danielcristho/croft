@@ -6,3 +6,4 @@ mod idle;
 pub mod metrics;
 pub mod reporter;
 pub mod rows;
+pub mod segments;
