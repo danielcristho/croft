@@ -16,6 +16,9 @@ pub struct ProcessInfo {
     pub exe: Option<String>,
     pub cgroup: Option<String>,
     pub container_id: Option<String>,
+    // The working directory names the project a host process runs from, such as a venv python.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cwd: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub framework: Option<String>,
 }
@@ -48,6 +51,9 @@ pub fn identify(tgid: u32, cgroup: Option<String>) -> ProcessInfo {
         exe: fs::read_link(dir.join("exe"))
             .ok()
             .map(|exe| exe.display().to_string()),
+        cwd: fs::read_link(dir.join("cwd"))
+            .ok()
+            .map(|cwd| cwd.display().to_string()),
         container_id: cgroup.as_deref().and_then(container_id),
         cgroup,
         framework: None,
@@ -127,6 +133,15 @@ mod tests {
         };
         assert!(pause.is_pod_sandbox());
         assert!(!app.is_pod_sandbox());
+    }
+
+    #[test]
+    fn running_process_reads_its_working_directory() {
+        let cwd = std::env::current_dir().unwrap();
+        assert_eq!(
+            read(std::process::id()).cwd,
+            Some(cwd.display().to_string())
+        );
     }
 
     #[test]

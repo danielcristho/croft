@@ -7,7 +7,7 @@ One JSON line per process per 2 s poll:
 | Field | Holds |
 |---|---|
 | `unix_ms`, `tgid` | time and process |
-| `process` | `comm`, `exe`, `cgroup`, `container_id`, `framework` (`pytorch`, `tensorflow`, `jax`; left out when none) |
+| `process` | `comm`, `exe`, `cgroup`, `container_id`, `cwd` (working directory, names the project of a host process), `framework` (see `frameworks.json`; left out when none) |
 | `workload` | `gpu-onset`, `gpu-held` or `no-gpu` |
 | `usage` | process CPU, RSS, threads, context switches, I/O and network bytes per second, `runqueue_s` |
 | `cgroup_usage` | `cpu_cores`, `cpu_throttled_fraction`, `memory_bytes`, `oom_kills`, PSI `*_pressure_avg10` |
@@ -15,6 +15,7 @@ One JSON line per process per 2 s poll:
 | `label` | set by labelled experiments |
 
 Idle processes are written every 15 polls. Empty GPU fields are left out.
+A process that held a GPU fd before the collector started reads as `gpu-held` with `ioctl_count` 0.
 
 Pre-filter large files with `grep -F -f ids.txt` on container ids before parsing
 JSON; parsing tens of gigabytes in Python takes many minutes.
