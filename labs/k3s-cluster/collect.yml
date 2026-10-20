@@ -20,7 +20,7 @@
           - --append-verify
           - --partial
           - "{{ croft_dataset if node.ansible_connection | default('ssh') == 'local' else node.ansible_user ~ '@' ~ node.ansible_host ~ ':' ~ croft_dataset }}"
-          - "{{ collect_dir }}/{{ ansible_hostname }}.jsonl"
+          - "{{ collect_dir }}/{{ ansible_facts['hostname'] }}.jsonl"
       vars:
         node: "{{ hostvars[inventory_hostname] }}"
       delegate_to: localhost

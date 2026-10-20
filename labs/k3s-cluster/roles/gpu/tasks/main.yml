@@ -1,5 +1,5 @@
 - name: Label the GPU nodes
-  ansible.builtin.command: k3s kubectl label node {{ hostvars[item].ansible_hostname }} nvidia.com/gpu.present=true --overwrite
+  ansible.builtin.command: k3s kubectl label node {{ hostvars[item].ansible_facts['hostname'] }} nvidia.com/gpu.present=true --overwrite
   loop: "{{ groups['gpu'] }}"
   register: gpu_labels
   changed_when: "'not labeled' not in gpu_labels.stdout"
@@ -22,7 +22,7 @@
       - kubectl
       - get
       - node
-      - "{{ hostvars[item].ansible_hostname }}"
+      - "{{ hostvars[item].ansible_facts['hostname'] }}"
       - -o
       - 'jsonpath={.status.allocatable.nvidia\.com/gpu}'
   loop: "{{ groups['gpu'] }}"

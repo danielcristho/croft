@@ -28,7 +28,7 @@
   ansible.builtin.meta: flush_handlers
 
 - name: Wait for the server node
-  ansible.builtin.command: k3s kubectl wait --for=condition=Ready node/{{ ansible_hostname }} --timeout=10s
+  ansible.builtin.command: k3s kubectl wait --for=condition=Ready node/{{ ansible_facts['hostname'] }} --timeout=10s
   register: node_ready
   until: node_ready.rc == 0
   retries: 36
