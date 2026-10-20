@@ -4,17 +4,18 @@
 
 **Proactive autoscaling from what processes do in the kernel**
 
-Read each pod's request rate and CPU pressure through eBPF, notice a workload
-burst within seconds, and add replicas before the application slows down.
+Read each pod's request rate through eBPF and its CPU pressure from cgroups,
+notice a workload burst within seconds, and add replicas before the application
+slows down.
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Stars](https://img.shields.io/github/stars/Labs-CloudX/croft?style=flat)](https://github.com/Labs-CloudX/croft/stargazers)
-[![PRs](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/Labs-CloudX/croft/pulls)
+[![Stars](https://img.shields.io/github/stars/danielcristho/croft?style=flat)](https://github.com/danielcristho/croft/stargazers)
+[![PRs](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/danielcristho/croft/pulls)
 
 [![Rust](https://img.shields.io/badge/Rust-2024-000000?logo=rust&logoColor=white)](https://www.rust-lang.org)
 [![eBPF](https://img.shields.io/badge/eBPF-aya%200.14-FF6600)](https://aya-rs.dev)
 
-[Deployment](deploy/README.md) · [CloudX](https://github.com/Labs-CloudX/cloudx)
+[Deployment](deploy/README.md) · [CloudX](https://github.com/danielcristho/cloudx)
 
 </div>
 
@@ -29,8 +30,9 @@ burst within seconds, and add replicas before the application slows down.
 The Kubernetes HPA scales on average CPU utilization, sampled every 15 s. When a
 burst arrives, the first replica is added half a minute later, and latency has
 already crossed its objective. Croft looks earlier in the chain: it attaches to
-stable kernel tracepoints and records, every two seconds and per container, the
-syscall rates, CPU, memory, throttling and pressure of each process, and which
+stable kernel tracepoints, reads `/proc` and the cgroup files beside them, and
+records, every two seconds and per container, the syscall rates, CPU, memory,
+throttling and pressure of each process, the framework it runs, and which
 processes drive a GPU.
 
 Requests show up in the kernel before they show up as CPU. A web server answers
@@ -41,6 +43,23 @@ replicas the burst will need, within one poll of its start.
 <p align="center">
   <img src="assets/architecture.svg" width="860" alt="Architecture: the web app's syscalls and cgroup pressure are read in the kernel through eBPF by a collector on each node. The collector writes a dataset and will feed a burst detector, a scaler and OpenTelemetry towards Prometheus. The HPA scales the same pods from CPU utilization. Kernel, collector and dataset are built.">
 </p>
+
+## What it reads
+
+eBPF sees events, which no file keeps: each syscall, each wait for a CPU, each
+call into the GPU driver. Counters that the kernel already keeps are read from
+files, at no cost to the traced processes.
+
+| Source | Gives | Fields |
+|---|---|---|
+| eBPF, `raw_syscalls/sys_enter` | syscall rates; the request rate of a web server | `syscalls` |
+| eBPF, `sched_wakeup` / `sched_switch` | time each process waited for a CPU | `runqueue_s` |
+| eBPF, `openat`, `ioctl`, `close` on `/dev/nvidia*` | which processes hold a GPU and when they start using it; the only host processes recorded | `workload` |
+| `/proc/<pid>/maps` | ML framework, from the libraries the process loaded ([`frameworks.json`](collector/collector/frameworks.json)) | `framework` |
+| `/proc/<pid>/{stat,status,io,cwd,cgroup}`, `net/dev` | CPU, RSS, threads, context switches, disk and network bytes, working directory, container | `usage`, `process` |
+| cgroup v2 `cpu.stat`, `memory.current`, `*.pressure`, `memory.events` | throttling, container memory, PSI, OOM kills | `cgroup_usage` |
+
+The row format is in [`agent/signals.md`](agent/signals.md).
 
 ## Quick start
 
