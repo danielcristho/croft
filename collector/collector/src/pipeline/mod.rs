@@ -1,4 +1,4 @@
-//! Dataset rows: building them from a poll, reporting them, reading them back.
+//! All modules for the pipeline, which is the main data processing and reporting system of the collector.
 
 pub mod dataset;
 pub mod delta;

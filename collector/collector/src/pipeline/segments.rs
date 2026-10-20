@@ -15,7 +15,6 @@ use log::{info, warn};
 pub const LIVE_SUFFIX: &str = ".jsonl";
 pub const COMPRESSED_SUFFIX: &str = ".jsonl.zst";
 const PART_SUFFIX: &str = ".part";
-// Level 3 shrinks rows about 13x at over 1 GB/s; higher levels gain little for several times the CPU.
 const ZSTD_LEVEL: i32 = 3;
 const STAMP_LEN: usize = "20261020T090000Z".len();
 const SECS_PER_DAY: u64 = 86_400;

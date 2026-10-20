@@ -3,9 +3,7 @@ use std::{env, fs, path::PathBuf};
 use anyhow::{Context as _, anyhow};
 use aya_build::Toolchain;
 
-// With AYA_BUILD_SKIP=1 aya-build writes no object; an empty one lets the userspace code compile for tests.
 const SKIP_ENV: &str = "AYA_BUILD_SKIP";
-// The eBPF binary's name, the file src/ebpf.rs embeds from OUT_DIR.
 const EBPF_OBJECT: &str = "collector";
 
 // Build script for the collector-ebpf crate. This script is responsible for building the eBPF programs and ensuring that the bpf-linker tool is available.

@@ -27,7 +27,7 @@ use crate::{
     },
 };
 
-// Consts
+// Constant poll interval for the reporter. This is how often the reporter will poll the eBPF maps and write a dataset row for every GPU holder and every process in a watched cgroup.
 pub const POLL_INTERVAL: Duration = Duration::from_secs(2);
 const TOP_SYSCALLS: usize = 3;
 const MIB: u64 = 1024 * 1024;

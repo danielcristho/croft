@@ -17,7 +17,6 @@ use crate::{
 pub const CPU_CORES: &str = "croft_container_cpu_cores";
 pub const CPU_PRESSURE: &str = "croft_container_cpu_pressure_avg10";
 pub const CPU_THROTTLED: &str = "croft_container_cpu_throttled_fraction";
-// Seconds per second the container's threads waited on a run queue.
 pub const RUNQUEUE: &str = "croft_container_runqueue_wait";
 pub const SYSCALL_RATE: &str = "croft_container_syscall_rate";
 pub const POLL_UNIX_MS: &str = "croft_poll_unix_ms";
