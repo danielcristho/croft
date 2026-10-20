@@ -1,14 +1,16 @@
-# Pulls the last collect_hours of each agent's croft dataset into one directory, one file per node.
-# The server's file is linked, not copied. -e collect_hours=0 pulls whole files, appending to the last copy.
+# Pulls each agent's croft segments written in the last collect_hours, and its live file, into <collect_dir>/<node>/.
+# The server's directory is linked, not copied. -e collect_hours=0 pulls every segment the agent still keeps.
 - name: Collect the croft datasets
   hosts: k3s
   vars:
-    croft_dataset: /var/lib/croft/croft-dataset.jsonl
+    croft_dir: /var/lib/croft
+    croft_live: croft-dataset.jsonl
+    croft_segments: croft-dataset-*.jsonl.zst
     collect_dir: "{{ playbook_dir }}/../../research/data/nodes"
     collect_hours: 24
     node: "{{ hostvars[inventory_hostname] }}"
     is_local: "{{ node.ansible_connection | default('ssh') == 'local' }}"
-    node_copy: "{{ collect_dir }}/{{ ansible_facts['hostname'] }}.jsonl"
+    node_dir: "{{ collect_dir }}/{{ ansible_facts['hostname'] }}"
   tasks:
     - name: Create the collection directory
       ansible.builtin.file:
@@ -18,34 +20,67 @@
       delegate_to: localhost
       run_once: true
 
-    - name: Link the server's dataset
+    - name: Remove the single-file copy of the layout before segments
       ansible.builtin.file:
-        src: "{{ croft_dataset }}"
-        dest: "{{ node_copy }}"
+        path: "{{ node_dir }}.jsonl"
+        state: absent
+      delegate_to: localhost
+
+    - name: Link the server's dataset directory
+      ansible.builtin.file:
+        src: "{{ croft_dir }}"
+        dest: "{{ node_dir }}"
         state: link
-        force: true
       delegate_to: localhost
       when: is_local
 
-    # Streamed through ssh: an agent's /tmp can be a small tmpfs.
-    - name: Pull the last hours of the dataset
-      ansible.builtin.shell: >-
-        ssh -C {{ node.ansible_user }}@{{ node.ansible_host }}
-        python3 - {{ croft_dataset }} {{ collect_hours }}
-        < {{ playbook_dir }}/files/window.py > {{ node_copy }}.part
-        && mv {{ node_copy }}.part {{ node_copy }}
-      delegate_to: localhost
-      when: not is_local and collect_hours | float > 0
-      changed_when: true
+    # A segment's mtime is when it was closed, so recent ones are those that hold rows from the window.
+    - name: Find the agent's recent segments
+      ansible.builtin.find:
+        paths: "{{ croft_dir }}"
+        patterns: "{{ croft_segments }}"
+        age: "{{ '-' ~ collect_hours ~ 'h' if collect_hours | int > 0 else omit }}"
+      register: segments
+      when: not is_local
 
-    - name: Pull the whole dataset
+    - name: Create the node directory
+      ansible.builtin.file:
+        path: "{{ node_dir }}"
+        state: directory
+        mode: "0755"
+      delegate_to: localhost
+      when: not is_local
+
+    # Closed segments never change, so -t skips the ones already here; the live file goes by rsync's delta.
+    - name: Pull the segments and the live file
       ansible.builtin.command:
         argv:
           - rsync
-          - --append-verify
+          - --times
           - --partial
-          - "{{ node.ansible_user }}@{{ node.ansible_host }}:{{ croft_dataset }}"
-          - "{{ node_copy }}"
+          - --files-from=-
+          - "{{ node.ansible_user }}@{{ node.ansible_host }}:{{ croft_dir }}/"
+          - "{{ node_dir }}/"
+        stdin: "{{ (segments.files | map(attribute='path') | map('basename') | list + [croft_live]) | join('\n') }}"
       delegate_to: localhost
-      when: not is_local and collect_hours | float == 0
+      when: not is_local
       changed_when: true
+
+    - name: Find local segments
+      ansible.builtin.find:
+        paths: "{{ node_dir }}"
+        patterns: "{{ croft_segments }}"
+      register: local_segments
+      delegate_to: localhost
+      when: not is_local
+
+    - name: Remove local segments older than the window
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop: "{{ local_segments.files | default([]) | map(attribute='path') | list }}"
+      # Compared by name: find returns the local paths normalized, without node_dir's "..".
+      vars:
+        wanted: "{{ segments.files | map(attribute='path') | map('basename') | list }}"
+      delegate_to: localhost
+      when: not is_local and item | basename not in wanted
