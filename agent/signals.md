@@ -28,7 +28,7 @@ JSON; parsing tens of gigabytes in Python takes many minutes.
 | `accept4` | not usable: ingress-nginx keeps upstream connections alive, new connections are rare |
 | `network_rx_bytes_s` | tracks requests; counted per network namespace, so take the max per pod |
 | `cpu_pressure_avg10 > 10` or `cpu_throttled_fraction > 0.2`, two polls | pressure rule of the lead-time notebook |
-| `runqueue_s` | seconds per second the threads waited for a CPU, summed over threads (rq time, Landau et al. 2026); a 2 s window where PSI averages 10 s. Checked on one host: 4 CPU-bound processes on 1 CPU read 3.00, by quota or by pinning; one alone reads 0. Not yet tried on bursts |
+| `runqueue_s` | seconds per second the threads waited for a CPU, summed over threads (rq time, Landau et al. 2026); a 2 s window where PSI averages 10 s. Checked on one host: 4 CPU-bound processes on 1 CPU read 3.00, by quota or by pinning; one alone reads 0. On the burst4-croft bursts it fires with `sendto` and PSI (0.1–2.3 s), tracks throttling per pod (r 0.80, 1.8× higher) and climbs with the pod count, so it does not size a burst |
 | request rate × CPU per request ÷ (limit × 0.7) | projected utilization, and the replicas a burst needs |
 
 The webapp costs 45–58 ms of CPU per request; node calibration gives 38–64 ms
