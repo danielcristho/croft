@@ -11,5 +11,17 @@
     "name": "jax",
     "libraries": ["xla_extension.so"],
     "directories": ["/jaxlib/"]
+  },
+  {
+    "name": "onnxruntime",
+    "libraries": ["libonnxruntime", "onnxruntime_pybind11_state"]
+  },
+  {
+    "name": "xgboost",
+    "libraries": ["libxgboost.so"]
+  },
+  {
+    "name": "scikit-learn",
+    "directories": ["/sklearn/"]
   }
 ]

@@ -176,6 +176,12 @@ mod tests {
 7f00ac000000-7f00ad000000 r-xp 00000000 08:01 43 /usr/local/lib/python3.11/dist-packages/tensorflow/python/_pywrap_tensorflow_internal.so";
     const JAX: &str = "\
 7f00aa000000-7f00ab000000 r-xp 00000000 08:01 42 /opt/venv/lib/python3.12/site-packages/jaxlib/_jax.so";
+    const ONNX: &str = "\
+7f00aa000000-7f00ab000000 r-xp 00000000 08:01 42 /usr/local/lib/python3.12/site-packages/onnxruntime/capi/onnxruntime_pybind11_state.cpython-312-x86_64-linux-gnu.so";
+    const XGBOOST: &str = "\
+7f00aa000000-7f00ab000000 r-xp 00000000 08:01 42 /usr/local/lib/python3.12/site-packages/xgboost/lib/libxgboost.so";
+    const SKLEARN: &str = "\
+7f00aa000000-7f00ab000000 r-xp 00000000 08:01 42 /usr/local/lib/python3.12/site-packages/sklearn/_cyutility.cpython-312-x86_64-linux-gnu.so";
     const PLAIN: &str = "\
 55d0c1a00000-55d0c1b00000 r-xp 00000000 08:01 7 /usr/bin/python3.12
 7f00aa000000-7f00ab000000 r-xp 00000000 08:01 8 /usr/lib/x86_64-linux-gnu/libc.so.6
@@ -194,6 +200,9 @@ mod tests {
         assert_eq!(from(TORCH).as_deref(), Some("pytorch"));
         assert_eq!(from(TENSORFLOW).as_deref(), Some("tensorflow"));
         assert_eq!(from(JAX).as_deref(), Some("jax"));
+        assert_eq!(from(ONNX).as_deref(), Some("onnxruntime"));
+        assert_eq!(from(XGBOOST).as_deref(), Some("xgboost"));
+        assert_eq!(from(SKLEARN).as_deref(), Some("scikit-learn"));
         assert_eq!(from(PLAIN), None);
     }
 
@@ -206,6 +215,10 @@ mod tests {
         assert_eq!(
             from(&format!("{JAX}\n{TENSORFLOW}")).as_deref(),
             Some("tensorflow")
+        );
+        assert_eq!(
+            from(&format!("{SKLEARN}\n{XGBOOST}")).as_deref(),
+            Some("xgboost")
         );
     }
 
