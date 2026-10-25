@@ -140,6 +140,20 @@ Each node's dataset lands in `research/data/nodes/<node>/`: the zstd segments an
 
 Open `research/burst_signals.ipynb` (and `research/lead_time.ipynb` for the step and ramp runs).
 
+## Step 6: croft scale against the HPA
+
+Run the HPA alone and the HPA with `croft scale` under the same probes, three repetitions each, then score both arms:
+
+```sh
+for i in 1 2 3; do
+  uv run run.py web --prefix hpa-$i --profile burst --scale 0.5 --probes relaxed || break
+  uv run run.py web --prefix duo-$i --profile burst --scale 0.5 --probes relaxed --scaler croft || break
+done
+uv run run.py compare --prefix hpa- duo-
+```
+
+`compare` prints mean ± sd per arm (profile, scale, probes, scaler) and writes one row per run to `data/web/compare.csv`: seconds from the burst start to the first HPA and croft scale-up and to the first new pod Ready, peak replicas and the time to reach them, replica scale-downs inside the burst (the HPA undoing croft), seconds with p95 above 500 ms, the failed fraction, successes over offered requests, and replica-seconds over the run. `[k]` after a value means only k runs of the arm have it.
+
 ---
 
 # 6. Other runs
@@ -157,6 +171,7 @@ uv run run.py web --prefix lead --steps 2,4,8,12 --shape ramp  # the same counts
 uv run run.py web --prefix cd --profile ramp --scale 0.3       # an open-loop ramp at 30% of its rates
 uv run run.py web --prefix duo --profile burst --scale 0.5 --scaler croft  # croft scale next to the HPA
 uv run run.py calibrate                             # CPU per request on each node, into data/node-speed.json
+uv run run.py compare --prefix hpa- duo-            # burst runs scored per arm, HPA alone against HPA + croft
 ```
 
 Only one experiment runs at a time (`data/experiment.lock`): two workloads sharing CPUs pollute each other's numbers.
@@ -170,11 +185,12 @@ data/
 ├── gpu/runs.jsonl            one line per run: label, params, node, container_id, started_ms, ended_ms
 └── web/
     ├── runs.jsonl            one line per run: users, steps or profile, replicas or hpa, window, containers
+    ├── compare.csv           run.py compare: one scored row per burst run
     └── <run>/
         ├── locust_*.csv      Locust runs: stats, history, failures, exceptions
         ├── workload.csv      open-loop runs: target and achieved RPS, latency per second
         ├── prometheus.csv    cpu_cores, cpu_throttled_s, memory_bytes, network, restarts, replicas
-        ├── scaler.log        --scaler croft: the scaler's decisions, with timestamps
+        ├── scaler.log        --scaler croft: the scaler's estimate every poll and its decisions, with timestamps
         └── timeline.json     HPA rescales, replica set changes from any scaler, pod created and Ready times
 ```
 

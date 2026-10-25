@@ -58,9 +58,22 @@ uv run run.py gpu --dry-run                                  # the plan
 uv run run.py web --prefix lead --steps 2,4,8,12 --shape ramp
 uv run run.py web --prefix duo --profile burst --scale 0.5 --scaler croft   # croft scale next to the HPA
 uv run run.py calibrate                                      # CPU per request on each node
+uv run run.py compare --prefix hpa- duo-                     # burst runs scored per arm
 ```
 
 Only one experiment runs at a time (`data/experiment.lock`): two workloads sharing CPUs pollute each other's numbers.
+
+## croft scale against the HPA
+
+```sh
+for i in 1 2 3; do
+  uv run run.py web --prefix hpa-$i --profile burst --scale 0.5 --probes relaxed || break
+  uv run run.py web --prefix duo-$i --profile burst --scale 0.5 --probes relaxed --scaler croft || break
+done
+uv run run.py compare --prefix hpa- duo-
+```
+
+`compare` scores each burst run (first HPA and croft scale-up, first new pod Ready, peak replicas, scale-downs inside the burst, seconds above the 500 ms p95 objective, failures, replica-seconds) and prints mean ± sd per arm; the per-run rows go to `data/web/compare.csv`.
 
 ## Applications and profiles
 
@@ -74,11 +87,12 @@ data/
 ├── gpu/runs.jsonl            one line per run: label, params, node, container_id, start, end
 └── web/
     ├── runs.jsonl            one line per run: load, replicas or hpa, window, containers
+    ├── compare.csv           run.py compare: one scored row per burst run
     └── <run>/
         ├── workload.csv      open-loop runs: target and achieved RPS, latency per second
         ├── locust_*.csv      Locust runs
         ├── prometheus.csv    CPU, throttling, memory, network, restarts, replicas
-        ├── scaler.log        --scaler croft: the scaler's decisions
+        ├── scaler.log        --scaler croft: the scaler's estimate every poll and its decisions
         └── timeline.json     rescales, replica set changes, pod created and Ready times
 ```
 

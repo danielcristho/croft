@@ -46,6 +46,14 @@ over. One experiment runs at a time (`data/experiment.lock`).
 - Every deploy restarts the pod. Without probes, an overloaded pod is never
   restarted, and the next run would inherit hundreds of queued requests.
 
+## croft scale against the HPA
+
+Pair the arms: the HPA alone and `--scaler croft`, same profile, scale and `--probes relaxed`,
+three repetitions each, then `uv run run.py compare --prefix hpa- duo-`. Per-run scores go to
+`data/web/compare.csv`. Two things to check: `scale_down_events` inside the burst (the HPA owns
+`spec.replicas` and can undo croft's scale-up), and croft climbing in small steps, since `sendto`
+shows a saturated pod's capacity, not the offered load (issue #8).
+
 ## Load: open loop for bursts
 
 Locust users are closed loop: each waits for its answer before sending again.
