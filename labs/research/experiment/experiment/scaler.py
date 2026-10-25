@@ -11,6 +11,8 @@ NAMESPACE = "croft"
 COLLECTORS = "croft-collector"
 METRICS_ENV = "CROFT_METRICS_ADDR"
 READY_TIMEOUT_S = 120
+# The scale module logs its rate and replica estimate at debug on every poll; compare reads them from scaler.log.
+LOG_LEVEL = "info,croft::command::scale=debug"
 
 
 def name(app: App) -> str:
@@ -41,24 +43,28 @@ def documents(text: str) -> list[dict]:
 def objects(app: App) -> list[dict]:
     """The manifest's objects, with its Deployment renamed and pointed at the app."""
     items = documents(kube.kubectl("create", "--dry-run=client", "-o", "json", "-f", str(MANIFEST)))
-    for item in items:
-        if item["kind"] != "Deployment":
-            continue
-        labels = {"app": "croft-scaler", "target": app.name}
-        item["metadata"]["name"] = name(app)
-        item["metadata"]["labels"] = labels
-        item["spec"]["selector"]["matchLabels"] = labels
-        item["spec"]["template"]["metadata"]["labels"] = labels
-        scaler = next(c for c in item["spec"]["template"]["spec"]["containers"] if c["name"] == "scaler")
-        scaler["args"] = [
-            "scale",
-            f"--namespace={app.namespace}",
-            f"--deployment={app.deployment}",
-            f"--syscall={app.scaler.syscall}",
-            f"--calls-per-request={app.scaler.calls_per_request}",
-            f"--cpu-per-request-ms={app.scaler.cpu_per_request_ms}",
-        ]
-    return items
+    return [retarget(item, app) if item["kind"] == "Deployment" else item for item in items]
+
+
+# retarget points the manifest's scaler Deployment at the app, with its calibration and the run's log level.
+def retarget(deployment: dict, app: App) -> dict:
+    labels = {"app": "croft-scaler", "target": app.name}
+    deployment["metadata"]["name"] = name(app)
+    deployment["metadata"]["labels"] = labels
+    deployment["spec"]["selector"]["matchLabels"] = labels
+    deployment["spec"]["template"]["metadata"]["labels"] = labels
+    scaler = next(c for c in deployment["spec"]["template"]["spec"]["containers"] if c["name"] == "scaler")
+    scaler["args"] = [
+        "scale",
+        f"--namespace={app.namespace}",
+        f"--deployment={app.deployment}",
+        f"--syscall={app.scaler.syscall}",
+        f"--calls-per-request={app.scaler.calls_per_request}",
+        f"--cpu-per-request-ms={app.scaler.cpu_per_request_ms}",
+    ]
+    env = [var for var in scaler.get("env", []) if var["name"] != "RUST_LOG"]
+    scaler["env"] = [*env, {"name": "RUST_LOG", "value": LOG_LEVEL}]
+    return deployment
 
 
 # start replaces any scaler left from an earlier run, so its confirmation streak starts empty.
