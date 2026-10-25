@@ -210,11 +210,13 @@ def run_profile(app: App, prefix: str, name: str, scale: float, warmup: int, coo
         start_ms = records.now_ms()
         rps.run(app.url, profile, directory / "workload.csv")
         end_ms = records.now_ms()
-        if with_scaler:
-            scaler.save_log(app, directory / "scaler.log")
     finally:
+        # A failed run keeps the scaler's log too: it shows what croft decided before the failure.
         if with_scaler:
-            scaler.stop(app)
+            try:
+                scaler.save_log(app, directory / "scaler.log")
+            finally:
+                scaler.stop(app)
     containers |= kube.containers(app.namespace, "-l", app.selector)
     prometheus.export(directory / "prometheus.csv", app.namespace, app.deployment, start_ms // 1000, end_ms // 1000)
     (directory / "timeline.json").write_text(json.dumps(timeline(app, start_ms, deployed_ms), indent=1))
