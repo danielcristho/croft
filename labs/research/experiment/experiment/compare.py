@@ -1,0 +1,173 @@
+"""Burst runs scored per arm, the HPA alone against the HPA with croft scale: reaction, latency objective, failures, cost."""
+
+import csv
+import json
+import re
+import statistics
+from collections.abc import Iterable
+from pathlib import Path
+
+from . import kube, prometheus, records
+from .apps import ROOT
+
+# Consts
+SLO_P95_MS = 500
+RUNS = records.DATA / "web" / "runs.jsonl"
+OUTPUT = records.DATA / "web" / "compare.csv"
+ARM = ("profile", "scale", "probes", "scaler")
+METRICS = [
+    "hpa_first_up_s", "croft_first_up_s", "first_ready_s", "peak_replicas", "time_to_peak_s",
+    "scale_down_events", "slo_violation_s", "failed_fraction", "success_ratio", "replica_seconds",
+]
+CROFT_SCALE_UP = re.compile(r"scale up from=\d+ to=(\d+)")
+HPA_NEW_SIZE = re.compile(r"New size: (\d+); reason: .*above target")
+
+
+# burst_window is the burst's start and end in epoch ms, from the run's start and its profile.
+def burst_window(record: dict) -> tuple[int, int]:
+    profile = record["profile"]
+    start_ms = record["started_ms"] + int(profile["burst_start_s"] * 1000)
+    return start_ms, start_ms + int(profile["burst_duration_s"] * 1000)
+
+
+# parse_scaler_log reads croft's scale-ups as (epoch ms, new replicas) from kubectl's --timestamps prefix.
+def parse_scaler_log(text: str) -> list[tuple[int, int]]:
+    decisions = []
+    for line in text.splitlines():
+        stamp, _, message = line.partition(" ")
+        if match := CROFT_SCALE_UP.search(message):
+            decisions.append((kube.epoch_ms(stamp), int(match.group(1))))
+    return decisions
+
+
+# parse_rescales reads the HPA's scale-ups as (epoch ms, new size); an aggregated event counts from its first time.
+def parse_rescales(rescales: list[dict]) -> list[tuple[int, int]]:
+    return [
+        (rescale["first_ms"], int(match.group(1)))
+        for rescale in rescales
+        if (match := HPA_NEW_SIZE.search(rescale["message"]))
+    ]
+
+
+def seconds_after(start_ms: int, times_ms: Iterable[int]) -> float | None:
+    later = [t for t in times_ms if t >= start_ms]
+    return round((min(later) - start_ms) / 1000, 1) if later else None
+
+
+def read_csv(path: Path) -> list[dict]:
+    if not path.is_file():
+        return []
+    with path.open() as rows:
+        return list(csv.DictReader(rows))
+
+
+# load_metrics scores the burst window of workload.csv: one row per second of completed requests.
+def load_metrics(rows: list[dict], start_ms: int, end_ms: int) -> dict:
+    burst = [r for r in rows if start_ms < float(r["timestamp_epoch"]) * 1000 <= end_ms]
+    if not burst:
+        return {}
+    success, failed = sum(int(r["success"]) for r in burst), sum(int(r["failed"]) for r in burst)
+    target = sum(float(r["target_rps"]) for r in burst)
+    return {
+        "slo_violation_s": sum(1 for r in burst if float(r["p95_latency_ms"]) > SLO_P95_MS),
+        "failed_fraction": round(failed / (success + failed), 3) if success + failed else None,
+        "success_ratio": round(success / target, 3) if target else None,
+    }
+
+
+# replica_metrics reads the Deployment's replicas from prometheus.csv, sampled every prometheus.STEP_S.
+def replica_metrics(rows: list[dict], start_ms: int, end_ms: int) -> dict:
+    replicas = [(int(r["unix_s"]) * 1000, float(r["replicas"])) for r in rows if r.get("replicas")]
+    burst = [(t, n) for t, n in replicas if start_ms <= t <= end_ms]
+    if not burst:
+        return {}
+    peak = max(n for _, n in burst)
+    return {
+        "peak_replicas": peak,
+        "time_to_peak_s": seconds_after(start_ms, (t for t, n in burst if n == peak)),
+        "replica_seconds": sum(n for _, n in replicas) * prometheus.STEP_S,
+    }
+
+
+def run_metrics(record: dict, directory: Path) -> dict:
+    start_ms, end_ms = burst_window(record)
+    timeline_path = directory / "timeline.json"
+    timeline = json.loads(timeline_path.read_text()) if timeline_path.is_file() else {}
+    log_path = directory / "scaler.log"
+    croft = parse_scaler_log(log_path.read_text()) if log_path.is_file() else []
+    scale_downs = [
+        event for event in timeline.get("replica_sets", [])
+        if event["message"].startswith("Scaled down") and start_ms <= event["last_ms"] and event["first_ms"] <= end_ms
+    ]
+    return {
+        "run_id": record["run_id"],
+        **arm(record),
+        "hpa_first_up_s": seconds_after(start_ms, (t for t, _ in parse_rescales(timeline.get("rescales", [])))),
+        "croft_first_up_s": seconds_after(start_ms, (t for t, _ in croft)),
+        "first_ready_s": seconds_after(start_ms, (
+            pod["ready_ms"] for pod in timeline.get("pods", []) if pod["created_ms"] >= start_ms and pod["ready_ms"]
+        )),
+        "scale_down_events": len(scale_downs),
+        **load_metrics(read_csv(directory / "workload.csv"), start_ms, end_ms),
+        **replica_metrics(read_csv(directory / "prometheus.csv"), start_ms, end_ms),
+    }
+
+
+# arm names the conditions a run shares with its repetitions; older records lack probes and scaler.
+def arm(record: dict) -> dict:
+    return {
+        "profile": record["profile"]["name"],
+        "scale": record["scale"],
+        "probes": record.get("probes", "default"),
+        "scaler": record.get("scaler") or "hpa",
+    }
+
+
+def mean_sd(values: list[float]) -> str:
+    if not values:
+        return "-"
+    sd = statistics.stdev(values) if len(values) > 1 else 0.0
+    return f"{statistics.mean(values):.2f} ± {sd:.2f}"
+
+
+def summarize(runs: list[dict]) -> list[dict]:
+    """One row per arm: run count and mean ± sd of every metric, with [k] when only k runs have it."""
+    arms: dict[tuple, list[dict]] = {}
+    for run in runs:
+        arms.setdefault(tuple(run[key] for key in ARM), []).append(run)
+    summary = []
+    for key, members in arms.items():
+        row = {**dict(zip(ARM, key)), "n": len(members)}
+        for metric in METRICS:
+            values = [run[metric] for run in members if run.get(metric) is not None]
+            row[metric] = mean_sd(values) + (f" [{len(values)}]" if 0 < len(values) < len(members) else "")
+        summary.append(row)
+    return summary
+
+
+# burst_records keeps the last record of each burst run: a rerun under the same id overwrote its directory.
+def burst_records(path: Path, prefixes: list[str]) -> list[dict]:
+    if not path.is_file():
+        raise SystemExit(f"{path} does not exist; run a burst series first")
+    latest = {}
+    for line in path.read_text().splitlines():
+        record = json.loads(line)
+        if record.get("load") == "open-loop" and record["profile"]["name"] == "burst":
+            if not prefixes or any(record["run_id"].startswith(prefix) for prefix in prefixes):
+                latest[record["run_id"]] = record
+    if not latest:
+        raise SystemExit(f"{path} holds no burst runs{' for ' + ', '.join(prefixes) if prefixes else ''}")
+    return list(latest.values())
+
+
+def run(prefixes: list[str], runs_path: Path = RUNS, output: Path = OUTPUT) -> None:
+    scored = [run_metrics(record, ROOT / record["directory"]) for record in burst_records(runs_path, prefixes)]
+    with output.open("w", newline="") as out:
+        writer = csv.DictWriter(out, fieldnames=["run_id", *ARM, *METRICS])
+        writer.writeheader()
+        writer.writerows(scored)
+    for row in summarize(scored):
+        print(f"{row['profile']} x{row['scale']:g}, probes {row['probes']}, {row['scaler']} (n={row['n']})")
+        for metric in METRICS:
+            print(f"  {metric:<18} {row[metric]}")
+    print(f"per-run scores in {output}")

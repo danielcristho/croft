@@ -3,7 +3,7 @@
 import argparse
 from pathlib import Path
 
-from experiment import calibrate, gpu, records, web
+from experiment import calibrate, compare, gpu, records, web
 from experiment.apps import APPS
 from experiment.profiles import PROFILES
 
@@ -48,8 +48,14 @@ def main() -> None:
     calibrate_args.add_argument("--croft-data", type=Path, default=calibrate.DEFAULT_CROFT_DATA, help="per-node croft datasets")
     calibrate_args.add_argument("--from-runs", action="store_true", help="compute from existing runs, measure nothing")
 
+    compare_args = suites.add_parser("compare", help="score burst runs per arm, the HPA alone against the HPA with croft scale")
+    compare_args.add_argument("--prefix", nargs="+", default=[], help="run id prefixes to score; default every burst run")
+
     args = parser.parse_args()
-    if args.suite == "gpu":
+    lock = None
+    if args.suite == "compare":
+        compare.run(args.prefix)
+    elif args.suite == "gpu":
         lock = None if args.dry_run else records.hold_lock()
         gpu.run(args.only, args.reps, args.seconds, args.cooldown, args.seed, args.node, args.dry_run)
     elif args.suite == "calibrate":
