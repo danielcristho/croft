@@ -76,7 +76,8 @@ def write_run(directory: Path, with_log: bool) -> None:
         (directory / "scaler.log").write_text(
             f"{stamp(BURST_MS - 10_000)} [INFO  croft::command::scale] scaling croft-exp/webapp from sendto per request\n"
             f"{stamp(BURST_MS + 2_000)} [DEBUG croft::command::scale] rate=20.1/s needed=2 replicas=1\n"
-            f"{stamp(BURST_MS + 4_000)} [INFO  croft::command::scale] scale up from=1 to=2 rate=20.1/s\n"
+            f"{stamp(BURST_MS + 4_000)} \x1b[2;90m08:03:04.123\x1b[0m INFO \x1b[0m \x1b[90mcommand::scale\x1b[0m scale up "
+            "\x1b[90mfrom=\x1b[0m\x1b[97m1\x1b[0m \x1b[90mto=\x1b[0m\x1b[97m2\x1b[0m \x1b[90mrate=\x1b[0m\x1b[97m20.1/s\x1b[0m\n"
         )
 
 

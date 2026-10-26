@@ -21,6 +21,8 @@ METRICS = [
 ]
 CROFT_SCALE_UP = re.compile(r"scale up from=\d+ to=(\d+)")
 HPA_NEW_SIZE = re.compile(r"New size: (\d+); reason: .*above target")
+# croft colours its log unless NO_COLOR is set, and the scaler pod does not set it.
+ANSI = re.compile(r"\x1b\[[0-9;]*m")
 
 
 # burst_window is the burst's start and end in epoch ms, from the run's start and its profile.
@@ -35,7 +37,7 @@ def parse_scaler_log(text: str) -> list[tuple[int, int]]:
     decisions = []
     for line in text.splitlines():
         stamp, _, message = line.partition(" ")
-        if match := CROFT_SCALE_UP.search(message):
+        if match := CROFT_SCALE_UP.search(ANSI.sub("", message)):
             decisions.append((kube.epoch_ms(stamp), int(match.group(1))))
     return decisions
 
