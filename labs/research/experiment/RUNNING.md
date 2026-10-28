@@ -1,598 +1,288 @@
-# croft experiments — Running the Web Applications
+# Running the web experiments
 
-This guide is the step-by-step procedure for running **burst experiments** against the two web applications of `apps.json`:
+This guide runs burst experiments against the two web applications in `apps.json`, `webapp` and `hotel-reservation`, and compares three autoscalers on them: the Kubernetes HPA, KEDA and croft.
 
-| Application | Architecture / dominant behavior | Typical observations |
-|---|---|---|
-| `webapp` | One CPU-bound HTTP service, 40 to 65 ms of CPU per request | CPU saturation, throttling, HPA lag |
-| `hotel-reservation` | DeathStarBench hotelReservation: 8 Go microservices over gRPC, MongoDB, memcached | service-chain latency, a light frontend in front of a deeper call graph |
+Every run deploys the application fresh, offers it an open-loop burst of requests, and records what the client, Prometheus and the autoscaler saw over the same window. [README.md](README.md) explains what is recorded and why.
 
-The same harness, the same load profiles and the same scoring apply to both, so the **application** can be treated as an independent variable.
+**Table of contents**
 
-`README.md` explains what the harness records and why; this guide only says how to run it.
+- [Prerequisites](#prerequisites)
+- [Applications](#applications)
+  - [webapp](#webapp)
+  - [hotel-reservation](#hotel-reservation)
+- [Setting up KEDA](#setting-up-keda)
+- [Running an experiment](#running-an-experiment)
+  - [A single run](#a-single-run)
+  - [Choosing the load](#choosing-the-load)
+  - [Comparing autoscalers](#comparing-autoscalers)
+- [Scoring runs](#scoring-runs)
+- [Validating a run](#validating-a-run)
+- [Reference run](#reference-run)
+- [Calibration](#calibration)
+- [Troubleshooting](#troubleshooting)
+- [Cleaning up](#cleaning-up)
 
----
+## Prerequisites
 
-# 1. Purpose
+- The k3s cluster from [`labs/k3s-cluster`](../../k3s-cluster), with ingress-nginx on NodePort 30080 and kube-prometheus-stack.
+- The croft collector DaemonSet with `CROFT_METRICS_ADDR` set, for the croft arm.
+- KEDA, for the KEDA arm. See [Setting up KEDA](#setting-up-keda).
+- [`uv`](https://docs.astral.sh/uv/) and `kubectl` on the server, `node-a`.
 
-Every run asks one question of one application:
+Run the harness on the server. `apps.json` reaches the applications at `127.0.0.1`, and the load generator should not share a network path with anything else:
 
-> When the offered load bursts, how quickly do the autoscaler and croft react, and how much does the application degrade before they do?
-
-```text
-open-loop burst (rps.py)
-       |
-       v
-ingress-nginx :30080
-       |
-       v
-application pods ---------------------------+
-       |                                    |
-       +--> croft: syscalls, PSI,           +--> client: latency, failures
-       |    throttling, every 2 s                (workload.csv)
-       |
-       +--> HPA: CPU utilization, every 15 s --> replicas (timeline.json)
-       |
-       +--> Prometheus series (prometheus.csv)
-```
-
----
-
-# 2. The two applications
-
-## webapp
-
-```text
-workload
-   ↓
-ingress (web.<ip>.sslip.io)
-   ↓
-webapp  /cpu
-```
-
-One service, built from `workloads/webapp`. A request burns 40 to 65 ms of CPU, so the app saturates at a few tens of RPS per pod. It requests and is limited to one core.
-
-## hotel-reservation
-
-```text
-workload
-   ↓
-ingress (hotel.<ip>.sslip.io)
-   ↓
-frontend  /hotels?inDate=…&outDate=…&lat=…&lon=…
-   ├──> search ──> geo ──> mongodb-geo
-   │         └──> rate ──> memcached-rate, mongodb-rate
-   ├──> reservation ──> memcached-reserve, mongodb-reservation
-   └──> profile ──> memcached-profile, mongodb-profile
-
-consul (service discovery), jaeger (1% of traces)
-```
-
-Every request is a hotel search, which touches five Go services. The frontend costs about 1.1 ms of CPU per request and the whole chain about 6 ms, measured at 50 RPS. The frontend requests and is limited to 200m, so one pod handles about 130 RPS at the HPA's 70% target and throttles above it. The HPA scales the frontend only; the other services stay at one replica.
-
-The data lives in `emptyDir`: every service seeds its MongoDB collection at startup, so a restarted MongoDB pod is empty until its service restarts as well (section 18).
-
----
-
-# 3. Directory structure
-
-```text
-labs/research/experiment/
-├── RUNNING.md                     this guide
-├── README.md                      what is recorded and why
-├── apps.json                      namespace, Deployment, host, path, health of each app
-├── run.py                         command line
-├── workloads/
-│   ├── webapp/                    app.py, Dockerfile, k8s.yaml, hpa.yaml
-│   ├── hotel-reservation/         k8s.yaml (19 Deployments), hpa.yaml
-│   └── ingress-nginx/             PodMonitor for the request counts KEDA scales on
-└── data/web/
-    ├── runs.jsonl                 one line per run
-    ├── compare.csv                one scored row per burst run
-    └── <run>/                     workload.csv, prometheus.csv, timeline.json, scaler.log
-```
-
-Enter the directory:
-
-```sh
-cd labs/research/experiment
-```
-
----
-
-# 4. Prerequisites
-
-The environment is expected to provide:
-
-```text
-k3s cluster from labs/k3s-cluster (3 nodes)
-ingress-nginx on NodePort 30080
-kube-prometheus-stack, reachable at prometheus.<ip>.sslip.io:30080
-croft collector DaemonSet with CROFT_METRICS_ADDR
-uv
-```
-
-Verify:
-
-```sh
+```bash
+ssh <user>@<server>
+cd ~/daniel/github/cloudx/croft/labs/research/experiment
 uv sync
 export KUBECONFIG=~/.kube/croft-k3s.yaml
-kubectl get nodes
+kubectl get nodes        # every node Ready
 ```
 
-Every node must be `Ready`.
+> **Note**
+> A laptop on the tailnet can follow a run with `~/.kube/croft-k3s-tailscale.yaml` and Grafana or Prometheus at `*.100.64.0.10.sslip.io:30080`.
 
-**Run the harness on the server (node-a).** `apps.json` and `prometheus.py` address the cluster as `127.0.0.1`, and the load generator should not share a network path with anything else. From a laptop, log in first:
+## Applications
 
-```sh
-ssh <user>@<server>
-```
+Both applications sit behind the same ingress and take the same load profiles. They differ by about fifty times in CPU per request, so each has its own load scale.
 
-A laptop on the tailnet can still watch: `kubectl` with `~/.kube/croft-k3s-tailscale.yaml`, Grafana and Prometheus at `*.100.64.0.10.sslip.io:30080`.
+| Application | Shape | CPU per request | Pod CPU limit | `--scale` |
+|---|---|---:|---:|---:|
+| `webapp` | one Python service | 40 to 65 ms | 1 core | 0.5 |
+| `hotel-reservation` | DeathStarBench, 8 Go services, MongoDB, memcached | 1.6 ms at the frontend | 200m | 2 |
 
----
+### webapp
 
-# 5. Load the images on every node
+A CPU-bound HTTP service built from `workloads/webapp`. Its image is in no registry.
 
-The harness stops before a run when a node lacks the application's image, because a pod scheduled there would hang in `ImagePullBackOff`.
+1. Build the image and load it on every node:
+   ```bash
+   docker build -t croft-webapp:v1 workloads/webapp
+   (cd ../../k3s-cluster && ansible-playbook load-image.yml -e image=croft-webapp:v1 --ask-become-pass)
+   ```
+2. Deploy it once and check that it answers:
+   ```bash
+   kubectl apply -f workloads/webapp/k8s.yaml
+   kubectl -n croft-exp rollout status deployment/webapp
+   curl -i http://web.127.0.0.1.sslip.io:30080/cpu
+   ```
 
-## webapp
+### hotel-reservation
 
-Its image is in no registry; build it and load it:
+[DeathStarBench](https://github.com/delimitrou/DeathStarBench) hotelReservation. Every request is a hotel search: the frontend calls `search`, which calls `geo` and `rate`, then `reservation` and `profile`. The HPA scales the frontend; the other services stay at one replica.
 
-```sh
-docker build -t croft-webapp:v1 workloads/webapp
-(cd ../../k3s-cluster && ansible-playbook load-image.yml -e image=croft-webapp:v1 --ask-become-pass)
-```
+1. Pull the 1.2 GB service image on every node:
+   ```bash
+   docker pull deathstarbench/hotel-reservation:0.3.5
+   (cd ../../k3s-cluster && ansible-playbook load-image.yml -e image=deathstarbench/hotel-reservation:0.3.5 --ask-become-pass)
+   ```
+2. Deploy it once and search:
+   ```bash
+   kubectl apply -f workloads/hotel-reservation/k8s.yaml
+   kubectl -n hotel-res wait --for=condition=Available deployment --all --timeout=600s
+   curl -i "http://hotel.127.0.0.1.sslip.io:30080/hotels?inDate=2015-04-09&outDate=2015-04-10&lat=38.0235&lon=-122.095"
+   ```
+   A search returns a GeoJSON `FeatureCollection` of hotels.
 
-## hotel-reservation
+> **Note**
+> The Go services restart once or twice on the first deploy while MongoDB and consul start. A service still restarting after two minutes is a fault.
 
-Its images are on Docker Hub, but `deathstarbench/hotel-reservation:0.3.5` is 1.2 GB; pull it everywhere once:
+> **Note**
+> MongoDB runs on `emptyDir`; each service seeds its collection at startup. If a MongoDB pod restarts, restart the services too: `kubectl -n hotel-res rollout restart deployment`.
 
-```sh
-docker pull deathstarbench/hotel-reservation:0.3.5
-(cd ../../k3s-cluster && ansible-playbook load-image.yml -e image=deathstarbench/hotel-reservation:0.3.5 --ask-become-pass)
-```
+## Setting up KEDA
 
-MongoDB, memcached, consul and jaeger are small and pulled on first deploy.
+KEDA scales on the request rate the ingress reports through Prometheus. Set it up once per cluster:
 
-The harness checks every node before each run and names the ones still missing the image. The node status can take a few minutes to list a loaded image.
+1. Let ingress-nginx export per-ingress metrics on port 10254. The controller restarts for a few seconds:
+   ```bash
+   kubectl -n ingress-nginx patch deployment ingress-nginx-controller --type=json -p '[
+     {"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--enable-metrics=true"},
+     {"op":"add","path":"/spec/template/spec/containers/0/ports/-","value":{"name":"metrics","containerPort":10254,"protocol":"TCP"}}]'
+   ```
+2. Scrape them every 5 s instead of the stack's 30 s, so KEDA is not late by configuration alone:
+   ```bash
+   kubectl apply -f workloads/ingress-nginx/podmonitor.yaml
+   ```
+3. Install KEDA:
+   ```bash
+   kubectl apply --server-side -f https://github.com/kedacore/keda/releases/download/v2.21.0/keda-2.21.0.yaml
+   kubectl -n keda rollout status deployment
+   ```
+4. Check that Prometheus has the request counts:
+   ```bash
+   curl -s http://prometheus.127.0.0.1.sslip.io:30080/api/v1/query \
+     --data-urlencode 'query=sum by (service) (rate(nginx_ingress_controller_requests[30s]))'
+   ```
 
----
+## Running an experiment
 
-# 6. Deploy and smoke-test by hand
+### A single run
 
-The harness redeploys the app at the start of every run. Deploy by hand once, before the first run, to see that the app answers.
-
-## webapp
-
-```sh
-kubectl apply -f workloads/webapp/k8s.yaml
-kubectl -n croft-exp rollout status deployment/webapp
-curl -i "http://web.127.0.0.1.sslip.io:30080/cpu"
-```
-
-## hotel-reservation
-
-```sh
-kubectl apply -f workloads/hotel-reservation/k8s.yaml
-kubectl -n hotel-res wait --for=condition=Available deployment --all --timeout=600s
-curl -i "http://hotel.127.0.0.1.sslip.io:30080/hotels?inDate=2015-04-09&outDate=2015-04-10&lat=38.0235&lon=-122.095"
-```
-
-A successful search returns a GeoJSON `FeatureCollection` of hotels.
-
-The Go services restart once or twice on first deploy, while MongoDB and consul start. That is expected; a service still restarting after two minutes is not.
-
-Do not begin a run until the smoke test succeeds.
-
----
-
-# 7. Understand the run phases
-
-Every `--profile` run consists of:
-
-```text
-time ----------------------------------------------------------------------->
-
- deploy        warm-up          measurement (profile)        export    cool-down
-|--------|----------------|------------------------------|---------|-----------|
- 1 fresh   30 s at 5 RPS     open-loop RPS, 600 s for       Prom,     15 s
- replica,                     burst/ramp                     events,
- new HPA                                                     pods
-```
-
-## Deploy
-
-The app's Deployment is applied, pinned or unpinned, patched with the chosen probes, scaled to one replica and restarted, then its HPA is applied. Every run therefore starts from the same state: one pod, no scale-down window, no queued requests.
-
-## Warm-up
-
-Connections, caches and the HPA's first metrics settle. Warm-up traffic is not in `workload.csv`.
-
-## Measurement
-
-The profile runs open loop: requests leave at the target rate whether or not earlier ones were answered.
-
-## Export
-
-`prometheus.csv` (CPU, throttling, memory, network, restarts, replicas), `timeline.json` (HPA rescales, replica set changes, pod created and Ready times) and the run line in `runs.jsonl`.
-
-## Cool-down
-
-Separates consecutive runs.
-
----
-
-# 8. Load profiles and `--scale`
-
-| Profile | Shape (at `--scale 1`) | Duration | Typical research purpose |
-|---|---|---|---|
-| `constant` | 25 RPS | 30 s | validation |
-| `ramp` | 10 → 200 RPS | 600 s | find the saturation region |
-| `burst` | 10 RPS, 150 RPS from 180 s to 300 s, 10 RPS | 600 s | reaction and recovery |
-| `periodic` | 10 to 100 RPS, period 120 s | 600 s | autoscaling lag |
-| `variable` | 10 to 100 RPS, new level every 30 s, seed 42 | 600 s | prediction |
-
-`--scale` multiplies every rate. The two apps differ by about fifty times in CPU per request, so each has its own scale:
-
-| Application | `--scale` | Burst | Why |
-|---|---:|---|---|
-| `webapp` | 0.5 | 5 → 75 → 5 RPS | 75 RPS needs 6 to 7 pods at 70%, within the HPA's 10 |
-| `hotel-reservation` | 2 | 20 → 300 → 20 RPS | 300 RPS is ~2.3 frontend pods' worth; one pod throttles until the HPA adds more |
-
-Keep the scale fixed within a comparison. A scale that never saturates one pod shows nothing; one that needs more than ten pods shows only the HPA's maximum.
-
-Pattern of a burst:
-
-```text
-RPS
- ^
- |               +-----------+
- |               |           |
- |_______________|           |_______________
- +----------------------------------------------> time
- 0              180         300             600 s
-```
-
----
-
-# 9. Run the first validation burst
-
-```sh
-uv run run.py web --app webapp --prefix try --profile burst --scale 0.5 --probes relaxed
+```bash
 uv run run.py web --app hotel-reservation --prefix hr-try --profile burst --scale 2 --probes relaxed
 ```
 
-Each takes about 12 minutes. Only one run holds the cluster at a time (`data/experiment.lock`); a second command started meanwhile exits at once with `another experiment holds …`.
+A run takes about 12 minutes and goes through five phases:
 
-`--probes relaxed` keeps an overloaded pod alive and in its Service: no liveness restart, and readiness tolerates 60 s of slow answers. Use it for every comparison, so a restart does not hide the burst.
+1. **Deploy.** The Deployment is applied, scaled to one replica and restarted; the previous run's HPA or ScaledObject is removed and this run's autoscaler applied.
+2. **Warm-up.** 30 s at 5 RPS, not recorded.
+3. **Measurement.** The profile runs open loop: requests leave at the target rate whether or not earlier ones were answered.
+4. **Export.** Prometheus series, HPA and pod events, and the run line in `data/web/runs.jsonl`.
+5. **Cool-down.** 15 s.
 
-The result appears under:
+The result lands in `data/web/<prefix>-<profile>/`:
 
-```text
-data/web/try-burst/
-data/web/hr-try-burst/
-```
+| File | Content |
+|---|---|
+| `workload.csv` | target and achieved RPS, successes, failures, mean and p95 latency, per second |
+| `prometheus.csv` | CPU, throttled share, memory, network, restarts and replicas, every 5 s |
+| `timeline.json` | HPA rescales, replica set changes, pod created and Ready times |
+| `scaler.log` | croft arm only: croft's estimate every poll and its decisions |
 
-A reference `hotel-reservation` run (`--scale 2`, `--probes relaxed`, HPA alone) gave:
+`--probes relaxed` keeps an overloaded pod alive and in its Service. Use it for every comparison, so a restart does not hide the burst.
 
-| | Before the burst | Burst | After |
-|---|---:|---:|---:|
-| target / achieved RPS | 20 / 20 | 300 / 297 | 20 / 21 |
-| median p95 latency | 12 ms | 1,181 ms | 13 ms |
-| seconds with p95 > 500 ms | 1 | 72 | 0 |
-| frontend CPU throttled | 0% | 44 to 92% | 0% |
+> **Note**
+> One experiment holds the cluster at a time. A second `run.py` started meanwhile exits with `another experiment holds …`.
 
-The HPA scaled up 35 s into the burst and reached 3 replicas at 114 s; no request failed and no pod restarted. A run far from this shape points at the setup, not the autoscaler.
+### Choosing the load
 
----
+| Profile | Rates at `--scale 1` | Duration | Use |
+|---|---|---|---|
+| `constant` | 25 RPS | 30 s | check that the setup works |
+| `ramp` | 10 to 200 RPS | 600 s | find one pod's capacity |
+| `burst` | 10 RPS, 150 RPS from 180 s to 300 s, then 10 RPS | 600 s | reaction and recovery |
+| `periodic` | 10 to 100 RPS, period 120 s | 600 s | autoscaling lag |
+| `variable` | 10 to 100 RPS, a new level every 30 s, seed 42 | 600 s | prediction |
 
-# 10. Inspect the result
+`--scale` multiplies every rate. A good burst saturates one pod at least twice over and stays within ten pods' worth:
 
-```sh
-ls -lah data/web/hr-try-burst/
-head data/web/hr-try-burst/workload.csv
-tail -1 data/web/runs.jsonl | python3 -m json.tool
-```
+- `webapp` at `--scale 0.5`: 5, then 75, then 5 RPS. 75 RPS needs 6 to 7 pods at 70%.
+- `hotel-reservation` at `--scale 2`: 20, then 300, then 20 RPS. One frontend pod holds about 130 RPS at 70%.
 
-The directory contains:
+For a new application or a changed manifest, find one pod's capacity first with a ramp at fixed replicas, and read the RPS at which p95 leaves its floor:
 
-```text
-workload.csv      target and achieved RPS, successes, failures, mean and p95 latency, per second
-prometheus.csv    cpu_cores, cpu_throttled_fraction, memory_bytes, network, restarts, replicas, every 5 s
-timeline.json     HPA rescales, replica set changes, pod created and Ready times
-scaler.log        only with --scaler croft: croft's estimate every poll and its decisions
-```
-
-`workload.csv` columns:
-
-```text
-timestamp_epoch
-elapsed_s
-target_rps
-sent
-success
-failed
-achieved_rps
-mean_latency_ms
-p95_latency_ms
-```
-
----
-
-# 11. Validate the run
-
-Do not accept a run because the command finished. Verify:
-
-```text
-[ ] achieved_rps follows target_rps outside the burst
-[ ] the burst saturated one pod: p95 rose, or throttling appeared, before the HPA reacted
-[ ] the HPA scaled up (timeline.json "rescales") and stayed within 10 replicas
-[ ] failures are understood (timeouts during saturation are data; 404s are not)
-[ ] no pod restarted unexpectedly (prometheus.csv restarts)
-[ ] Prometheus answered for the whole window (no empty columns)
-[ ] no other experiment or workload ran on the cluster at the same time
-```
-
-At low load:
-
-```text
-target_rps ≈ achieved_rps,  failed = 0
-```
-
-is expected. For `hotel-reservation`, also check that every service other than the frontend stayed well under its 1-core limit (`kubectl top pods -n hotel-res` during a run): the experiment is about the frontend's scaling, and a saturated `rate` or `search` would move the bottleneck.
-
----
-
-# 12. Repeat
-
-A single run is not representative. Three repetitions per arm is the minimum; five allow a confidence interval.
-
-```sh
-for i in 1 2 3; do
-  uv run run.py web --app hotel-reservation --prefix hr-hpa-$i --profile burst --scale 2 --probes relaxed || break
-done
-```
-
-Name runs `<app>-<arm>-<repetition>`: the run id is `<prefix>-<profile>`, and a rerun under the same id overwrites its directory.
-
----
-
-# 13. Find the operating range with a ramp
-
-Before trusting a scale for a new application or a changed manifest, run a ramp at fixed replicas:
-
-```sh
+```bash
 uv run run.py web --app hotel-reservation --prefix hr-ramp --profile ramp --scale 2 --replicas 1
 ```
 
-```text
-RPS
- ^                                /
- |                             /
- |                          /       <- p95 breaks 500 ms here: one pod's capacity
- |                       /
- |____________________/__________________> time
-```
+### Comparing autoscalers
 
-The RPS at which p95 leaves its floor is one pod's capacity. The burst rate should exceed it by two to three times, and stay under ten pods' worth.
+`--scaler` picks the arm:
 
----
-
-# 14. Kubernetes, KEDA and croft
-
-The comparison runs three arms under identical conditions:
-
-```text
-                          identical burst
-                                 |
-          +----------------------+----------------------+
-          |                      |                      |
-          v                      v                      v
-   Kubernetes HPA              KEDA               HPA + croft scale
-  (--scaler none)        (--scaler keda)          (--scaler croft)
-  CPU utilization      ingress request rate      eBPF syscall rate
-  metrics-server,      Prometheus every 5 s,     collector /metrics
-  HPA every 15 s       rate over 30 s, HPA       every 2 s
-          |                      |                      |
-          +----------------------+----------------------+
-                                 |
-                                 v
-                          run.py compare
-```
-
-| Arm | Who scales | Signal | Capacity of one pod |
+| Arm | Who adds replicas | Signal | Signal path |
 |---|---|---|---|
-| `none` | the HPA of `hpa.yaml` | CPU at 70% of the request | 70% of the CPU limit |
-| `keda` | the HPA KEDA makes from a ScaledObject | `nginx_ingress_controller_requests` of the app's Service | 0.7 × CPU limit ÷ CPU per request, in RPS |
-| `croft` | `croft scale` next to the HPA | the calibrated syscall's rate | 0.7 × CPU limit ÷ CPU per request |
+| `none` | the HPA from `hpa.yaml` | CPU at 70% of the request | metrics-server, checked every 15 s |
+| `keda` | the HPA KEDA builds from a ScaledObject | `nginx_ingress_controller_requests` for the app's Service | Prometheus every 5 s, `rate()` over 30 s, then the HPA |
+| `croft` | `croft scale`, next to the HPA | the calibrated syscall rate from eBPF | collector `/metrics` every 2 s |
 
-All three share one capacity model, so they differ only in the signal and how late it arrives. KEDA's threshold is 14 RPS per pod for webapp (0.7 × 1000 ms ÷ 50 ms) and 87.5 RPS for hotel-reservation (0.7 × 200 ms ÷ 1.6 ms). The harness computes it from `apps.json` and the deployed CPU limit; no ScaledObject lives in the repository.
+The three arms share one capacity model: a pod is full at 70% of its CPU limit. KEDA's threshold is that capacity in requests per second, `0.7 × CPU limit ÷ CPU per request`: 14 RPS per pod for `webapp`, 87.5 for `hotel-reservation`. The harness computes it from `apps.json` and the deployed limit. The arms therefore differ only in their signal and how late it arrives.
 
-nginx counts a request when it completes. Under saturation the ingress still sees the offered load sooner than the pod's own syscalls do, which only show what the pod manages to answer (issue #8): expect KEDA to be the stronger baseline, not the weaker one.
+Alternate the arms within each repetition, so drift over the afternoon falls on all three:
 
-For one application, alternate the arms inside the loop, so drift over the afternoon falls on all three:
-
-```sh
+```bash
 for i in 1 2 3; do
   uv run run.py web --app hotel-reservation --prefix hr-hpa-$i  --profile burst --scale 2 --probes relaxed || break
   uv run run.py web --app hotel-reservation --prefix hr-keda-$i --profile burst --scale 2 --probes relaxed --scaler keda || break
   uv run run.py web --app hotel-reservation --prefix hr-duo-$i  --profile burst --scale 2 --probes relaxed --scaler croft || break
 done
+```
+
+The full study is both applications times three arms times three repetitions: 18 runs, 3.5 to 4 hours of cluster time. Compare reaction times, SLO seconds and replica-seconds between arms within one application; absolute latencies differ between the applications by design.
+
+> **Note**
+> nginx counts a request when it completes, but the ingress still sees the offered load sooner than a saturated pod's syscalls do, which only show what the pod manages to answer ([#8](https://github.com/danielcristho/croft/issues/8)). Expect KEDA to be the stronger baseline.
+
+## Scoring runs
+
+```bash
 uv run run.py compare --prefix hr-hpa- hr-keda- hr-duo-
 ```
 
-Every deploy removes the previous run's HPA and ScaledObject, so one arm never inherits another's autoscaler.
-
-## Setting up KEDA once
-
-KEDA reads the ingress's request counts from Prometheus. Three steps, once per cluster:
-
-```sh
-# 1. ingress-nginx exports per-ingress metrics on :10254 (restarts the controller for a few seconds)
-kubectl -n ingress-nginx patch deployment ingress-nginx-controller --type=json -p '[
-  {"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--enable-metrics=true"},
-  {"op":"add","path":"/spec/template/spec/containers/0/ports/-","value":{"name":"metrics","containerPort":10254,"protocol":"TCP"}}]'
-
-# 2. Prometheus scrapes it every 5 s, not the stack's 30 s
-kubectl apply -f workloads/ingress-nginx/podmonitor.yaml
-
-# 3. KEDA itself
-kubectl apply --server-side -f https://github.com/kedacore/keda/releases/download/v2.21.0/keda-2.21.0.yaml
-kubectl -n keda rollout status deployment
-```
-
-Check that Prometheus has the series:
-
-```sh
-curl -s "http://prometheus.127.0.0.1.sslip.io:30080/api/v1/query" \
-  --data-urlencode 'query=sum by (service) (rate(nginx_ingress_controller_requests[30s]))'
-```
-
-`--scaler keda` stops before deploying when the `scaledobjects.keda.sh` CRD is missing.
-
-## Calibration
-
-`--scaler croft` and `--scaler keda` need the app's calibration in `apps.json` (`scaler`: syscall, calls and CPU milliseconds per request):
-
-| Application | Syscall | Calls per request | CPU per request |
-|---|---|---:|---:|
-| `webapp` | `sendto` | 2.06 | 50 ms |
-| `hotel-reservation` | `write` | 11.4 | 1.6 ms |
-
-The hotel frontend is Go, which answers through `write`, not `sendto`. Its calibration comes from one frontend pod, without the HPA, at 20, 50 and 100 RPS for 75 s each, read from the collector's `/metrics`: `write` per request moved 1% across the levels, CPU per request from 1.8 to 1.55 ms. Recalibrate after changing the image or the frontend's resources.
-
----
-
-# 15. Score the runs
-
-```sh
-uv run run.py compare --prefix hr-hpa- hr-keda- hr-duo-
-```
-
-`compare` groups runs by arm (app, profile, scale, probes, scaler), prints mean ± sd per arm and writes one row per run to `data/web/compare.csv`:
+`compare` groups runs by app, profile, scale, probes and arm, prints mean ± sd for each group, and writes one row per run to `data/web/compare.csv`:
 
 | Column | Meaning |
 |---|---|
-| `hpa_first_up_s` | burst start to the HPA's first scale-up; in the KEDA arm, the HPA KEDA made |
+| `hpa_first_up_s` | burst start to the first HPA scale-up; in the KEDA arm, the HPA KEDA built |
 | `croft_first_up_s` | burst start to croft's first scale-up |
 | `first_ready_s` | burst start to the first new pod Ready |
 | `peak_replicas`, `time_to_peak_s` | the most replicas, and when |
-| `scale_down_events` | replica scale-downs inside the burst (the HPA undoing croft) |
+| `scale_down_events` | scale-downs inside the burst, such as the HPA undoing croft |
 | `slo_violation_s` | seconds with p95 above 500 ms |
 | `failed_fraction` | failed over answered requests in the burst |
 | `success_ratio` | successes over offered requests in the burst |
-| `replica_seconds` | replicas × seconds over the run: the cost |
+| `replica_seconds` | replicas times seconds over the run, the cost |
 
-`[k]` after a value means only k runs of the arm have it.
+`[k]` after a value means only k runs of the group have it.
 
----
+## Validating a run
 
-# 16. Comparative study across the two applications
+A finished command is not an accepted run. Check:
 
-> Does a kernel-level signal (croft) react earlier than CPU utilization (the HPA) and the request rate at the ingress (KEDA), and does the answer differ between a heavy single service and a light frontend in front of a service chain?
+- `achieved_rps` follows `target_rps` outside the burst, with no failures at low load.
+- The burst saturated one pod before the autoscaler reacted: p95 rose or `cpu_throttled_fraction` climbed.
+- The autoscaler scaled up and stayed within 10 replicas.
+- No pod restarted (`restarts` in `prometheus.csv`).
+- Prometheus answered for the whole window: no empty columns.
+- Nothing else ran on the cluster: no other experiment, build or GPU job.
+- For `hotel-reservation`, the backend services stayed under their 1-core limits (`kubectl top pods -n hotel-res`). A saturated `rate` or `search` moves the bottleneck away from the frontend.
 
-| ID | Application | Arm | Profile | Scale | Repetitions |
-|---|---|---|---|---:|---:|
-| E1 | webapp | Kubernetes HPA | burst | 0.5 | 3 |
-| E2 | webapp | KEDA | burst | 0.5 | 3 |
-| E3 | webapp | HPA + croft | burst | 0.5 | 3 |
-| E4 | hotel-reservation | Kubernetes HPA | burst | 2 | 3 |
-| E5 | hotel-reservation | KEDA | burst | 2 | 3 |
-| E6 | hotel-reservation | HPA + croft | burst | 2 | 3 |
+Leave rejected runs out of `compare` by choosing prefixes that skip them. Never edit a finished run directory; change the setup and run again under a new prefix.
 
-Eighteen runs of about 12 minutes: 3.5 to 4 hours of cluster time.
+## Reference run
 
-Controlled across all runs:
+`hotel-reservation`, `--scale 2`, `--probes relaxed`, HPA alone:
 
-```text
-profile and its duration
---probes relaxed
-one capacity model: 70% of the CPU limit, 1 to 10 replicas, in every arm
-cluster topology, croft collector version
-no other workload on the cluster
-```
+| | Before the burst | Burst | After |
+|---|---:|---:|---:|
+| Target / achieved RPS | 20 / 20 | 300 / 297 | 20 / 21 |
+| Median p95 latency | 12 ms | 1,181 ms | 13 ms |
+| Seconds with p95 above 500 ms | 1 | 72 | 0 |
+| Frontend CPU throttled | 0% | 44 to 92% | 0% |
 
-Do not compare absolute latencies between the applications: they differ by design. Compare reaction times, SLO seconds and replica-seconds between the arms within each application, and the size of each arm's effect across them.
+The HPA scaled up 35 s into the burst and reached 3 replicas at 114 s. No request failed and no pod restarted. A run far from this points at the setup, not the autoscaler.
 
----
+## Calibration
 
-# 17. Accepting and rejecting runs
+The croft and KEDA arms need each application's `scaler` entry in `apps.json`:
 
-Reject, or label separately, a run when:
+- `syscall`: the syscall counted per request.
+- `calls_per_request`: calls of it per request.
+- `cpu_per_request_ms`: the CPU one request costs.
 
-```text
-a pod restarted for a reason other than the burst
-the load generator could not keep target_rps outside the burst
-Prometheus or the croft collector stopped
-the manifest or apps.json changed between repetitions
-another experiment, a build or a GPU job ran at the same time
-```
+| Application | `syscall` | `calls_per_request` | `cpu_per_request_ms` |
+|---|---|---:|---:|
+| `webapp` | `sendto` | 2.06 | 50 |
+| `hotel-reservation` | `write` | 11.4 | 1.6 |
 
-Do not silently include such runs in `compare`; pass prefixes that leave them out.
+The hotel frontend is Go, which answers through `write` rather than `sendto`. Its values come from one frontend pod without an autoscaler, at 20, 50 and 100 RPS for 75 s each, read from the collector's `/metrics`. `write` per request moved 1% across the levels; CPU per request went from 1.8 to 1.55 ms.
 
----
+Recalibrate after changing an application's image or its frontend resources.
 
-# 18. Switching and removing applications
+## Troubleshooting
 
-Both applications can stay deployed: an idle app uses little CPU. During a run, only the app under test receives load.
+| Message | Cause and fix |
+|---|---|
+| `<image> is missing on <nodes>` | Load the image on those nodes, see [Applications](#applications). The node status can take a few minutes to list it. |
+| `another experiment holds data/experiment.lock` | A run is in progress. Wait for it, or stop it. |
+| `KEDA is not installed` | Follow [Setting up KEDA](#setting-up-keda). |
+| `apps.json has no calibration for <app>` | Measure one, see [Calibration](#calibration). |
+| `kubectl get nodes … returned non-zero exit status` | `KUBECONFIG` is not set in this shell. |
+| `<host>/ did not answer 200 within 120 s` | The ingress has no Ready backend. Check `kubectl get pods -n <namespace>`. |
 
-Reset `hotel-reservation`'s data, for example after a MongoDB pod restarted:
+Long series outlive an SSH session; run them under `tmux` or `nohup`.
 
-```sh
-kubectl -n hotel-res rollout restart deployment
-kubectl -n hotel-res wait --for=condition=Available deployment --all --timeout=600s
-```
+## Cleaning up
 
-Remove an application:
+Both applications can stay deployed; an idle one uses little CPU. To remove them:
 
-```sh
+```bash
 kubectl delete namespace hotel-res
 kubectl delete -f workloads/webapp/k8s.yaml
 ```
 
----
+After a series, pull croft's datasets for the same window:
 
-# 19. Typical session on the server
-
-```sh
-ssh <user>@<server>
-cd ~/daniel/github/cloudx/croft/labs/research/experiment
-export KUBECONFIG=~/.kube/croft-k3s.yaml
-
-kubectl get nodes
-curl -s -o /dev/null -w "%{http_code}\n" "http://hotel.127.0.0.1.sslip.io:30080/"
-
-for i in 1 2 3; do
-  uv run run.py web --app hotel-reservation --prefix hr-hpa-$i --profile burst --scale 2 --probes relaxed || break
-done
-uv run run.py compare --prefix hr-hpa-
-```
-
-Long series outlive an SSH session; run them under `tmux` or `nohup`.
-
-Afterwards, pull croft's datasets for the same window:
-
-```sh
+```bash
 (cd ../../k3s-cluster && ansible-playbook collect.yml)
 ```
-
----
-
-# 20. Reproducibility
-
-For every accepted run preserve:
-
-```text
-[ ] run id and repetition
-[ ] application and image version (apps.json, workloads/<app>/k8s.yaml at that commit)
-[ ] resource requests and limits, HPA target
-[ ] profile, --scale, --probes, --scaler
-[ ] workload.csv, prometheus.csv, timeline.json, scaler.log
-[ ] the run line in runs.jsonl
-[ ] croft's dataset for the window
-[ ] validity status
-```
-
-Do not edit a finished run directory. Change the configuration and run again under a new prefix.
