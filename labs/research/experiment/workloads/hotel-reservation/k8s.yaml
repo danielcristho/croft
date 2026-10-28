@@ -39,13 +39,14 @@ spec:
               value: "2"
           ports:
             - containerPort: 5000
-          # Requests equal limits, as for webapp: the HPA's 70% then means 0.7 core per pod.
+          # About 1.1 ms of CPU per hotel search: 200m, at the HPA's 70%, is ~130 RPS per pod, so a
+          # burst saturates and throttles one pod before the HPA adds more, as one core does for webapp.
           resources:
             requests:
-              cpu: "1"
+              cpu: 200m
               memory: 256Mi
             limits:
-              cpu: "1"
+              cpu: 200m
               memory: 256Mi
           readinessProbe:
             httpGet:
@@ -72,7 +73,7 @@ spec:
   selector:
     app: frontend
   ports:
-    - name: 5000
+    - name: http
       port: 5000
       targetPort: 5000
       protocol: TCP
@@ -124,7 +125,7 @@ spec:
   selector:
     app: search
   ports:
-    - name: 8082
+    - name: grpc
       port: 8082
       targetPort: 8082
       protocol: TCP
@@ -176,7 +177,7 @@ spec:
   selector:
     app: geo
   ports:
-    - name: 8083
+    - name: grpc
       port: 8083
       targetPort: 8083
       protocol: TCP
@@ -228,7 +229,7 @@ spec:
   selector:
     app: profile
   ports:
-    - name: 8081
+    - name: grpc
       port: 8081
       targetPort: 8081
       protocol: TCP
@@ -280,7 +281,7 @@ spec:
   selector:
     app: rate
   ports:
-    - name: 8084
+    - name: grpc
       port: 8084
       targetPort: 8084
       protocol: TCP
@@ -332,7 +333,7 @@ spec:
   selector:
     app: recommendation
   ports:
-    - name: 8085
+    - name: grpc
       port: 8085
       targetPort: 8085
       protocol: TCP
@@ -384,7 +385,7 @@ spec:
   selector:
     app: user
   ports:
-    - name: 8086
+    - name: grpc
       port: 8086
       targetPort: 8086
       protocol: TCP
@@ -436,7 +437,7 @@ spec:
   selector:
     app: reservation
   ports:
-    - name: 8087
+    - name: grpc
       port: 8087
       targetPort: 8087
       protocol: TCP

@@ -123,7 +123,9 @@ class CompareTest(unittest.TestCase):
             {**compare.arm(record("duo-1", "croft")), "slo_violation_s": 4, "croft_first_up_s": 2.0},
             {**compare.arm(record("duo-2", "croft")), "slo_violation_s": 6, "croft_first_up_s": None},
         ]
-        hpa, croft = compare.summarize(runs)
+        runs.append({**compare.arm({**record("hr-1", None), "app": "hotel-reservation"}), "slo_violation_s": 3})
+        hpa, croft, hotel = compare.summarize(runs)
+        self.assertEqual((hotel["app"], hotel["n"]), ("hotel-reservation", 1))
         self.assertEqual((hpa["scaler"], hpa["n"], hpa["slo_violation_s"]), ("hpa", 2, "15.00 ± 7.07"))
         self.assertEqual(hpa["croft_first_up_s"], "-")
         self.assertEqual(croft["croft_first_up_s"], "2.00 ± 0.00 [1]")

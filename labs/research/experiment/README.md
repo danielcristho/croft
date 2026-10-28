@@ -2,6 +2,8 @@
 
 This bundle runs **controlled workload experiments** on the k3s lab cluster and records them so croft's dataset can be joined to them exactly.
 
+The step-by-step procedure for the web applications, `webapp` and `hotel-reservation`, is in [RUNNING.md](RUNNING.md).
+
 croft's collector tags every row with the container id, so a run's rows are found by that id rather than by time.
 
 ---
@@ -153,7 +155,7 @@ done
 uv run run.py compare --prefix hpa- duo-
 ```
 
-`compare` prints mean ± sd per arm (profile, scale, probes, scaler) and writes one row per run to `data/web/compare.csv`: seconds from the burst start to the first HPA and croft scale-up and to the first new pod Ready, peak replicas and the time to reach them, replica scale-downs inside the burst (the HPA undoing croft), seconds with p95 above 500 ms, the failed fraction, successes over offered requests, and replica-seconds over the run. `[k]` after a value means only k runs of the arm have it.
+`compare` prints mean ± sd per arm (app, profile, scale, probes, scaler) and writes one row per run to `data/web/compare.csv`: seconds from the burst start to the first HPA and croft scale-up and to the first new pod Ready, peak replicas and the time to reach them, replica scale-downs inside the burst (the HPA undoing croft), seconds with p95 above 500 ms, the failed fraction, successes over offered requests, and replica-seconds over the run. `[k]` after a value means only k runs of the arm have it.
 
 ---
 
