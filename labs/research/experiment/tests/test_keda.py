@@ -23,7 +23,7 @@ class KedaTest(unittest.TestCase):
         self.assertEqual((obj["metadata"]["name"], obj["metadata"]["namespace"]), ("frontend", "hotel-res"))
         self.assertEqual((spec["minReplicaCount"], spec["maxReplicaCount"]), (1, 10))
         trigger = spec["triggers"][0]["metadata"]
-        self.assertIn('namespace="hotel-res",service="frontend"', trigger["query"])
+        self.assertIn('exported_namespace="hotel-res",service="frontend"', trigger["query"])
         self.assertEqual(trigger["threshold"], "87.5")
 
 

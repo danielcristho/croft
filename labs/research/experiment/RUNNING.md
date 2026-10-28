@@ -267,6 +267,7 @@ Recalibrate after changing an application's image or its frontend resources.
 | `another experiment holds data/experiment.lock` | A run is in progress. Wait for it, or stop it. |
 | `KEDA is not installed` | Follow [Setting up KEDA](#setting-up-keda). |
 | `apps.json has no calibration for <app>` | Measure one, see [Calibration](#calibration). |
+| KEDA's HPA shows `0/<threshold>` under load | The query matched no series. Prometheus moves the metric's `namespace` to `exported_namespace`; filter on that. |
 | `kubectl get nodes … returned non-zero exit status` | `KUBECONFIG` is not set in this shell. |
 | `<host>/ did not answer 200 within 120 s` | The ingress has no Ready backend. Check `kubectl get pods -n <namespace>`. |
 

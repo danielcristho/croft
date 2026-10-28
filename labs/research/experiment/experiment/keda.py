@@ -27,8 +27,9 @@ def threshold(app: App, limit_cores: float) -> float:
 
 
 # query counts the requests the ingress answered for the app's Service; nginx records each one when it completes.
+# Prometheus sets namespace to the ingress pod's own, so the app's namespace is in exported_namespace.
 def query(app: App) -> str:
-    return f'sum(rate(nginx_ingress_controller_requests{{namespace="{app.namespace}",service="{app.deployment}"}}[{RATE_WINDOW}]))'
+    return f'sum(rate(nginx_ingress_controller_requests{{exported_namespace="{app.namespace}",service="{app.deployment}"}}[{RATE_WINDOW}]))'
 
 
 def scaled_object(app: App, limit_cores: float) -> dict:
