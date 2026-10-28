@@ -2,6 +2,9 @@ node-ip: {{ ansible_host }}
 advertise-address: {{ ansible_host }}
 tls-san:
   - {{ ansible_host }}
+{% for san in k3s_tls_sans %}
+  - {{ san }}
+{% endfor %}
 cluster-cidr: {{ k3s_pod_cidr }}
 service-cidr: {{ k3s_service_cidr }}
 disable:

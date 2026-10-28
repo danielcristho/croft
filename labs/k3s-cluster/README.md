@@ -25,6 +25,9 @@ The playbook is idempotent: a second run on a healthy cluster reports
 
 Adding a node: add it under `[agents]` (and `[gpu]` if it has one), then rerun.
 
+kubectl from outside the LAN: list the server's other addresses, such as its Tailscale IP, in
+`k3s_tls_sans` on the server line of `hosts.ini`, rerun, and point a copy of the kubeconfig at that address.
+
 Removing everything: `ansible-playbook uninstall.yml --ask-become-pass`. The
 inotify sysctl file stays; it is harmless without k3s.
 

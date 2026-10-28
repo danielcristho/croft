@@ -1,1 +1,3 @@
 k3s_service: k3s
+# Extra API addresses, e.g. the server's Tailscale IP, so kubectl works from outside the LAN.
+k3s_tls_sans: []
