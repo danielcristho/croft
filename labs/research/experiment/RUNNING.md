@@ -410,7 +410,14 @@ uv run run.py compare --prefix web-hpa- web-duo-
 
 Alternate the arms inside the loop, as above, so drift over the afternoon falls on both.
 
-`--scaler croft` needs the app's calibration in `apps.json` (`scaler`: syscall, calls and CPU milliseconds per request). **`hotel-reservation` has none yet**, so its croft arm is refused until it is measured; its HPA arm runs today.
+`--scaler croft` needs the app's calibration in `apps.json` (`scaler`: syscall, calls and CPU milliseconds per request):
+
+| Application | Syscall | Calls per request | CPU per request |
+|---|---|---:|---:|
+| `webapp` | `sendto` | 2.06 | 50 ms |
+| `hotel-reservation` | `write` | 11.4 | 1.6 ms |
+
+The hotel frontend is Go, which answers through `write`, not `sendto`. Its calibration comes from one frontend pod, without the HPA, at 20, 50 and 100 RPS for 75 s each, read from the collector's `/metrics`: `write` per request moved 1% across the levels, CPU per request from 1.8 to 1.55 ms. Recalibrate after changing the image or the frontend's resources.
 
 ---
 
@@ -447,7 +454,7 @@ uv run run.py compare --prefix web-hpa- web-duo- hr-hpa-
 | E1 | webapp | HPA | burst | 0.5 | 3 |
 | E2 | webapp | HPA + croft | burst | 0.5 | 3 |
 | E3 | hotel-reservation | HPA | burst | 2 | 3 |
-| E4 | hotel-reservation | HPA + croft | burst | 2 | 3 (after calibration) |
+| E4 | hotel-reservation | HPA + croft | burst | 2 | 3 |
 
 Controlled across all runs:
 
