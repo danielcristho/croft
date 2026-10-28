@@ -274,6 +274,17 @@ data/web/try-burst/
 data/web/hr-try-burst/
 ```
 
+A reference `hotel-reservation` run (`--scale 2`, `--probes relaxed`, HPA alone) gave:
+
+| | Before the burst | Burst | After |
+|---|---:|---:|---:|
+| target / achieved RPS | 20 / 20 | 300 / 297 | 20 / 21 |
+| median p95 latency | 12 ms | 1,181 ms | 13 ms |
+| seconds with p95 > 500 ms | 1 | 72 | 0 |
+| frontend CPU throttled | 0% | 44 to 92% | 0% |
+
+The HPA scaled up 35 s into the burst and reached 3 replicas at 114 s; no request failed and no pod restarted. A run far from this shape points at the setup, not the autoscaler.
+
 ---
 
 # 10. Inspect the result
@@ -288,7 +299,7 @@ The directory contains:
 
 ```text
 workload.csv      target and achieved RPS, successes, failures, mean and p95 latency, per second
-prometheus.csv    cpu_cores, cpu_throttled_s, memory_bytes, network, restarts, replicas, every 5 s
+prometheus.csv    cpu_cores, cpu_throttled_fraction, memory_bytes, network, restarts, replicas, every 5 s
 timeline.json     HPA rescales, replica set changes, pod created and Ready times
 scaler.log        only with --scaler croft: croft's estimate every poll and its decisions
 ```

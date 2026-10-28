@@ -193,7 +193,7 @@ data/
     └── <run>/
         ├── locust_*.csv      Locust runs: stats, history, failures, exceptions
         ├── workload.csv      open-loop runs: target and achieved RPS, latency per second
-        ├── prometheus.csv    cpu_cores, cpu_throttled_s, memory_bytes, network, restarts, replicas
+        ├── prometheus.csv    cpu_cores, cpu_throttled_fraction, memory_bytes, network, restarts, replicas
         ├── scaler.log        --scaler croft: the scaler's estimate every poll and its decisions, with timestamps
         └── timeline.json     HPA rescales, replica set changes from any scaler, pod created and Ready times
 ```
