@@ -182,11 +182,14 @@ Alternate the arms within each repetition, so drift over the afternoon falls on 
 
 ```bash
 for i in 1 2 3; do
-  uv run run.py web --app hotel-reservation --prefix hr-hpa-$i  --profile burst --scale 2 --probes relaxed || break
-  uv run run.py web --app hotel-reservation --prefix hr-keda-$i --profile burst --scale 2 --probes relaxed --scaler keda || break
-  uv run run.py web --app hotel-reservation --prefix hr-duo-$i  --profile burst --scale 2 --probes relaxed --scaler croft || break
+  uv run run.py web --app hotel-reservation --node node-a --prefix hr-hpa-$i  --profile burst --scale 2 --probes relaxed || break
+  uv run run.py web --app hotel-reservation --node node-a --prefix hr-keda-$i --profile burst --scale 2 --probes relaxed --scaler keda || break
+  uv run run.py web --app hotel-reservation --node node-a --prefix hr-duo-$i  --profile burst --scale 2 --probes relaxed --scaler croft || break
 done
 ```
+
+> **Note**
+> Pin the application to one node with `--node` in every run of a comparison. The nodes differ by up to 1.69 times in CPU speed, and the scheduler places the first pod anywhere: in the smoke runs a single unscaled frontend on `node-a` held the 300 RPS burst at a 143 ms median p95, while the HPA run's pod on `node-b` reached 1,181 ms. Without the pin, node placement outweighs the autoscaler.
 
 The full study is both applications times three arms times three repetitions: 18 runs, 3.5 to 4 hours of cluster time. Compare reaction times, SLO seconds and replica-seconds between arms within one application; absolute latencies differ between the applications by design.
 
