@@ -33,7 +33,7 @@ def main() -> None:
     web_args.add_argument("--profile", choices=sorted(PROFILES), help="one open-loop run of a cloud2023 RPS profile instead")
     web_args.add_argument("--scale", type=float, default=1.0, help="multiply every rate of --profile")
     web_args.add_argument("--probes", choices=sorted(web.PROBES), default="default", help="relaxed: no liveness restart, slower readiness; none: no probes, the HPA best case")
-    web_args.add_argument("--scaler", choices=["none", "croft"], default="none", help="croft: croft scale runs next to the HPA; needs --profile")
+    web_args.add_argument("--scaler", choices=["none", "croft", "keda"], default="none", help="croft: croft scale runs next to the HPA; keda: KEDA on the ingress request rate replaces it; needs --profile")
     web_args.add_argument("--warmup", type=int, help="seconds; default 60, or 30 with --profile.")
     web_args.add_argument("--seconds", type=int, default=300)
     web_args.add_argument("--cooldown", type=int, help="seconds; default 30, or 15 with --profile.")
@@ -62,14 +62,14 @@ def main() -> None:
         lock = None if args.from_runs else records.hold_lock()
         calibrate.run(args.prefix, args.nodes, args.users, args.warmup, args.seconds, args.cooldown, args.croft_data, args.from_runs)
     else:
-        if args.scaler == "croft" and (not args.profile or args.replicas):
-            parser.error("--scaler croft needs --profile and the HPA, so no --replicas")
+        if args.scaler != "none" and (not args.profile or args.replicas):
+            parser.error(f"--scaler {args.scaler} needs --profile and an autoscaler, so no --replicas")
         lock = records.hold_lock()
         app = APPS[args.app]
         if args.profile:
             warmup = 30 if args.warmup is None else args.warmup
             cooldown = 15 if args.cooldown is None else args.cooldown
-            web.run_profile(app, args.prefix, args.profile, args.scale, warmup, cooldown, args.replicas, args.node, args.probes, args.scaler == "croft")
+            web.run_profile(app, args.prefix, args.profile, args.scale, warmup, cooldown, args.replicas, args.node, args.probes, args.scaler)
         else:
             warmup = 60 if args.warmup is None else args.warmup
             cooldown = 30 if args.cooldown is None else args.cooldown

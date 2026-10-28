@@ -73,6 +73,7 @@ labs/research/experiment/
 │   ├── gpu/                the GPU workloads (PyTorch, ollama), mounted into Jobs through a ConfigMap
 │   ├── webapp/             the HTTP service, its image, manifest and HPA
 │   ├── hotel-reservation/  DeathStarBench hotelReservation: 8 Go services, MongoDB, memcached, HPA on the frontend
+│   ├── ingress-nginx/      PodMonitor for the ingress request counts, KEDA's signal
 │   └── linkerd/            PodMonitor for the Linkerd proxies
 ├── load/locustfile.py      constant users, or steps from LOAD_STEPS
 └── data/                   results, one directory per run

@@ -84,7 +84,8 @@ labs/research/experiment/
 ├── run.py                         command line
 ├── workloads/
 │   ├── webapp/                    app.py, Dockerfile, k8s.yaml, hpa.yaml
-│   └── hotel-reservation/         k8s.yaml (19 Deployments), hpa.yaml
+│   ├── hotel-reservation/         k8s.yaml (19 Deployments), hpa.yaml
+│   └── ingress-nginx/             PodMonitor for the request counts KEDA scales on
 └── data/web/
     ├── runs.jsonl                 one line per run
     ├── compare.csv                one scored row per burst run
@@ -379,38 +380,81 @@ The RPS at which p95 leaves its floor is one pod's capacity. The burst rate shou
 
 ---
 
-# 14. HPA alone against HPA + croft
+# 14. Kubernetes, KEDA and croft
 
-The comparison pairs two arms under identical conditions:
+The comparison runs three arms under identical conditions:
 
 ```text
-                 identical burst
-                        |
-           +------------+------------+
-           |                         |
-           v                         v
-      HPA alone              HPA + croft scale
-  (--scaler none)            (--scaler croft)
-           |                         |
-           +------------+------------+
-                        |
-                        v
-               run.py compare
+                          identical burst
+                                 |
+          +----------------------+----------------------+
+          |                      |                      |
+          v                      v                      v
+   Kubernetes HPA              KEDA               HPA + croft scale
+  (--scaler none)        (--scaler keda)          (--scaler croft)
+  CPU utilization      ingress request rate      eBPF syscall rate
+  metrics-server,      Prometheus every 5 s,     collector /metrics
+  HPA every 15 s       rate over 30 s, HPA       every 2 s
+          |                      |                      |
+          +----------------------+----------------------+
+                                 |
+                                 v
+                          run.py compare
 ```
 
-For webapp:
+| Arm | Who scales | Signal | Capacity of one pod |
+|---|---|---|---|
+| `none` | the HPA of `hpa.yaml` | CPU at 70% of the request | 70% of the CPU limit |
+| `keda` | the HPA KEDA makes from a ScaledObject | `nginx_ingress_controller_requests` of the app's Service | 0.7 × CPU limit ÷ CPU per request, in RPS |
+| `croft` | `croft scale` next to the HPA | the calibrated syscall's rate | 0.7 × CPU limit ÷ CPU per request |
+
+All three share one capacity model, so they differ only in the signal and how late it arrives. KEDA's threshold is 14 RPS per pod for webapp (0.7 × 1000 ms ÷ 50 ms) and 87.5 RPS for hotel-reservation (0.7 × 200 ms ÷ 1.6 ms). The harness computes it from `apps.json` and the deployed CPU limit; no ScaledObject lives in the repository.
+
+nginx counts a request when it completes. Under saturation the ingress still sees the offered load sooner than the pod's own syscalls do, which only show what the pod manages to answer (issue #8): expect KEDA to be the stronger baseline, not the weaker one.
+
+For one application, alternate the arms inside the loop, so drift over the afternoon falls on all three:
 
 ```sh
 for i in 1 2 3; do
-  uv run run.py web --app webapp --prefix web-hpa-$i --profile burst --scale 0.5 --probes relaxed || break
-  uv run run.py web --app webapp --prefix web-duo-$i --profile burst --scale 0.5 --probes relaxed --scaler croft || break
+  uv run run.py web --app hotel-reservation --prefix hr-hpa-$i  --profile burst --scale 2 --probes relaxed || break
+  uv run run.py web --app hotel-reservation --prefix hr-keda-$i --profile burst --scale 2 --probes relaxed --scaler keda || break
+  uv run run.py web --app hotel-reservation --prefix hr-duo-$i  --profile burst --scale 2 --probes relaxed --scaler croft || break
 done
-uv run run.py compare --prefix web-hpa- web-duo-
+uv run run.py compare --prefix hr-hpa- hr-keda- hr-duo-
 ```
 
-Alternate the arms inside the loop, as above, so drift over the afternoon falls on both.
+Every deploy removes the previous run's HPA and ScaledObject, so one arm never inherits another's autoscaler.
 
-`--scaler croft` needs the app's calibration in `apps.json` (`scaler`: syscall, calls and CPU milliseconds per request):
+## Setting up KEDA once
+
+KEDA reads the ingress's request counts from Prometheus. Three steps, once per cluster:
+
+```sh
+# 1. ingress-nginx exports per-ingress metrics on :10254 (restarts the controller for a few seconds)
+kubectl -n ingress-nginx patch deployment ingress-nginx-controller --type=json -p '[
+  {"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--enable-metrics=true"},
+  {"op":"add","path":"/spec/template/spec/containers/0/ports/-","value":{"name":"metrics","containerPort":10254,"protocol":"TCP"}}]'
+
+# 2. Prometheus scrapes it every 5 s, not the stack's 30 s
+kubectl apply -f workloads/ingress-nginx/podmonitor.yaml
+
+# 3. KEDA itself
+kubectl apply --server-side -f https://github.com/kedacore/keda/releases/download/v2.21.0/keda-2.21.0.yaml
+kubectl -n keda rollout status deployment
+```
+
+Check that Prometheus has the series:
+
+```sh
+curl -s "http://prometheus.127.0.0.1.sslip.io:30080/api/v1/query" \
+  --data-urlencode 'query=sum by (service) (rate(nginx_ingress_controller_requests[30s]))'
+```
+
+`--scaler keda` stops before deploying when the `scaledobjects.keda.sh` CRD is missing.
+
+## Calibration
+
+`--scaler croft` and `--scaler keda` need the app's calibration in `apps.json` (`scaler`: syscall, calls and CPU milliseconds per request):
 
 | Application | Syscall | Calls per request | CPU per request |
 |---|---|---:|---:|
@@ -424,14 +468,14 @@ The hotel frontend is Go, which answers through `write`, not `sendto`. Its calib
 # 15. Score the runs
 
 ```sh
-uv run run.py compare --prefix web-hpa- web-duo- hr-hpa-
+uv run run.py compare --prefix hr-hpa- hr-keda- hr-duo-
 ```
 
 `compare` groups runs by arm (app, profile, scale, probes, scaler), prints mean ± sd per arm and writes one row per run to `data/web/compare.csv`:
 
 | Column | Meaning |
 |---|---|
-| `hpa_first_up_s` | burst start to the HPA's first scale-up |
+| `hpa_first_up_s` | burst start to the HPA's first scale-up; in the KEDA arm, the HPA KEDA made |
 | `croft_first_up_s` | burst start to croft's first scale-up |
 | `first_ready_s` | burst start to the first new pod Ready |
 | `peak_replicas`, `time_to_peak_s` | the most replicas, and when |
@@ -447,26 +491,30 @@ uv run run.py compare --prefix web-hpa- web-duo- hr-hpa-
 
 # 16. Comparative study across the two applications
 
-> Does an early, kernel-level signal help more for a heavy single service or for a light frontend in front of a service chain?
+> Does a kernel-level signal (croft) react earlier than CPU utilization (the HPA) and the request rate at the ingress (KEDA), and does the answer differ between a heavy single service and a light frontend in front of a service chain?
 
 | ID | Application | Arm | Profile | Scale | Repetitions |
 |---|---|---|---|---:|---:|
-| E1 | webapp | HPA | burst | 0.5 | 3 |
-| E2 | webapp | HPA + croft | burst | 0.5 | 3 |
-| E3 | hotel-reservation | HPA | burst | 2 | 3 |
-| E4 | hotel-reservation | HPA + croft | burst | 2 | 3 |
+| E1 | webapp | Kubernetes HPA | burst | 0.5 | 3 |
+| E2 | webapp | KEDA | burst | 0.5 | 3 |
+| E3 | webapp | HPA + croft | burst | 0.5 | 3 |
+| E4 | hotel-reservation | Kubernetes HPA | burst | 2 | 3 |
+| E5 | hotel-reservation | KEDA | burst | 2 | 3 |
+| E6 | hotel-reservation | HPA + croft | burst | 2 | 3 |
+
+Eighteen runs of about 12 minutes: 3.5 to 4 hours of cluster time.
 
 Controlled across all runs:
 
 ```text
 profile and its duration
 --probes relaxed
-HPA: CPU 70%, 1 to 10 replicas
+one capacity model: 70% of the CPU limit, 1 to 10 replicas, in every arm
 cluster topology, croft collector version
 no other workload on the cluster
 ```
 
-Do not compare absolute latencies between the applications: they differ by design. Compare reaction times, SLO seconds and replica-seconds within each application, and the size of croft's effect across them.
+Do not compare absolute latencies between the applications: they differ by design. Compare reaction times, SLO seconds and replica-seconds between the arms within each application, and the size of each arm's effect across them.
 
 ---
 

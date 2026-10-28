@@ -1,0 +1,19 @@
+# Request counts per ingress, for the KEDA arm. Scraped every 5 s, not the stack's 30 s, so KEDA's signal
+# is not late by configuration alone. Needs the controller started with --enable-metrics=true (RUNNING.md).
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: ingress-nginx
+  namespace: monitoring
+  labels:
+    release: monitoring
+spec:
+  namespaceSelector:
+    matchNames: [ingress-nginx]
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: controller
+  podMetricsEndpoints:
+    - port: metrics
+      path: /metrics
+      interval: 5s
