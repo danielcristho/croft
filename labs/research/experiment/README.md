@@ -70,6 +70,7 @@ labs/research/experiment/
 ├── workloads/
 │   ├── gpu/                the GPU workloads (PyTorch, ollama), mounted into Jobs through a ConfigMap
 │   ├── webapp/             the HTTP service, its image, manifest and HPA
+│   ├── hotel-reservation/  DeathStarBench hotelReservation: 8 Go services, MongoDB, memcached, HPA on the frontend
 │   └── linkerd/            PodMonitor for the Linkerd proxies
 ├── load/locustfile.py      constant users, or steps from LOAD_STEPS
 └── data/                   results, one directory per run
@@ -172,6 +173,7 @@ uv run run.py web --prefix cd --profile ramp --scale 0.3       # an open-loop ra
 uv run run.py web --prefix duo --profile burst --scale 0.5 --scaler croft  # croft scale next to the HPA
 uv run run.py calibrate                             # CPU per request on each node, into data/node-speed.json
 uv run run.py compare --prefix hpa- duo-            # burst runs scored per arm, HPA alone against HPA + croft
+uv run run.py web --app hotel-reservation --prefix hr --profile burst --scale 0.5  # DeathStarBench hotel search
 ```
 
 Only one experiment runs at a time (`data/experiment.lock`): two workloads sharing CPUs pollute each other's numbers.
@@ -204,7 +206,7 @@ data/
 - A step jumps the load at once, so every signal reacts within a poll and croft can lead the SLO by a poll at most; the ramp spreads the same rise over each step and shows lead time.
 - Locust runs with `--exit-code-on-error 0`: failed requests are data.
 - `--profile` follows cloud2023's `cloud-dynamics-experiments`: open-loop requests per second (constant, ramp, burst, periodic, variable) with its scenario parameters, a 30 s warm-up at 5 RPS and a 15 s cool-down, and a `workload.csv` with its columns. The webapp costs 40 to 65 ms of CPU per request against cloud2023's lighter `cpu-bound` app, so its rates may need `--scale` to stay within ten pods.
-- `apps.json` lists the applications under test: namespace, Deployment, container, manifest folder (`k8s.yaml` and `hpa.yaml`), host, request and health paths, and the calibration `croft scale` needs (syscall, calls and CPU milliseconds per request). `--app` picks one; a new app is a new entry, not new code.
+- `apps.json` lists the applications under test: namespace, Deployment, container, manifest folder (`k8s.yaml` and `hpa.yaml`), host, request and health paths, and the calibration `croft scale` needs (syscall, calls and CPU milliseconds per request). `--app` picks one; a new app is a new entry, not new code. `hotel-reservation` sends every request to the frontend's hotel search (`/hotels`), which calls search, geo, rate and profile; it has no croft calibration yet, so `--scaler croft` refuses it until one is measured.
 - `--scaler croft` deploys `deploy/kubernetes/scaler.yaml` for the app before the warm-up, saves its log and removes it after the run. It needs the collector DaemonSet with `CROFT_METRICS_ADDR` set and an image that has `croft scale`.
 - The first run on a node pulls the PyTorch or ollama image; ollama models are cached per node in `/var/lib/croft/ollama`.
 

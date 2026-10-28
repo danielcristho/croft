@@ -12,5 +12,14 @@
       "calls_per_request": 2.06,
       "cpu_per_request_ms": 50
     }
+  },
+  "hotel-reservation": {
+    "namespace": "hotel-res",
+    "deployment": "frontend",
+    "container": "frontend",
+    "manifests": "workloads/hotel-reservation",
+    "host": "http://hotel.127.0.0.1.sslip.io:30080",
+    "path": "/hotels?inDate=2015-04-09&outDate=2015-04-10&lat=38.0235&lon=-122.095",
+    "health": "/"
   }
 }

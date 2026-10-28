@@ -1,0 +1,967 @@
+# DeathStarBench hotelReservation (Gan et al., ASPLOS 2019), from hotelReservation/kubernetes at
+# delimitrou/DeathStarBench 6ecb097. Changed for the harness: one namespace, app=<name> labels, pinned
+# images, MongoDB on emptyDir instead of hostPath volumes, and probes on the frontend.
+# Review and attractions are left out, as upstream does; the frontend dials them lazily.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: hotel-res
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: hotel-res
+spec:
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: deathstarbench/hotel-reservation:0.3.5
+          imagePullPolicy: IfNotPresent
+          command: [frontend]
+          env:
+            - name: TLS
+              value: "0"
+            - name: GC
+              value: "100"
+            - name: LOG_LEVEL
+              value: "INFO"
+            - name: JAEGER_SAMPLE_RATIO
+              value: "0.01"
+            - name: MEMC_TIMEOUT
+              value: "2"
+          ports:
+            - containerPort: 5000
+          # Requests equal limits, as for webapp: the HPA's 70% then means 0.7 core per pod.
+          resources:
+            requests:
+              cpu: "1"
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 5000
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 5000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: hotel-res
+spec:
+  selector:
+    app: frontend
+  ports:
+    - name: 5000
+      port: 5000
+      targetPort: 5000
+      protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: search
+  namespace: hotel-res
+spec:
+  selector:
+    matchLabels:
+      app: search
+  template:
+    metadata:
+      labels:
+        app: search
+    spec:
+      containers:
+        - name: search
+          image: deathstarbench/hotel-reservation:0.3.5
+          imagePullPolicy: IfNotPresent
+          command: [search]
+          env:
+            - name: TLS
+              value: "0"
+            - name: GC
+              value: "100"
+            - name: LOG_LEVEL
+              value: "INFO"
+            - name: JAEGER_SAMPLE_RATIO
+              value: "0.01"
+            - name: MEMC_TIMEOUT
+              value: "2"
+          ports:
+            - containerPort: 8082
+          resources:
+            requests:
+              cpu: 100m
+            limits:
+              cpu: "1"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: search
+  namespace: hotel-res
+spec:
+  selector:
+    app: search
+  ports:
+    - name: 8082
+      port: 8082
+      targetPort: 8082
+      protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: geo
+  namespace: hotel-res
+spec:
+  selector:
+    matchLabels:
+      app: geo
+  template:
+    metadata:
+      labels:
+        app: geo
+    spec:
+      containers:
+        - name: geo
+          image: deathstarbench/hotel-reservation:0.3.5
+          imagePullPolicy: IfNotPresent
+          command: [geo]
+          env:
+            - name: TLS
+              value: "0"
+            - name: GC
+              value: "100"
+            - name: LOG_LEVEL
+              value: "INFO"
+            - name: JAEGER_SAMPLE_RATIO
+              value: "0.01"
+            - name: MEMC_TIMEOUT
+              value: "2"
+          ports:
+            - containerPort: 8083
+          resources:
+            requests:
+              cpu: 100m
+            limits:
+              cpu: "1"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: geo
+  namespace: hotel-res
+spec:
+  selector:
+    app: geo
+  ports:
+    - name: 8083
+      port: 8083
+      targetPort: 8083
+      protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: profile
+  namespace: hotel-res
+spec:
+  selector:
+    matchLabels:
+      app: profile
+  template:
+    metadata:
+      labels:
+        app: profile
+    spec:
+      containers:
+        - name: profile
+          image: deathstarbench/hotel-reservation:0.3.5
+          imagePullPolicy: IfNotPresent
+          command: [profile]
+          env:
+            - name: TLS
+              value: "0"
+            - name: GC
+              value: "100"
+            - name: LOG_LEVEL
+              value: "INFO"
+            - name: JAEGER_SAMPLE_RATIO
+              value: "0.01"
+            - name: MEMC_TIMEOUT
+              value: "2"
+          ports:
+            - containerPort: 8081
+          resources:
+            requests:
+              cpu: 100m
+            limits:
+              cpu: "1"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: profile
+  namespace: hotel-res
+spec:
+  selector:
+    app: profile
+  ports:
+    - name: 8081
+      port: 8081
+      targetPort: 8081
+      protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rate
+  namespace: hotel-res
+spec:
+  selector:
+    matchLabels:
+      app: rate
+  template:
+    metadata:
+      labels:
+        app: rate
+    spec:
+      containers:
+        - name: rate
+          image: deathstarbench/hotel-reservation:0.3.5
+          imagePullPolicy: IfNotPresent
+          command: [rate]
+          env:
+            - name: TLS
+              value: "0"
+            - name: GC
+              value: "100"
+            - name: LOG_LEVEL
+              value: "INFO"
+            - name: JAEGER_SAMPLE_RATIO
+              value: "0.01"
+            - name: MEMC_TIMEOUT
+              value: "2"
+          ports:
+            - containerPort: 8084
+          resources:
+            requests:
+              cpu: 100m
+            limits:
+              cpu: "1"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rate
+  namespace: hotel-res
+spec:
+  selector:
+    app: rate
+  ports:
+    - name: 8084
+      port: 8084
+      targetPort: 8084
+      protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: recommendation
+  namespace: hotel-res
+spec:
+  selector:
+    matchLabels:
+      app: recommendation
+  template:
+    metadata:
+      labels:
+        app: recommendation
+    spec:
+      containers:
+        - name: recommendation
+          image: deathstarbench/hotel-reservation:0.3.5
+          imagePullPolicy: IfNotPresent
+          command: [recommendation]
+          env:
+            - name: TLS
+              value: "0"
+            - name: GC
+              value: "100"
+            - name: LOG_LEVEL
+              value: "INFO"
+            - name: JAEGER_SAMPLE_RATIO
+              value: "0.01"
+            - name: MEMC_TIMEOUT
+              value: "2"
+          ports:
+            - containerPort: 8085
+          resources:
+            requests:
+              cpu: 100m
+            limits:
+              cpu: "1"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: recommendation
+  namespace: hotel-res
+spec:
+  selector:
+    app: recommendation
+  ports:
+    - name: 8085
+      port: 8085
+      targetPort: 8085
+      protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user
+  namespace: hotel-res
+spec:
+  selector:
+    matchLabels:
+      app: user
+  template:
+    metadata:
+      labels:
+        app: user
+    spec:
+      containers:
+        - name: user
+          image: deathstarbench/hotel-reservation:0.3.5
+          imagePullPolicy: IfNotPresent
+          command: [user]
+          env:
+            - name: TLS
+              value: "0"
+            - name: GC
+              value: "100"
+            - name: LOG_LEVEL
+              value: "INFO"
+            - name: JAEGER_SAMPLE_RATIO
+              value: "0.01"
+            - name: MEMC_TIMEOUT
+              value: "2"
+          ports:
+            - containerPort: 8086
+          resources:
+            requests:
+              cpu: 100m
+            limits:
+              cpu: "1"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: user
+  namespace: hotel-res
+spec:
+  selector:
+    app: user
+  ports:
+    - name: 8086
+      port: 8086
+      targetPort: 8086
+      protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reservation
+  namespace: hotel-res
+spec:
+  selector:
+    matchLabels:
+      app: reservation
+  template:
+    metadata:
+      labels:
+        app: reservation
+    spec:
+      containers:
+        - name: reservation
+          image: deathstarbench/hotel-reservation:0.3.5
+          imagePullPolicy: IfNotPresent
+          command: [reservation]
+          env:
+            - name: TLS
+              value: "0"
+            - name: GC
+              value: "100"
+            - name: LOG_LEVEL
+              value: "INFO"
+            - name: JAEGER_SAMPLE_RATIO
+              value: "0.01"
+            - name: MEMC_TIMEOUT
+              value: "2"
+          ports:
+            - containerPort: 8087
+          resources:
+            requests:
+              cpu: 100m
+            limits:
+              cpu: "1"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: reservation
+  namespace: hotel-res
+spec:
+  selector:
+    app: reservation
+  ports:
+    - name: 8087
+      port: 8087
+      targetPort: 8087
+      protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongodb-geo
+  namespace: hotel-res
+spec:
+  selector:
+    matchLabels:
+      app: mongodb-geo
+  template:
+    metadata:
+      labels:
+        app: mongodb-geo
+    spec:
+      containers:
+        - name: mongodb
+          image: mongo:4.4.6
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 27017
+          resources:
+            requests:
+              cpu: 100m
+            limits:
+              cpu: "1"
+          volumeMounts:
+            - name: data
+              mountPath: /data/db
+      # The services seed their collections at startup, so the data needs no volume that outlives the pod.
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb-geo
+  namespace: hotel-res
+spec:
+  selector:
+    app: mongodb-geo
+  ports:
+    - name: mongodb
+      port: 27017
+      targetPort: 27017
+      protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongodb-profile
+  namespace: hotel-res
+spec:
+  selector:
+    matchLabels:
+      app: mongodb-profile
+  template:
+    metadata:
+      labels:
+        app: mongodb-profile
+    spec:
+      containers:
+        - name: mongodb
+          image: mongo:4.4.6
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 27017
+          resources:
+            requests:
+              cpu: 100m
+            limits:
+              cpu: "1"
+          volumeMounts:
+            - name: data
+              mountPath: /data/db
+      # The services seed their collections at startup, so the data needs no volume that outlives the pod.
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb-profile
+  namespace: hotel-res
+spec:
+  selector:
+    app: mongodb-profile
+  ports:
+    - name: mongodb
+      port: 27017
+      targetPort: 27017
+      protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongodb-rate
+  namespace: hotel-res
+spec:
+  selector:
+    matchLabels:
+      app: mongodb-rate
+  template:
+    metadata:
+      labels:
+        app: mongodb-rate
+    spec:
+      containers:
+        - name: mongodb
+          image: mongo:4.4.6
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 27017
+          resources:
+            requests:
+              cpu: 100m
+            limits:
+              cpu: "1"
+          volumeMounts:
+            - name: data
+              mountPath: /data/db
+      # The services seed their collections at startup, so the data needs no volume that outlives the pod.
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb-rate
+  namespace: hotel-res
+spec:
+  selector:
+    app: mongodb-rate
+  ports:
+    - name: mongodb
+      port: 27017
+      targetPort: 27017
+      protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongodb-recommendation
+  namespace: hotel-res
+spec:
+  selector:
+    matchLabels:
+      app: mongodb-recommendation
+  template:
+    metadata:
+      labels:
+        app: mongodb-recommendation
+    spec:
+      containers:
+        - name: mongodb
+          image: mongo:4.4.6
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 27017
+          resources:
+            requests:
+              cpu: 100m
+            limits:
+              cpu: "1"
+          volumeMounts:
+            - name: data
+              mountPath: /data/db
+      # The services seed their collections at startup, so the data needs no volume that outlives the pod.
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb-recommendation
+  namespace: hotel-res
+spec:
+  selector:
+    app: mongodb-recommendation
+  ports:
+    - name: mongodb
+      port: 27017
+      targetPort: 27017
+      protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongodb-reservation
+  namespace: hotel-res
+spec:
+  selector:
+    matchLabels:
+      app: mongodb-reservation
+  template:
+    metadata:
+      labels:
+        app: mongodb-reservation
+    spec:
+      containers:
+        - name: mongodb
+          image: mongo:4.4.6
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 27017
+          resources:
+            requests:
+              cpu: 100m
+            limits:
+              cpu: "1"
+          volumeMounts:
+            - name: data
+              mountPath: /data/db
+      # The services seed their collections at startup, so the data needs no volume that outlives the pod.
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb-reservation
+  namespace: hotel-res
+spec:
+  selector:
+    app: mongodb-reservation
+  ports:
+    - name: mongodb
+      port: 27017
+      targetPort: 27017
+      protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongodb-user
+  namespace: hotel-res
+spec:
+  selector:
+    matchLabels:
+      app: mongodb-user
+  template:
+    metadata:
+      labels:
+        app: mongodb-user
+    spec:
+      containers:
+        - name: mongodb
+          image: mongo:4.4.6
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 27017
+          resources:
+            requests:
+              cpu: 100m
+            limits:
+              cpu: "1"
+          volumeMounts:
+            - name: data
+              mountPath: /data/db
+      # The services seed their collections at startup, so the data needs no volume that outlives the pod.
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb-user
+  namespace: hotel-res
+spec:
+  selector:
+    app: mongodb-user
+  ports:
+    - name: mongodb
+      port: 27017
+      targetPort: 27017
+      protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: memcached-profile
+  namespace: hotel-res
+spec:
+  selector:
+    matchLabels:
+      app: memcached-profile
+  template:
+    metadata:
+      labels:
+        app: memcached-profile
+    spec:
+      containers:
+        - name: memcached
+          image: memcached:1.6.29
+          imagePullPolicy: IfNotPresent
+          args: ["-m", "128", "-t", "2"]
+          ports:
+            - containerPort: 11211
+          resources:
+            requests:
+              cpu: 100m
+            limits:
+              cpu: "1"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: memcached-profile
+  namespace: hotel-res
+spec:
+  selector:
+    app: memcached-profile
+  ports:
+    - name: memcached
+      port: 11211
+      targetPort: 11211
+      protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: memcached-rate
+  namespace: hotel-res
+spec:
+  selector:
+    matchLabels:
+      app: memcached-rate
+  template:
+    metadata:
+      labels:
+        app: memcached-rate
+    spec:
+      containers:
+        - name: memcached
+          image: memcached:1.6.29
+          imagePullPolicy: IfNotPresent
+          args: ["-m", "128", "-t", "2"]
+          ports:
+            - containerPort: 11211
+          resources:
+            requests:
+              cpu: 100m
+            limits:
+              cpu: "1"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: memcached-rate
+  namespace: hotel-res
+spec:
+  selector:
+    app: memcached-rate
+  ports:
+    - name: memcached
+      port: 11211
+      targetPort: 11211
+      protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: memcached-reserve
+  namespace: hotel-res
+spec:
+  selector:
+    matchLabels:
+      app: memcached-reserve
+  template:
+    metadata:
+      labels:
+        app: memcached-reserve
+    spec:
+      containers:
+        - name: memcached
+          image: memcached:1.6.29
+          imagePullPolicy: IfNotPresent
+          args: ["-m", "128", "-t", "2"]
+          ports:
+            - containerPort: 11211
+          resources:
+            requests:
+              cpu: 100m
+            limits:
+              cpu: "1"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: memcached-reserve
+  namespace: hotel-res
+spec:
+  selector:
+    app: memcached-reserve
+  ports:
+    - name: memcached
+      port: 11211
+      targetPort: 11211
+      protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: consul
+  namespace: hotel-res
+spec:
+  selector:
+    matchLabels:
+      app: consul
+  template:
+    metadata:
+      labels:
+        app: consul
+    spec:
+      containers:
+        - name: consul
+          image: hashicorp/consul:1.15.4
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8500
+          resources:
+            requests:
+              cpu: 100m
+            limits:
+              cpu: "1"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: consul
+  namespace: hotel-res
+spec:
+  selector:
+    app: consul
+  ports:
+    - name: http
+      port: 8500
+      targetPort: 8500
+      protocol: TCP
+    - name: dns
+      port: 8600
+      targetPort: 8600
+      protocol: UDP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jaeger
+  namespace: hotel-res
+spec:
+  selector:
+    matchLabels:
+      app: jaeger
+  template:
+    metadata:
+      labels:
+        app: jaeger
+    spec:
+      containers:
+        - name: jaeger
+          image: jaegertracing/all-in-one:1.57.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 6831
+              protocol: UDP
+            - containerPort: 16686
+          resources:
+            requests:
+              cpu: 100m
+            limits:
+              cpu: "1"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jaeger
+  namespace: hotel-res
+spec:
+  selector:
+    app: jaeger
+  ports:
+    - name: agent
+      port: 6831
+      targetPort: 6831
+      protocol: UDP
+    - name: ui
+      port: 16686
+      targetPort: 16686
+      protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: frontend
+  namespace: hotel-res
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: hotel.127.0.0.1.sslip.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 5000
+    # The server's Tailscale address, for access from outside the LAN.
+    - host: hotel.100.64.0.10.sslip.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 5000
