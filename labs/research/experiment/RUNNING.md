@@ -262,6 +262,17 @@ The croft and KEDA arms need each application's `scaler` entry in `apps.json`:
 
 The hotel frontend is Go, which answers through `write` rather than `sendto`. Its values come from one frontend pod without an autoscaler, at 20, 50 and 100 RPS for 75 s each, read from the collector's `/metrics`. `write` per request moved 1% across the levels; CPU per request went from 1.8 to 1.55 ms.
 
+### Measuring a calibration
+
+```bash
+just samples calibrate otel-demo                 # 20, 50 and 100 RPS, 75 s each, about 5 minutes
+just samples calibrate otel-demo "20 40 70"      # other levels, all below one pod's saturation
+```
+
+The recipe deploys the app at one replica pinned to `node-a`, without an autoscaler, offers each level as constant load and reads the pod's syscall rates and CPU from the collector on its node. For every level it prints the achieved rate, failures, p95, CPU per request, throttling and the busiest pods of the namespace, then the syscall whose calls per request moved least, the `scaler` entry for `apps.json` and the RPS one pod holds at 70% of its limit. Everything is kept in `data/calibration/<app>.json`.
+
+A calibration is valid when every level has no failures, a flat p95 and no throttling, and no other pod of the namespace nears its own CPU limit. Otherwise the levels are too high, or a backend service saturates before the pod being calibrated.
+
 Recalibrate after changing an application's image or its frontend resources.
 
 ## Troubleshooting

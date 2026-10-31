@@ -3,7 +3,7 @@
 import argparse
 from pathlib import Path
 
-from experiment import calibrate, compare, gpu, records, web
+from experiment import calibrate, calibrate_scaler, compare, gpu, records, web
 from experiment.apps import APPS
 from experiment.profiles import PROFILES
 
@@ -48,6 +48,12 @@ def main() -> None:
     calibrate_args.add_argument("--croft-data", type=Path, default=calibrate.DEFAULT_CROFT_DATA, help="per-node croft datasets")
     calibrate_args.add_argument("--from-runs", action="store_true", help="compute from existing runs, measure nothing")
 
+    scaler_args = suites.add_parser("calibrate-scaler", help="syscalls and CPU per request of one app on one pod, for croft scale and KEDA")
+    scaler_args.add_argument("--app", choices=sorted(APPS), required=True)
+    scaler_args.add_argument("--levels", nargs="+", type=int, default=[20, 50, 100], help="constant RPS levels, all below one pod's saturation")
+    scaler_args.add_argument("--seconds", type=int, default=75, help="seconds per level; the first 20 settle")
+    scaler_args.add_argument("--node", help="pin the pod to one node")
+
     compare_args = suites.add_parser("compare", help="score burst runs per arm, the HPA alone against the HPA with croft scale")
     compare_args.add_argument("--prefix", nargs="+", default=[], help="run id prefixes to score; default every burst run")
 
@@ -58,6 +64,9 @@ def main() -> None:
     elif args.suite == "gpu":
         lock = None if args.dry_run else records.hold_lock()
         gpu.run(args.only, args.reps, args.seconds, args.cooldown, args.seed, args.node, args.dry_run)
+    elif args.suite == "calibrate-scaler":
+        lock = records.hold_lock()
+        calibrate_scaler.run(APPS[args.app], args.levels, args.seconds, args.node)
     elif args.suite == "calibrate":
         lock = None if args.from_runs else records.hold_lock()
         calibrate.run(args.prefix, args.nodes, args.users, args.warmup, args.seconds, args.cooldown, args.croft_data, args.from_runs)

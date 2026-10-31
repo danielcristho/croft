@@ -117,6 +117,7 @@ just samples series hotel-reservation hr
 | `remove <app>` | deletes the sample and its namespace |
 | `burst <app> [arm] [prefix]` | one burst run; `arm` is `none`, `keda` or `croft` |
 | `series <app> <prefix>` | three repetitions of the three arms, then `compare` |
+| `calibrate <app> [levels] [seconds]` | measures the `scaler` entry on one pinned pod at constant loads |
 | `compare <prefix>...` | scores finished burst runs |
 
 ## Troubleshooting
@@ -135,4 +136,4 @@ just samples series hotel-reservation hr
 2. Create `workloads/<name>/hpa.yaml` for the Deployment the experiments scale, at 70% CPU and 1 to 10 replicas.
 3. Give that Deployment's container equal CPU requests and limits, and probes, so the HPA's target and `--probes relaxed` mean the same as for the other samples.
 4. Add an entry to `apps.json`: `namespace`, `deployment`, `container`, `manifests`, `host`, `path`, `health`.
-5. Measure its calibration and `scale` as [RUNNING.md](../RUNNING.md#calibration) describes, and add them to the entry.
+5. Measure its calibration with `just samples calibrate <name>`, as [RUNNING.md](../RUNNING.md#measuring-a-calibration) describes, and add it and a `scale` to the entry.
