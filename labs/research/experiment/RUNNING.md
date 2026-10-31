@@ -46,6 +46,8 @@ kubectl get nodes        # every node Ready
 
 Both applications sit behind the same ingress and take the same load profiles. They differ by about fifty times in CPU per request, so each has its own load scale.
 
+Deploying, checking and removing the samples, `otel-demo` included, has its own guide with `just` recipes: [workloads/README.md](workloads/README.md). `just samples burst <app> [arm]` and `just samples series <app> <prefix>` wrap the runs below.
+
 | Application | Shape | CPU per request | Pod CPU limit | `--scale` |
 |---|---|---:|---:|---:|
 | `webapp` | one Python service | 40 to 65 ms | 1 core | 0.5 |
@@ -155,7 +157,7 @@ The result lands in `data/web/<prefix>-<profile>/`:
 | `periodic` | 10 to 100 RPS, period 120 s | 600 s | autoscaling lag |
 | `variable` | 10 to 100 RPS, a new level every 30 s, seed 42 | 600 s | prediction |
 
-`--scale` multiplies every rate. A good burst saturates one pod at least twice over and stays within ten pods' worth:
+`--scale` multiplies every rate, and defaults to the app's `scale` in `apps.json`. A good burst saturates one pod at least twice over and stays within ten pods' worth:
 
 - `webapp` at `--scale 0.5`: 5, then 75, then 5 RPS. 75 RPS needs 6 to 7 pods at 70%.
 - `hotel-reservation` at `--scale 2`: 20, then 300, then 20 RPS. One frontend pod holds about 130 RPS at 70%.

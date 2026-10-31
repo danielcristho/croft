@@ -44,3 +44,6 @@ docker-up:
     -v /sys/kernel/tracing:/sys/kernel/tracing:ro \
     -v /var/lib/croft:/data \
     croft-collector
+# Sample applications of the experiments: just samples <recipe> [args]; just samples list for the recipes.
+samples *args:
+    @just --justfile labs/research/experiment/justfile --working-directory labs/research/experiment {{ args }}
