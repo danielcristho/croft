@@ -11,7 +11,8 @@
       "syscall": "sendto",
       "calls_per_request": 2.06,
       "cpu_per_request_ms": 50
-    }
+    },
+    "scale": 0.5
   },
   "hotel-reservation": {
     "namespace": "hotel-res",
@@ -25,6 +26,16 @@
       "syscall": "write",
       "calls_per_request": 11.4,
       "cpu_per_request_ms": 1.6
-    }
+    },
+    "scale": 2
+  },
+  "otel-demo": {
+    "namespace": "otel-demo",
+    "deployment": "frontend",
+    "container": "frontend",
+    "manifests": "workloads/otel-demo",
+    "host": "http://otel.127.0.0.1.sslip.io:30080",
+    "path": "/api/recommendations?productIds=OLJCESPC7Z&currencyCode=EUR",
+    "health": "/"
   }
 }

@@ -1,7 +1,8 @@
 # OpenTelemetry Demo 3.1.0 (open-telemetry/opentelemetry-demo, tag 3.1.0), generated from its compose.yaml and .env.
 # Changed for the harness: one namespace, app=<name> labels, the core services only (no frontend-proxy,
 # image-provider, load generator, flagd-ui or telemetry docs), a collector that drops every signal instead of
-# the observability stack, memory limits of at least 64Mi, frontend probes, and an ingress to the frontend.
+# the observability stack, memory limits of at least 64Mi, no service links, frontend probes, and an ingress
+# to the frontend.
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -22,6 +23,7 @@ spec:
       labels:
         app: frontend
     spec:
+      enableServiceLinks: false
       containers:
       - name: frontend
         image: ghcr.io/open-telemetry/demo:3.1.0-frontend
@@ -118,6 +120,7 @@ spec:
       labels:
         app: recommendation
     spec:
+      enableServiceLinks: false
       containers:
       - name: recommendation
         image: ghcr.io/open-telemetry/demo:3.1.0-recommendation
@@ -199,6 +202,7 @@ spec:
       labels:
         app: product-catalog
     spec:
+      enableServiceLinks: false
       containers:
       - name: product-catalog
         image: ghcr.io/open-telemetry/demo:3.1.0-product-catalog
@@ -277,6 +281,7 @@ spec:
       labels:
         app: currency
     spec:
+      enableServiceLinks: false
       containers:
       - name: currency
         image: ghcr.io/open-telemetry/demo:3.1.0-currency
@@ -337,6 +342,7 @@ spec:
       labels:
         app: cart
     spec:
+      enableServiceLinks: false
       containers:
       - name: cart
         image: ghcr.io/open-telemetry/demo:3.1.0-cart
@@ -401,6 +407,7 @@ spec:
       labels:
         app: checkout
     spec:
+      enableServiceLinks: false
       containers:
       - name: checkout
         image: ghcr.io/open-telemetry/demo:3.1.0-checkout
@@ -479,6 +486,7 @@ spec:
       labels:
         app: ad
     spec:
+      enableServiceLinks: false
       containers:
       - name: ad
         image: ghcr.io/open-telemetry/demo:3.1.0-ad
@@ -551,6 +559,7 @@ spec:
       labels:
         app: email
     spec:
+      enableServiceLinks: false
       containers:
       - name: email
         image: ghcr.io/open-telemetry/demo:3.1.0-email
@@ -613,6 +622,7 @@ spec:
       labels:
         app: payment
     spec:
+      enableServiceLinks: false
       containers:
       - name: payment
         image: ghcr.io/open-telemetry/demo:3.1.0-payment
@@ -677,6 +687,7 @@ spec:
       labels:
         app: quote
     spec:
+      enableServiceLinks: false
       containers:
       - name: quote
         image: ghcr.io/open-telemetry/demo:3.1.0-quote
@@ -739,6 +750,7 @@ spec:
       labels:
         app: shipping
     spec:
+      enableServiceLinks: false
       containers:
       - name: shipping
         image: ghcr.io/open-telemetry/demo:3.1.0-shipping
@@ -842,6 +854,7 @@ spec:
       labels:
         app: flagd
     spec:
+      enableServiceLinks: false
       containers:
       - name: flagd
         image: ghcr.io/open-feature/flagd:v0.16.0
@@ -960,6 +973,7 @@ spec:
       labels:
         app: astronomy-db
     spec:
+      enableServiceLinks: false
       containers:
       - name: astronomy-db
         image: postgres:18.4
@@ -1017,6 +1031,7 @@ spec:
       labels:
         app: valkey-cart
     spec:
+      enableServiceLinks: false
       containers:
       - name: valkey-cart
         image: ghcr.io/valkey-io/valkey:9.0.4-alpine3.23
@@ -1070,6 +1085,7 @@ spec:
       labels:
         app: otel-collector
     spec:
+      enableServiceLinks: false
       containers:
       - name: otel-collector
         image: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.159.0

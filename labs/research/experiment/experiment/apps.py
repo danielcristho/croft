@@ -29,6 +29,8 @@ class App:
     path: str
     health: str
     scaler: Calibration | None
+    # The --profile scale that keeps a burst between one pod saturated and ten pods' worth.
+    scale: float = 1.0
 
     @property
     def selector(self) -> str:
@@ -62,3 +64,14 @@ def load(path: Path = CATALOG) -> dict[str, App]:
 
 
 APPS = load()
+
+
+# python3 -m experiment.apps [<app> <field>]: the app names, or one field of an app, for the justfile.
+if __name__ == "__main__":
+    import sys
+
+    if len(sys.argv) == 3:
+        print(getattr(APPS[sys.argv[1]], sys.argv[2]))
+    else:
+        for app in APPS.values():
+            print(f"{app.name:18} {app.namespace:10} {app.url}")

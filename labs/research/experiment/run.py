@@ -31,7 +31,7 @@ def main() -> None:
     web_args.add_argument("--node", help="pin every replica to one node")
     web_args.add_argument("--shape", choices=["step", "ramp"], default="step", help="hold each step, or ramp between them")
     web_args.add_argument("--profile", choices=sorted(PROFILES), help="one open-loop run of a cloud2023 RPS profile instead")
-    web_args.add_argument("--scale", type=float, default=1.0, help="multiply every rate of --profile")
+    web_args.add_argument("--scale", type=float, help="multiply every rate of --profile; default the app's scale in apps.json")
     web_args.add_argument("--probes", choices=sorted(web.PROBES), default="default", help="relaxed: no liveness restart, slower readiness; none: no probes, the HPA best case")
     web_args.add_argument("--scaler", choices=["none", "croft", "keda"], default="none", help="croft: croft scale runs next to the HPA; keda: KEDA on the ingress request rate replaces it; needs --profile")
     web_args.add_argument("--warmup", type=int, help="seconds; default 60, or 30 with --profile.")
@@ -69,7 +69,8 @@ def main() -> None:
         if args.profile:
             warmup = 30 if args.warmup is None else args.warmup
             cooldown = 15 if args.cooldown is None else args.cooldown
-            web.run_profile(app, args.prefix, args.profile, args.scale, warmup, cooldown, args.replicas, args.node, args.probes, args.scaler)
+            scale = app.scale if args.scale is None else args.scale
+            web.run_profile(app, args.prefix, args.profile, scale, warmup, cooldown, args.replicas, args.node, args.probes, args.scaler)
         else:
             warmup = 60 if args.warmup is None else args.warmup
             cooldown = 30 if args.cooldown is None else args.cooldown
