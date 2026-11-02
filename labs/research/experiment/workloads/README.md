@@ -266,6 +266,10 @@ enableServiceLinks: false on every pod
     waits out a 500 ms deadline
 
 the frontend's CPU request equals its 300m limit
+
+a 512Mi memory limit on the frontend, not compose's 250M
+    one pod queues the burst before the autoscaler adds another,
+    and at 250Mi the queue killed it with OOMKilled
 ```
 
 ---
@@ -284,7 +288,7 @@ Run it with KEDA:
 just samples burst hotel-reservation keda
 ```
 
-Run it with croft, under the prefix `hr-x`:
+Run it with croft, under the prefix `hr-x`, into `data/web/hr-x-croft-burst/`:
 
 ```sh
 just samples burst hotel-reservation croft hr-x

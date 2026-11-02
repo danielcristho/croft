@@ -59,9 +59,9 @@ restart app:
 remove app:
     kubectl delete -f workloads/{{ app }}/k8s.yaml --ignore-not-found
 
-# One burst run, pinned to one node; arm is none (HPA), keda or croft.
+# One burst run, pinned to one node; arm is none (HPA), keda or croft. Lands in data/web/<prefix>-<arm>-burst.
 burst app arm="none" prefix="try":
-    uv run run.py web --app {{ app }} --node {{ node }} --prefix {{ prefix }} --profile burst --probes relaxed --scaler {{ arm }}
+    uv run run.py web --app {{ app }} --node {{ node }} --prefix {{ prefix }}-{{ arm }} --profile burst --probes relaxed --scaler {{ arm }}
 
 # Three repetitions of all three arms, alternated, then the scores.
 series app prefix:
