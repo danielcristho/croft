@@ -37,7 +37,7 @@ subjects:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: croft-scaler-webapp
+  name: croft-scaler-hotel-reservation
   namespace: croft
   labels:
     app: croft-scaler
@@ -46,12 +46,12 @@ spec:
   selector:
     matchLabels:
       app: croft-scaler
-      target: webapp
+      target: hotel-reservation
   template:
     metadata:
       labels:
         app: croft-scaler
-        target: webapp
+        target: hotel-reservation
     spec:
       serviceAccountName: croft-scaler
       containers:
@@ -60,10 +60,11 @@ spec:
           imagePullPolicy: IfNotPresent
           args:
             - scale
-            - --namespace=croft-exp
-            - --deployment=webapp
-            - --calls-per-request=2.06
-            - --cpu-per-request-ms=50
+            - --namespace=hotel-res
+            - --deployment=frontend
+            - --syscall=write
+            - --calls-per-request=11.4
+            - --cpu-per-request-ms=1.6
           env:
             - name: RUST_LOG
               value: info

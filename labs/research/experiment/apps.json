@@ -1,19 +1,4 @@
 {
-  "webapp": {
-    "namespace": "croft-exp",
-    "deployment": "webapp",
-    "container": "webapp",
-    "manifests": "workloads/webapp",
-    "host": "http://web.127.0.0.1.sslip.io:30080",
-    "path": "/cpu",
-    "health": "/health",
-    "scaler": {
-      "syscall": "sendto",
-      "calls_per_request": 2.06,
-      "cpu_per_request_ms": 50
-    },
-    "scale": 0.5
-  },
   "hotel-reservation": {
     "namespace": "hotel-res",
     "deployment": "frontend",
@@ -28,6 +13,15 @@
       "cpu_per_request_ms": 1.6
     },
     "scale": 2
+  },
+  "online-boutique": {
+    "namespace": "boutique",
+    "deployment": "frontend",
+    "container": "server",
+    "manifests": "workloads/online-boutique",
+    "host": "http://boutique.127.0.0.1.sslip.io:30080",
+    "path": "/",
+    "health": "/_healthz"
   },
   "otel-demo": {
     "namespace": "otel-demo",

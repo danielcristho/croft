@@ -52,8 +52,9 @@ The default dataset is `/var/lib/croft/croft-dataset.jsonl`; older rows sit in z
 
 | App | Role |
 |---|---|
-| `webapp` (`labs/research/experiment/workloads/webapp`) | controlled: fixed CPU per request at `/cpu` |
-| Online Boutique v0.10.7 (`labs/research/apps/online-boutique`) | realistic: 11 microservices calling each other |
+| hotel-reservation (DeathStarBench) | Go frontend over gRPC services and MongoDB |
+| Online Boutique v0.10.7 | Go frontend over 10 microservices |
+| OpenTelemetry Demo 3.1.0 | Node.js frontend over Python, Go and C++ services |
 | cloud2023 `cpu-bound` / `stateless-api` | the course framework's own apps |
 
 LLM inference autoscaling is croft's next research, not this project.

@@ -154,8 +154,8 @@ Three applications are available:
 
 | Application | Shape | CPU per request | Pod CPU limit | `--scale` |
 |---|---|---:|---:|---:|
-| `webapp` | one Python service | 40 to 65 ms | 1 core | 0.5 |
 | `hotel-reservation` | DeathStarBench, 8 Go services, MongoDB, memcached | 1.6 ms at the frontend | 200m | 2 |
+| `online-boutique` | Online Boutique, a Go frontend over 10 services, Redis | measured in section 8 | 200m | set in section 11 |
 | `otel-demo` | OpenTelemetry Demo, Node.js, Python, Go and C++ services, PostgreSQL | 5.6 ms at the frontend | 300m | 1 |
 
 Each autoscaler scales the application's frontend. The services behind it stay at one replica.
@@ -273,11 +273,11 @@ The current values:
 
 | Application | `syscall` | `calls_per_request` | `cpu_per_request_ms` |
 |---|---|---:|---:|
-| `webapp` | `sendto` | 2.06 | 50 |
 | `hotel-reservation` | `write` | 11.4 | 1.6 |
+| `online-boutique` | not yet measured | | |
 | `otel-demo` | `writev` | 5.32 | 5.64 |
 
-The Go and Node.js frontends answer through `write` and `writev` rather than `sendto`.
+The Go and Node.js frontends answer through `write` and `writev`. Take the syscall the calibration picks, not the one another application uses.
 
 The `otel-demo` values were measured at its 300m limit, at 10, 20 and 35 RPS. `writev` per request moved 3% across the levels; CPU per request fell from 7.1 to 4.4 ms, because the Node.js frontend spends about 40m whatever the load.
 
@@ -360,9 +360,9 @@ Five profiles are available:
 A good burst saturates one pod at least twice over and stays within ten pods:
 
 ```text
-webapp             --scale 0.5   5 → 75 → 5 RPS      14 RPS per pod    about 6 pods
 hotel-reservation  --scale 2    20 → 300 → 20 RPS    87.5 RPS per pod  about 4 pods
 otel-demo          --scale 1    10 → 150 → 10 RPS    37 RPS per pod    about 4 pods
+online-boutique    set from its calibration, for about 4 pods
 ```
 
 For a new application or a changed manifest, find one pod's capacity first with a ramp at a fixed replica count:
@@ -457,7 +457,7 @@ Sign in as `admin` with the password from:
 kubectl -n monitoring get secret monitoring-grafana -o jsonpath='{.data.admin-password}' | base64 -d; echo
 ```
 
-Choose the application, and the syscall from its calibration: `sendto` for webapp, `write` for hotel-reservation, `writev` for otel-demo.
+Choose the application, and the syscall from its calibration: `write` for hotel-reservation, `writev` for otel-demo, and the one section 8 finds for online-boutique.
 
 Set the time range to one run, from `started_ms` to `ended_ms` in `runs.jsonl`, to read the pods it created, its peak and its replica-seconds. The arm band at the top tells the runs of a series apart.
 
@@ -541,8 +541,8 @@ It outlives an SSH session only under `tmux` or `nohup`:
 ```sh
 tmux new -s series
 just samples series hotel-reservation hr
+just samples series online-boutique ob
 just samples series otel-demo otel
-just samples series webapp web
 ```
 
 The full study is 3 applications × 3 arms × 3 repetitions: 27 runs, about 5.5 hours of cluster time.

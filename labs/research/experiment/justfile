@@ -14,10 +14,6 @@ list:
 apps:
     @python3 -m experiment.apps
 
-# Build the webapp image; the other samples pull theirs from public registries.
-build-webapp:
-    docker build -t croft-webapp:v1 workloads/webapp
-
 # Load a local Docker image into every node's k3s. Asks for the sudo password.
 load-image image:
     cd ../../k3s-cluster && ansible-playbook load-image.yml -e image={{ image }} --ask-become-pass

@@ -1,4 +1,4 @@
-"""The webapp under Locust load, one run per user count, with Prometheus series for the same window."""
+"""An application of apps.json under Locust or open-loop load, with Prometheus series for the same window."""
 
 import json
 import os
@@ -106,7 +106,7 @@ def locust(app: App, users: int, seconds: int, csv_prefix: Path | None, env: dic
     ]
     if csv_prefix:
         command += ["--csv", str(csv_prefix), "--csv-full-history"]
-    subprocess.run(command, check=True, env={**os.environ, **(env or {})}, capture_output=csv_prefix is None)
+    subprocess.run(command, check=True, env={**os.environ, "APP_PATH": app.path, **(env or {})}, capture_output=csv_prefix is None)
 
 
 def rescales(app: App, since_ms: int, kind: str = "HorizontalPodAutoscaler", reason: str = "SuccessfulRescale") -> list[dict]:

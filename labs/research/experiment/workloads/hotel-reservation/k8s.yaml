@@ -40,7 +40,7 @@ spec:
           ports:
             - containerPort: 5000
           # About 1.1 ms of CPU per hotel search: 200m, at the HPA's 70%, is ~130 RPS per pod, so a
-          # burst saturates and throttles one pod before the HPA adds more, as one core does for webapp.
+          # burst saturates and throttles one pod before the HPA adds more.
           resources:
             requests:
               cpu: 200m

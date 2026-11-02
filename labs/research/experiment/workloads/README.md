@@ -19,8 +19,8 @@ Every recipe below runs from the repository root as `just samples <recipe>`, or 
 
 | Application | Source | Request path | Services | `--scale` |
 |---|---|---|---:|---:|
-| `webapp` | this repository | `/cpu`: 40 to 65 ms of CPU in one Python process | 1 | 0.5 |
 | `hotel-reservation` | [DeathStarBench](https://github.com/delimitrou/DeathStarBench) hotelReservation, image 0.3.5 | `/hotels`: frontend, search, geo, rate, reservation, profile (Go, gRPC) | 19 | 2 |
+| `online-boutique` | [Online Boutique](https://github.com/GoogleCloudPlatform/microservices-demo) v0.10.7 | `/`: frontend (Go), productcatalog, currency, cart, recommendation, ad (gRPC) | 12 | after calibration |
 | `otel-demo` | [OpenTelemetry Demo](https://github.com/open-telemetry/opentelemetry-demo) 3.1.0 | `/api/recommendations`: frontend (Node.js), recommendation (Python), product-catalog (Go, PostgreSQL), currency (C++) | 15 | 1 |
 
 The HPA, KEDA and croft scale each application's frontend. The services behind it stay at one replica.
@@ -30,12 +30,10 @@ The HPA, KEDA and croft scale each application's frontend. The services behind i
 ```text
 workloads/
 ├── README.md
-├── webapp/
-│   ├── app.py
-│   ├── Dockerfile
+├── hotel-reservation/
 │   ├── k8s.yaml
 │   └── hpa.yaml
-├── hotel-reservation/
+├── online-boutique/
 │   ├── k8s.yaml
 │   └── hpa.yaml
 ├── otel-demo/
@@ -155,31 +153,46 @@ Do not start an experiment until the smoke test returns `200`.
 
 ---
 
-# 6. webapp
+# 6. online-boutique
 
-A CPU-bound HTTP service. Every request spends 40 to 65 ms of CPU in one Python process.
+[Online Boutique](https://github.com/GoogleCloudPlatform/microservices-demo) v0.10.7, Google Cloud's microservice demo.
 
-Its image is in no registry.
+Every request is the home page:
 
-Build it:
-
-```sh
-just samples build-webapp
+```text
+frontend (Go) → productcatalog
+              → currency
+              → cart → Redis
+              → recommendation
+              → ad
 ```
 
-Load it on every node:
+`k8s.yaml` is the release's `kubernetes-manifests.yaml` with these changes:
 
-```sh
-just samples load-image croft-webapp:v1
+```text
+no load generator and no external LoadBalancer
+an ingress on boutique.127.0.0.1.sslip.io and boutique.100.64.0.10.sslip.io
+the frontend's CPU request equal to its 200m limit, and 256Mi of memory
 ```
 
-The playbook asks for the sudo password.
+Earlier versions of this lab ran Online Boutique as background load, with an HPA on every service. Remove those HPAs once, so only the frontend scales:
+
+```sh
+kubectl -n boutique delete hpa --all
+```
 
 Deploy and verify:
 
 ```sh
-just samples deploy webapp
-just samples smoke webapp
+just samples deploy online-boutique
+just samples smoke online-boutique
+```
+
+The harness checks that the frontend image is on every node. Load it if a run stops on it:
+
+```sh
+docker pull us-central1-docker.pkg.dev/online-boutique-ci/microservices-demo/frontend:v0.10.7
+just samples load-image us-central1-docker.pkg.dev/online-boutique-ci/microservices-demo/frontend:v0.10.7
 ```
 
 ---
@@ -335,7 +348,6 @@ Reading and accepting the result is described in [RUNNING.md](../RUNNING.md#8-ca
 | Recipe | What it does |
 |---|---|
 | `apps` | lists the applications, namespaces and request URLs |
-| `build-webapp` | builds `croft-webapp:v1` |
 | `load-image <image>` | loads a local Docker image into every node through `labs/k3s-cluster/load-image.yml` |
 | `deploy <app>` | applies `k8s.yaml` and waits until every Deployment is Available |
 | `status <app>` | the application's pods and their nodes |

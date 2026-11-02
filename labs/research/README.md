@@ -9,8 +9,6 @@ The cluster itself is provisioned from [`labs/k3s-cluster`](../k3s-cluster).
 ```text
 research/
 ├── README.md
-├── apps/
-│   └── online-boutique/     Google's Online Boutique, a background microservice workload
 └── experiment/
     ├── README.md            the harness: suites, commands, output
     ├── RUNNING.md           the procedure: comparing HPA, KEDA and croft
@@ -44,23 +42,3 @@ collect croft's datasets       labs/k3s-cluster/README.md
 ```
 
 Do not begin with a series. First establish that each application, its calibration and each arm are valid.
-
----
-
-# 2. Online Boutique
-
-[Online Boutique](https://github.com/GoogleCloudPlatform/anthos-service-mesh-packages/tree/main/samples/online-boutique/kubernetes-manifests/namespaces) runs in the `boutique` namespace with ten HPAs.
-
-It is not one of the applications under test.
-
-Scale it to zero before a series, so it takes no CPU from the runs:
-
-```sh
-kubectl -n boutique scale deployment --all --replicas=0
-```
-
-Bring it back afterwards:
-
-```sh
-kubectl -n boutique scale deployment --all --replicas=1
-```

@@ -41,13 +41,12 @@ when p95 latency broke its 500 ms objective
 
 # 2. Suites
 
-Five suites are included.
+Four suites are included.
 
 | Suite | What runs | What is recorded |
 |---|---|---|
 | `gpu` | `train-cnn`, `train-transformer`, `infer-batch-cnn`, `infer-generate-lm`, `serve-http`, `serve-llm-ollama` and `gpu-idle`, each a Kubernetes Job asking for one GPU | node, pod, container id, start and end from the container status |
 | `web` | an application of `apps.json` under Locust users or open-loop RPS, at fixed replicas or under an autoscaler | client latency, Prometheus series, HPA and pod events for the same window |
-| `calibrate` | the webapp pinned to each node in turn | CPU per request per node, into `data/node-speed.json` |
 | `calibrate-scaler` | one application at one pinned replica, at constant loads | syscalls and CPU per request, into `data/calibration/<app>.json` |
 | `compare` | nothing; it reads finished burst runs | one scored row per run, mean ± sd per arm |
 
@@ -81,7 +80,6 @@ experiment/
 │   ├── prometheus.py      series export
 │   ├── scaler.py          the croft arm
 │   ├── keda.py            the KEDA arm
-│   ├── calibrate.py       CPU per request per node
 │   ├── calibrate_scaler.py  syscalls and CPU per request per application
 │   ├── compare.py         scoring
 │   └── gpu.py             the GPU suite
@@ -143,14 +141,13 @@ Web suite, open loop:
 
 ```sh
 uv run run.py web --prefix cd --profile ramp --scale 0.3                    # a ramp at 30% of its rates
-uv run run.py web --prefix duo --profile burst --scale 0.5 --scaler croft   # croft scale next to the HPA
+uv run run.py web --prefix duo --profile burst --scaler croft               # croft scale next to the HPA
 uv run run.py web --app hotel-reservation --prefix hr --profile burst --scaler keda   # KEDA instead of the HPA
 ```
 
 Calibration and scoring:
 
 ```sh
-uv run run.py calibrate                                   # CPU per request on each node
 uv run run.py calibrate-scaler --app otel-demo --node node-a   # an application's scaler entry
 uv run run.py compare --prefix hpa- duo-                  # burst runs scored per arm
 ```
@@ -177,8 +174,8 @@ Three applications are defined:
 
 | Application | Request | Frontend CPU per request | Frontend limit |
 |---|---|---:|---:|
-| `webapp` | a CPU-bound Python service | 40 to 65 ms | 1 core |
 | `hotel-reservation` | [DeathStarBench](https://github.com/delimitrou/DeathStarBench) hotelReservation; a hotel search across five Go services | 1.6 ms | 200m |
+| `online-boutique` | [Online Boutique](https://github.com/GoogleCloudPlatform/microservices-demo) v0.10.7; the home page across a Go frontend and its product catalog, currency, cart, recommendation and ad services | measured by `calibrate` | 200m |
 | `otel-demo` | the [OpenTelemetry Demo](https://github.com/open-telemetry/opentelemetry-demo) 3.1.0; recommendations across Node.js, Python, Go and C++ services | 5.6 ms | 300m |
 
 The workload folders:
@@ -186,8 +183,8 @@ The workload folders:
 ```text
 workloads/
 ├── gpu/                 the GPU workloads (PyTorch, ollama), mounted into Jobs through a ConfigMap
-├── webapp/              the service, its image, manifest and HPA
 ├── hotel-reservation/   19 Deployments, their Services, the ingress and the frontend's HPA
+├── online-boutique/     11 Deployments, Redis, the ingress and the frontend's HPA
 ├── otel-demo/           15 Deployments, a collector that drops every signal, the frontend's HPA
 ├── ingress-nginx/       the PodMonitor for the ingress request counts, KEDA's signal
 ├── monitoring/          the Grafana dashboard of a run and the croft collector's PodMonitor
@@ -203,7 +200,6 @@ Everything lands under `data/`:
 ```text
 data/
 ├── experiment.lock
-├── node-speed.json              run.py calibrate
 ├── calibration/
 │   └── <app>.json               run.py calibrate-scaler
 ├── gpu/
@@ -281,11 +277,7 @@ Under CPU starvation a 1 s probe marks a slow pod dead, the kubelet restarts it,
 
 **Requests equal limits.**
 
-The webapp asks for the one core it is limited to, so the HPA's 70% target means 0.7 core per pod. With a 100m request, ten pods would hold 0.7 core between them. The hotel frontend's 200m and the otel frontend's 300m follow the same rule.
-
-**One Locust user costs about 0.5 core on the webapp.**
-
-Steps 2, 4, 8 and 12 ask the HPA for about 2, 3, 6 and 9 pods. Beyond 16 users ten pods saturate.
+Each frontend asks for the CPU it is limited to, so the HPA's 70% target means 70% of the limit per pod. With a request at half the limit, the same target would sit at 35% of what a pod can use. The hotel and Online Boutique frontends ask for 200m, the otel frontend for 300m.
 
 **A step jumps the load at once.**
 

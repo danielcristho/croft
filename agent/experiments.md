@@ -7,21 +7,17 @@ not: how to run series safely and the traps met so far.
 ## A burst series
 
 ```sh
-cd labs/research/experiment
-export KUBECONFIG=~/.kube/croft-k3s.yaml
-for i in 1 2 3; do
-  uv run run.py web --prefix burst-$i --profile burst --scale 0.5 || exit 1
-done
+just samples series hotel-reservation hr
 ```
 
 | Option | Meaning |
 |---|---|
 | `--profile constant\|ramp\|burst\|periodic\|variable` | open-loop requests per second, cloud2023's scenario parameters |
-| `--scale` | multiplies every rate; burst at 0.5 is 5 → 75 RPS, about 6–7 pods at the HPA's 70% |
+| `--scale` | multiplies every rate; default the app's `scale` in `apps.json` |
 | `--steps 2,4,8,12 [--shape ramp]` | Locust users, closed loop |
 | `--probes relaxed` | no liveness probe, readiness tolerates 60 s; an HPA baseline not killed by its own probes |
 | `--probes none` | no probes; the HPA's best case |
-| `--app NAME` | an application of `apps.json`; `webapp` by default |
+| `--app NAME` | an application of `apps.json`; `hotel-reservation` by default |
 | `--scaler croft` | `croft scale` next to the HPA for the run; needs `--profile` and the collector's `/metrics` |
 | `--replicas N` | fixed replicas instead of the HPA |
 

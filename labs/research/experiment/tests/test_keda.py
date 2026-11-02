@@ -14,7 +14,6 @@ class KedaTest(unittest.TestCase):
 
     def test_threshold_matches_the_capacity_croft_assumes(self) -> None:
         # 0.7 x 1000 ms / 50 ms per request, and 0.7 x 200 ms / 1.6 ms.
-        self.assertEqual(keda.threshold(APPS["webapp"], 1.0), 14.0)
         self.assertEqual(keda.threshold(APPS["hotel-reservation"], 0.2), 87.5)
 
     def test_scaled_object_counts_the_apps_ingress_requests(self) -> None:

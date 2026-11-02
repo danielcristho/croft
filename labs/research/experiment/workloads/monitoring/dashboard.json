@@ -29,21 +29,21 @@
         "name": "namespace",
         "type": "custom",
         "label": "App",
-        "query": "webapp : croft-exp,hotel-reservation : hotel-res,otel-demo : otel-demo",
+        "query": "hotel-reservation : hotel-res,online-boutique : boutique,otel-demo : otel-demo",
         "current": {
           "text": "hotel-reservation",
           "value": "hotel-res"
         },
         "options": [
           {
-            "text": "webapp",
-            "value": "croft-exp",
-            "selected": false
-          },
-          {
             "text": "hotel-reservation",
             "value": "hotel-res",
             "selected": true
+          },
+          {
+            "text": "online-boutique",
+            "value": "boutique",
+            "selected": false
           },
           {
             "text": "otel-demo",
@@ -65,24 +65,19 @@
           "refId": "D"
         },
         "definition": "label_values(kube_deployment_spec_replicas{namespace=\"$namespace\"}, deployment)",
-        "regex": "/^(frontend|webapp)$/",
+        "regex": "/^frontend$/",
         "refresh": 1
       },
       {
         "name": "syscall",
         "type": "custom",
         "label": "croft syscall",
-        "query": "sendto,write,writev",
+        "query": "write,writev,sendto",
         "current": {
           "text": "write",
           "value": "write"
         },
         "options": [
-          {
-            "text": "sendto",
-            "value": "sendto",
-            "selected": false
-          },
           {
             "text": "write",
             "value": "write",
@@ -91,6 +86,11 @@
           {
             "text": "writev",
             "value": "writev",
+            "selected": false
+          },
+          {
+            "text": "sendto",
+            "value": "sendto",
             "selected": false
           }
         ]
@@ -686,7 +686,7 @@
       "id": 11,
       "type": "timeseries",
       "title": "croft signal: syscalls per pod",
-      "description": "The collector's rate of the calibrated syscall per frontend pod. Pick the app's syscall above: sendto for webapp, write for hotel-reservation, writev for otel-demo.",
+      "description": "The collector's rate of the calibrated syscall per frontend pod. Pick the app's syscall above: write for hotel-reservation, writev for otel-demo, the calibrated one for online-boutique.",
       "gridPos": {
         "x": 0,
         "y": 23,

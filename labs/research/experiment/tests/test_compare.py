@@ -62,19 +62,19 @@ def write_run(directory: Path, with_log: bool) -> None:
              "message": "New size: 4; reason: All metrics below target"},
         ],
         "replica_sets": [
-            {"first_ms": BURST_MS + 4_000, "last_ms": BURST_MS + 4_000, "count": 1, "message": "Scaled up replica set webapp-abc from 1 to 2"},
-            {"first_ms": BURST_MS + 80_000, "last_ms": BURST_MS + 80_000, "count": 1, "message": "Scaled down replica set webapp-abc from 6 to 4"},
-            {"first_ms": END_MS + 60_000, "last_ms": END_MS + 60_000, "count": 1, "message": "Scaled down replica set webapp-abc from 4 to 1"},
+            {"first_ms": BURST_MS + 4_000, "last_ms": BURST_MS + 4_000, "count": 1, "message": "Scaled up replica set frontend-abc from 1 to 2"},
+            {"first_ms": BURST_MS + 80_000, "last_ms": BURST_MS + 80_000, "count": 1, "message": "Scaled down replica set frontend-abc from 6 to 4"},
+            {"first_ms": END_MS + 60_000, "last_ms": END_MS + 60_000, "count": 1, "message": "Scaled down replica set frontend-abc from 4 to 1"},
         ],
         "pods": [
-            {"pod": "webapp-a", "created_ms": STARTED_MS - 60_000, "ready_ms": STARTED_MS - 50_000},
-            {"pod": "webapp-b", "created_ms": BURST_MS + 4_000, "ready_ms": BURST_MS + 12_000},
-            {"pod": "webapp-c", "created_ms": BURST_MS + 25_000, "ready_ms": None},
+            {"pod": "frontend-a", "created_ms": STARTED_MS - 60_000, "ready_ms": STARTED_MS - 50_000},
+            {"pod": "frontend-b", "created_ms": BURST_MS + 4_000, "ready_ms": BURST_MS + 12_000},
+            {"pod": "frontend-c", "created_ms": BURST_MS + 25_000, "ready_ms": None},
         ],
     }))
     if with_log:
         (directory / "scaler.log").write_text(
-            f"{stamp(BURST_MS - 10_000)} [INFO  croft::command::scale] scaling croft-exp/webapp from sendto per request\n"
+            f"{stamp(BURST_MS - 10_000)} [INFO  croft::command::scale] scaling hotel-res/frontend from write per request\n"
             f"{stamp(BURST_MS + 2_000)} [DEBUG croft::command::scale] rate=20.1/s needed=2 replicas=1\n"
             f"{stamp(BURST_MS + 4_000)} \x1b[2;90m08:03:04.123\x1b[0m INFO \x1b[0m \x1b[90mcommand::scale\x1b[0m scale up "
             "\x1b[90mfrom=\x1b[0m\x1b[97m1\x1b[0m \x1b[90mto=\x1b[0m\x1b[97m2\x1b[0m \x1b[90mrate=\x1b[0m\x1b[97m20.1/s\x1b[0m\n"
@@ -151,14 +151,14 @@ class CompareTest(unittest.TestCase):
 class ScalerTest(unittest.TestCase):
     def test_retarget_sets_calibration_and_debug_log(self) -> None:
         deployment = {
-            "metadata": {"name": "croft-scaler-webapp"},
+            "metadata": {"name": "croft-scaler-hotel-reservation"},
             "spec": {"selector": {}, "template": {"metadata": {}, "spec": {"containers": [
                 {"name": "scaler", "args": [], "env": [{"name": "RUST_LOG", "value": "info"}]},
                 {"name": "proxy"},
             ]}}},
         }
-        container = scaler.retarget(deployment, APPS["webapp"])["spec"]["template"]["spec"]["containers"][0]
-        self.assertIn("--calls-per-request=2.06", container["args"])
+        container = scaler.retarget(deployment, APPS["hotel-reservation"])["spec"]["template"]["spec"]["containers"][0]
+        self.assertIn("--calls-per-request=11.4", container["args"])
         self.assertEqual(container["env"], [{"name": "RUST_LOG", "value": scaler.LOG_LEVEL}])
 
 

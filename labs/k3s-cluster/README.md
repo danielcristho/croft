@@ -178,13 +178,13 @@ ansible-playbook site.yml --ask-become-pass
 Load a local Docker image into every node's containerd:
 
 ```sh
-ansible-playbook load-image.yml -e image=croft-webapp:v1 --ask-become-pass
+ansible-playbook load-image.yml -e image=deathstarbench/hotel-reservation:0.3.5 --ask-become-pass
 ```
 
 From the experiment folder, the same as:
 
 ```sh
-just samples load-image croft-webapp:v1
+just samples load-image deathstarbench/hotel-reservation:0.3.5
 ```
 
 ---

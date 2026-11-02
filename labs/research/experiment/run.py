@@ -1,9 +1,8 @@
 """Runs the croft experiments on the kubernetes cluster: GPU workloads as Jobs, the apps of apps.json under load."""
 
 import argparse
-from pathlib import Path
 
-from experiment import calibrate, calibrate_scaler, compare, gpu, records, web
+from experiment import calibrate_scaler, compare, gpu, records, web
 from experiment.apps import APPS
 from experiment.profiles import PROFILES
 
@@ -22,7 +21,7 @@ def main() -> None:
     gpu_args.add_argument("--dry-run", action="store_true")
 
     web_args = suites.add_parser("web", help="an app of apps.json under Locust or open-loop load")
-    web_args.add_argument("--app", choices=sorted(APPS), default="webapp", help="application under test, from apps.json")
+    web_args.add_argument("--app", choices=sorted(APPS), default="hotel-reservation", help="application under test, from apps.json")
     web_args.add_argument("--prefix", required=True, help="run name prefix, e.g. r10 or hpa")
     web_args.add_argument("--users", nargs="+", type=int, default=[10, 20, 40, 80])
     web_args.add_argument("--replicas", type=int, help="fixed replica count; omit to let the HPA scale")
@@ -37,16 +36,6 @@ def main() -> None:
     web_args.add_argument("--warmup", type=int, help="seconds; default 60, or 30 with --profile.")
     web_args.add_argument("--seconds", type=int, default=300)
     web_args.add_argument("--cooldown", type=int, help="seconds; default 30, or 15 with --profile.")
-
-    calibrate_args = suites.add_parser("calibrate", help="node speed: CPU per request with one pinned replica per node")
-    calibrate_args.add_argument("--prefix", default="speed", help="run name prefix; runs are <prefix>-<node>-u<users>")
-    calibrate_args.add_argument("--nodes", nargs="+", help="nodes to measure; default every Ready node")
-    calibrate_args.add_argument("--users", type=int, default=1)
-    calibrate_args.add_argument("--warmup", type=int, default=30)
-    calibrate_args.add_argument("--seconds", type=int, default=120)
-    calibrate_args.add_argument("--cooldown", type=int, default=10)
-    calibrate_args.add_argument("--croft-data", type=Path, default=calibrate.DEFAULT_CROFT_DATA, help="per-node croft datasets")
-    calibrate_args.add_argument("--from-runs", action="store_true", help="compute from existing runs, measure nothing")
 
     scaler_args = suites.add_parser("calibrate-scaler", help="syscalls and CPU per request of one app on one pod, for croft scale and KEDA")
     scaler_args.add_argument("--app", choices=sorted(APPS), required=True)
@@ -67,9 +56,6 @@ def main() -> None:
     elif args.suite == "calibrate-scaler":
         lock = records.hold_lock()
         calibrate_scaler.run(APPS[args.app], args.levels, args.seconds, args.node)
-    elif args.suite == "calibrate":
-        lock = None if args.from_runs else records.hold_lock()
-        calibrate.run(args.prefix, args.nodes, args.users, args.warmup, args.seconds, args.cooldown, args.croft_data, args.from_runs)
     else:
         if args.scaler != "none" and (not args.profile or args.replicas):
             parser.error(f"--scaler {args.scaler} needs --profile and an autoscaler, so no --replicas")

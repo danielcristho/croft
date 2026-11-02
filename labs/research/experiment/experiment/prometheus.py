@@ -1,4 +1,4 @@
-"""Range queries for the resource and replica series the webapp suite records next to Locust."""
+"""Range queries for the resource and replica series a web run records next to its load."""
 
 import csv
 import json

@@ -1,4 +1,4 @@
-"""Load on the webapp: constant users from the CLI, or steps from LOAD_STEPS, held or ramped."""
+"""Load on an application's request path (APP_PATH): constant users from the CLI, or steps from LOAD_STEPS, held or ramped."""
 
 import os
 
@@ -8,14 +8,15 @@ STEPS = [int(users) for users in os.environ.get("LOAD_STEPS", "").split(",") if 
 STEP_SECONDS = int(os.environ.get("STEP_SECONDS", "120"))
 SPAWN_RATE = float(os.environ.get("SPAWN_RATE", "5"))
 SHAPE = os.environ.get("LOAD_SHAPE", "step")
+APP_PATH = os.environ.get("APP_PATH", "/")
 
 
 class WebUser(HttpUser):
     wait_time = between(0.01, 0.05)
 
     @task
-    def cpu(self):
-        self.client.get("/cpu")
+    def request(self):
+        self.client.get(APP_PATH)
 
 
 if STEPS and SHAPE == "step":

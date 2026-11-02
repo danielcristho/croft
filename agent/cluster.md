@@ -25,8 +25,8 @@ export KUBECONFIG=~/.kube/croft-k3s.yaml   # the default kubeconfig does not rea
 
 | Namespace | What runs there |
 |---|---|
-| `croft-exp` | the harness's `webapp` and its HPA |
-| `boutique` | Online Boutique without its load generator, an HPA on every stateless service, ingress `boutique.127.0.0.1.sslip.io` |
+| `hotel-res`, `boutique`, `otel-demo` | the applications under test, from `labs/research/experiment/workloads` |
+| `croft-exp` | the harness's GPU Jobs |
 | `cloud-dynamics` | cloud2023's `cpu-bound` and `stateless-api`, Linkerd-injected |
 
 Node access goes through Ansible. Never accept an SSH host key automatically.
@@ -42,12 +42,11 @@ harmless; delete them only with the user's approval.
 
 ## Images on the nodes
 
-Images in no registry are loaded on every node:
+Large images, and images in no registry, are loaded on every node:
 
 ```sh
-docker build -t croft-webapp:v1 labs/research/experiment/workloads/webapp
-docker builder prune -f
-cd labs/k3s-cluster && ansible-playbook load-image.yml -e image=croft-webapp:v1 --become-password-file <file>
+docker pull deathstarbench/hotel-reservation:0.3.5
+cd labs/k3s-cluster && ansible-playbook load-image.yml -e image=deathstarbench/hotel-reservation:0.3.5 --become-password-file <file>
 ```
 
 The user gives the become password. Write it to a mode-600 file in a scratch
