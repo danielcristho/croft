@@ -33,10 +33,10 @@ spec:
         resources:
           requests:
             cpu: 300m
-            memory: 250Mi
+            memory: 512Mi
           limits:
             cpu: 300m
-            memory: 250Mi
+            memory: 512Mi
         env:
         - name: PORT
           value: '8080'

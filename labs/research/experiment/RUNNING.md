@@ -385,10 +385,12 @@ just samples burst otel-demo keda   otel-try
 just samples burst otel-demo croft  otel-try
 ```
 
+Each arm lands in its own directory, `data/web/otel-try-<arm>-burst/`.
+
 The recipe expands to:
 
 ```sh
-uv run run.py web --app otel-demo --node node-a --prefix otel-try \
+uv run run.py web --app otel-demo --node node-a --prefix otel-try-none \
   --profile burst --probes relaxed --scaler none
 ```
 
@@ -423,13 +425,13 @@ data/web/<prefix>-<profile>/
 Inspect the client side:
 
 ```sh
-column -s, -t < data/web/otel-try-burst/workload.csv | less -S
+column -s, -t < data/web/otel-try-croft-burst/workload.csv | less -S
 ```
 
 Inspect the replica changes:
 
 ```sh
-python3 -m json.tool data/web/otel-try-burst/timeline.json | less
+python3 -m json.tool data/web/otel-try-croft-burst/timeline.json | less
 ```
 
 ---

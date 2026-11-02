@@ -41,17 +41,27 @@ url app:
     @python3 -m experiment.apps {{ app }} url | sed 's/127.0.0.1/{{ tailscale_ip }}/'
 
 # Restart every Deployment of a sample, e.g. to reseed hotel-reservation's MongoDB.
+# Registries and stores go first: a service that starts before consul never registers.
 restart app:
-    kubectl -n $(python3 -m experiment.apps {{ app }} namespace) rollout restart deployment
-    kubectl -n $(python3 -m experiment.apps {{ app }} namespace) wait --for=condition=Available deployment --all --timeout=600s
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ns=$(python3 -m experiment.apps {{ app }} namespace)
+    all=$(kubectl -n "$ns" get deployment -o name)
+    first=$(grep -E '/(consul|mongodb|memcached|astronomy-db|valkey|flagd|otel-collector)' <<<"$all" || true)
+    rest=$(grep -v -E '/(consul|mongodb|memcached|astronomy-db|valkey|flagd|otel-collector)' <<<"$all" || true)
+    for group in "$first" "$rest"; do
+      [ -n "$group" ] || continue
+      kubectl -n "$ns" rollout restart $group
+      for d in $group; do kubectl -n "$ns" rollout status "$d" --timeout=600s; done
+    done
 
 # Delete a sample and its namespace.
 remove app:
     kubectl delete -f workloads/{{ app }}/k8s.yaml --ignore-not-found
 
-# One burst run, pinned to one node; arm is none (HPA), keda or croft.
+# One burst run, pinned to one node; arm is none (HPA), keda or croft. Lands in data/web/<prefix>-<arm>-burst.
 burst app arm="none" prefix="try":
-    uv run run.py web --app {{ app }} --node {{ node }} --prefix {{ prefix }} --profile burst --probes relaxed --scaler {{ arm }}
+    uv run run.py web --app {{ app }} --node {{ node }} --prefix {{ prefix }}-{{ arm }} --profile burst --probes relaxed --scaler {{ arm }}
 
 # Three repetitions of all three arms, alternated, then the scores.
 series app prefix:
