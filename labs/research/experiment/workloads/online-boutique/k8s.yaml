@@ -2,7 +2,8 @@
 # kubernetes-manifests.yaml. Changed for the harness: one namespace, no load generator and no external
 # LoadBalancer, an ingress, and the frontend's CPU request equal to its 200m limit with 256Mi of memory,
 # so the HPA's 70% means the same as for the other applications and a burst queue does not OOMKill it.
-# The frontend comes first: the harness checks that its image is on every node.
+# The frontend comes first: the harness checks that its image is on every node. Every other Deployment
+# sets replicas: 1, so a deploy restores the backends after the namespace was scaled to zero.
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -333,6 +334,7 @@ metadata:
   name: adservice
   namespace: boutique
 spec:
+  replicas: 1
   selector:
     matchLabels:
       app: adservice
@@ -389,6 +391,7 @@ metadata:
   name: cartservice
   namespace: boutique
 spec:
+  replicas: 1
   selector:
     matchLabels:
       app: cartservice
@@ -444,6 +447,7 @@ metadata:
   name: checkoutservice
   namespace: boutique
 spec:
+  replicas: 1
   selector:
     matchLabels:
       app: checkoutservice
@@ -507,6 +511,7 @@ metadata:
   name: currencyservice
   namespace: boutique
 spec:
+  replicas: 1
   selector:
     matchLabels:
       app: currencyservice
@@ -562,6 +567,7 @@ metadata:
   name: emailservice
   namespace: boutique
 spec:
+  replicas: 1
   selector:
     matchLabels:
       app: emailservice
@@ -618,6 +624,7 @@ metadata:
   name: paymentservice
   namespace: boutique
 spec:
+  replicas: 1
   selector:
     matchLabels:
       app: paymentservice
@@ -672,6 +679,7 @@ metadata:
   name: productcatalogservice
   namespace: boutique
 spec:
+  replicas: 1
   selector:
     matchLabels:
       app: productcatalogservice
@@ -726,6 +734,7 @@ metadata:
   name: recommendationservice
   namespace: boutique
 spec:
+  replicas: 1
   selector:
     matchLabels:
       app: recommendationservice
@@ -784,6 +793,7 @@ metadata:
   name: redis-cart
   namespace: boutique
 spec:
+  replicas: 1
   selector:
     matchLabels:
       app: redis-cart
@@ -839,6 +849,7 @@ metadata:
   name: shippingservice
   namespace: boutique
 spec:
+  replicas: 1
   selector:
     matchLabels:
       app: shippingservice
