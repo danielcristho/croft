@@ -88,7 +88,7 @@ Three applications are defined; [workloads/README.md](workloads/README.md) cover
 
 - **`webapp`**: a CPU-bound Python service, 40 to 65 ms of CPU per request, one core per pod.
 - **`hotel-reservation`**: [DeathStarBench](https://github.com/delimitrou/DeathStarBench) hotelReservation. Every request is a hotel search that crosses five Go services. The frontend costs 1.6 ms of CPU per request and is limited to 200m.
-- **`otel-demo`**: the [OpenTelemetry Demo](https://github.com/open-telemetry/opentelemetry-demo) 3.1.0. Every request asks for recommendations, which crosses Node.js, Python, Go and C++ services. Not calibrated yet.
+- **`otel-demo`**: the [OpenTelemetry Demo](https://github.com/open-telemetry/opentelemetry-demo) 3.1.0. Every request asks for recommendations, which crosses Node.js, Python, Go and C++ services. The frontend costs 4.7 ms of CPU per request and is limited to 300m.
 
 The workload folders:
 

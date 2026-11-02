@@ -23,7 +23,7 @@ Every recipe below runs from the repository root as `just samples <recipe>`, or 
 |---|---|---|---:|---:|
 | `webapp` | this repository | `/cpu`: 40 to 65 ms of CPU in one Python process | 1 | 0.5 |
 | `hotel-reservation` | [DeathStarBench](https://github.com/delimitrou/DeathStarBench) hotelReservation, image 0.3.5 | `/hotels`: frontend, search, geo, rate, reservation, profile (Go, gRPC) | 19 | 2 |
-| `otel-demo` | [OpenTelemetry Demo](https://github.com/open-telemetry/opentelemetry-demo) 3.1.0 | `/api/recommendations`: frontend (Node.js), recommendation (Python), product-catalog (Go, PostgreSQL), currency (C++) | 15 | not set |
+| `otel-demo` | [OpenTelemetry Demo](https://github.com/open-telemetry/opentelemetry-demo) 3.1.0 | `/api/recommendations`: frontend (Node.js), recommendation (Python), product-catalog (Go, PostgreSQL), currency (C++) | 15 | 1 |
 
 The HPA, KEDA and croft scale each sample's frontend; the services behind it stay at one replica.
 
@@ -82,9 +82,7 @@ just samples smoke otel-demo                 # 200 in about 15 ms
 - A collector that accepts every signal and drops it, instead of Jaeger, Prometheus, Grafana and OpenSearch.
 - Memory limits of at least 64Mi; compose sizes some services at 20M.
 - `enableServiceLinks: false` on every pod. Kubernetes otherwise sets `FLAGD_PORT=tcp://…:8013`, flagd reads it as its own port and listens on a random one, and every flag lookup from the Python services waits out a 500 ms deadline.
-
-> **Note**
-> `otel-demo` has no croft calibration or `--scale` yet, so only the HPA arm runs on it.
+- The frontend asks for the 300m it is limited to. At its 4.7 ms of CPU per request one pod holds about 44 RPS at 70%, so a burst at `--scale 1` needs about four pods, while the services behind it stay under half a core each.
 
 ## Running a burst
 

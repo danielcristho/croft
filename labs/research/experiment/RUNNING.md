@@ -52,6 +52,7 @@ Deploying, checking and removing the samples, `otel-demo` included, has its own 
 |---|---|---:|---:|---:|
 | `webapp` | one Python service | 40 to 65 ms | 1 core | 0.5 |
 | `hotel-reservation` | DeathStarBench, 8 Go services, MongoDB, memcached | 1.6 ms at the frontend | 200m | 2 |
+| `otel-demo` | OpenTelemetry Demo, Node.js, Python, Go and C++ services, PostgreSQL | 4.7 ms at the frontend | 300m | 1 |
 
 ### webapp
 
