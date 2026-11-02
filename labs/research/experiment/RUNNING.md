@@ -156,7 +156,7 @@ Three applications are available:
 |---|---|---:|---:|---:|
 | `webapp` | one Python service | 40 to 65 ms | 1 core | 0.5 |
 | `hotel-reservation` | DeathStarBench, 8 Go services, MongoDB, memcached | 1.6 ms at the frontend | 200m | 2 |
-| `otel-demo` | OpenTelemetry Demo, Node.js, Python, Go and C++ services, PostgreSQL | 4.7 ms at the frontend | 300m | 1 |
+| `otel-demo` | OpenTelemetry Demo, Node.js, Python, Go and C++ services, PostgreSQL | 5.6 ms at the frontend | 300m | 1 |
 
 Each autoscaler scales the application's frontend. The services behind it stay at one replica.
 
@@ -275,11 +275,11 @@ The current values:
 |---|---|---:|---:|
 | `webapp` | `sendto` | 2.06 | 50 |
 | `hotel-reservation` | `write` | 11.4 | 1.6 |
-| `otel-demo` | `writev` | 5.21 | 4.73 |
+| `otel-demo` | `writev` | 5.32 | 5.64 |
 
 The Go and Node.js frontends answer through `write` and `writev` rather than `sendto`.
 
-The `otel-demo` values were measured with a 1-core limit. Measure them again at its 300m limit before the comparison.
+The `otel-demo` values were measured at its 300m limit, at 10, 20 and 35 RPS. `writev` per request moved 3% across the levels; CPU per request fell from 7.1 to 4.4 ms, because the Node.js frontend spends about 40m whatever the load.
 
 ---
 
@@ -296,6 +296,8 @@ Accept a calibration only when, at every level:
 ```
 
 Otherwise the levels are too high, or a backend service saturates before the frontend.
+
+The Node.js frontend of `otel-demo` is the exception to the throttling rule. It spends its CPU in short bursts, so a 300m limit throttles 6 to 10% of CFS periods well below saturation, at 20 and 35 RPS. Accept it while p95 stays far below 500 ms.
 
 Choose lower levels and run it again.
 
@@ -360,7 +362,7 @@ A good burst saturates one pod at least twice over and stays within ten pods:
 ```text
 webapp             --scale 0.5   5 → 75 → 5 RPS      14 RPS per pod    about 6 pods
 hotel-reservation  --scale 2    20 → 300 → 20 RPS    87.5 RPS per pod  about 4 pods
-otel-demo          --scale 1    10 → 150 → 10 RPS    44 RPS per pod    about 4 pods
+otel-demo          --scale 1    10 → 150 → 10 RPS    37 RPS per pod    about 4 pods
 ```
 
 For a new application or a changed manifest, find one pod's capacity first with a ramp at a fixed replica count:

@@ -173,7 +173,7 @@ Three applications are defined:
 |---|---|---:|---:|
 | `webapp` | a CPU-bound Python service | 40 to 65 ms | 1 core |
 | `hotel-reservation` | [DeathStarBench](https://github.com/delimitrou/DeathStarBench) hotelReservation; a hotel search across five Go services | 1.6 ms | 200m |
-| `otel-demo` | the [OpenTelemetry Demo](https://github.com/open-telemetry/opentelemetry-demo) 3.1.0; recommendations across Node.js, Python, Go and C++ services | 4.7 ms | 300m |
+| `otel-demo` | the [OpenTelemetry Demo](https://github.com/open-telemetry/opentelemetry-demo) 3.1.0; recommendations across Node.js, Python, Go and C++ services | 5.6 ms | 300m |
 
 The workload folders:
 
