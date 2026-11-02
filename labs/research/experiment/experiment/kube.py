@@ -37,16 +37,22 @@ def containers(namespace: str, *selector: str) -> dict[str, str]:
     }
 
 
-# nodes_without reads each node's image list; the kubelet reports at most 50 images, largest first.
-def nodes_without(image: str) -> list[str]:
-    """Names of Ready nodes whose runtime does not hold the image."""
-    missing = []
-    for node in json.loads(kubectl("get", "nodes", "-o", "json"))["items"]:
+# The kubelet reports at most this many images per node, largest first (nodeStatusMaxImages).
+REPORTED_IMAGES = 50
+
+
+# nodes_without reads each node's image list. A full list cannot show a small image, so such a node is unknown, not missing.
+def nodes_without(image: str, nodes: list[dict] | None = None) -> tuple[list[str], list[str]]:
+    """Ready nodes whose runtime does not hold the image, and Ready nodes whose full image list cannot tell."""
+    missing, unknown = [], []
+    for node in nodes if nodes is not None else json.loads(kubectl("get", "nodes", "-o", "json"))["items"]:
         ready = any(c["type"] == "Ready" and c["status"] == "True" for c in node["status"]["conditions"])
-        names = {name for entry in node["status"].get("images", []) for name in entry.get("names") or []}
-        if ready and not any(name == image or name.endswith("/" + image) for name in names):
-            missing.append(node["metadata"]["name"])
-    return missing
+        images = node["status"].get("images", [])
+        names = {name for entry in images for name in entry.get("names") or []}
+        if not ready or any(name == image or name.endswith("/" + image) for name in names):
+            continue
+        (unknown if len(images) >= REPORTED_IMAGES else missing).append(node["metadata"]["name"])
+    return missing, unknown
 
 
 def ready_nodes() -> list[str]:

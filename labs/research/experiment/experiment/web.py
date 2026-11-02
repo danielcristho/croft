@@ -62,7 +62,9 @@ def pin(app: App, node: str | None) -> None:
 # check_image stops before a run: a node without the image makes every pod scheduled there hang in ImagePullBackOff.
 def check_image(app: App) -> None:
     image = re.search(r"image:\s*(\S+)", (app.manifests / "k8s.yaml").read_text()).group(1)
-    missing = kube.nodes_without(image)
+    missing, unknown = kube.nodes_without(image)
+    if unknown:
+        print(f"{image}: not among the {kube.REPORTED_IMAGES} images {', '.join(unknown)} report; assuming it is loaded")
     if missing:
         raise SystemExit(
             f"{image} is missing on {', '.join(missing)}; load it with labs/k3s-cluster/load-image.yml -e image={image}"
