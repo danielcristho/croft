@@ -21,7 +21,13 @@
     "manifests": "workloads/online-boutique",
     "host": "http://boutique.127.0.0.1.sslip.io:30080",
     "path": "/",
-    "health": "/_healthz"
+    "health": "/_healthz",
+    "scaler": {
+      "syscall": "getpeername",
+      "calls_per_request": 2.0,
+      "cpu_per_request_ms": 3.26
+    },
+    "scale": 1
   },
   "otel-demo": {
     "namespace": "otel-demo",

@@ -3,7 +3,9 @@
 # LoadBalancer, an ingress, and the frontend's CPU request equal to its 200m limit with 256Mi of memory,
 # so the HPA's 70% means the same as for the other applications and a burst queue does not OOMKill it.
 # The frontend comes first: the harness checks that its image is on every node. Every other Deployment
-# sets replicas: 1, so a deploy restores the backends after the namespace was scaled to zero.
+# sets replicas: 1, so a deploy restores the backends after the namespace was scaled to zero. currencyservice
+# may use 1 core instead of 200m: at the 150 RPS burst it needs about 0.5 core and stays at one replica,
+# so at 200m it, not the frontend, would cap the burst.
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -539,7 +541,7 @@ spec:
             port: 7000
         resources:
           limits:
-            cpu: 200m
+            cpu: 1000m
             memory: 128Mi
           requests:
             cpu: 100m

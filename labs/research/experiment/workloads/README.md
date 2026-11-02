@@ -20,7 +20,7 @@ Every recipe below runs from the repository root as `just samples <recipe>`, or 
 | Application | Source | Request path | Services | `--scale` |
 |---|---|---|---:|---:|
 | `hotel-reservation` | [DeathStarBench](https://github.com/delimitrou/DeathStarBench) hotelReservation, image 0.3.5 | `/hotels`: frontend, search, geo, rate, reservation, profile (Go, gRPC) | 19 | 2 |
-| `online-boutique` | [Online Boutique](https://github.com/GoogleCloudPlatform/microservices-demo) v0.10.7 | `/`: frontend (Go), productcatalog, currency, cart, recommendation, ad (gRPC) | 12 | after calibration |
+| `online-boutique` | [Online Boutique](https://github.com/GoogleCloudPlatform/microservices-demo) v0.10.7 | `/`: frontend (Go), productcatalog, currency, cart, recommendation, ad (gRPC) | 12 | 1 |
 | `otel-demo` | [OpenTelemetry Demo](https://github.com/open-telemetry/opentelemetry-demo) 3.1.0 | `/api/recommendations`: frontend (Node.js), recommendation (Python), product-catalog (Go, PostgreSQL), currency (C++) | 15 | 1 |
 
 The HPA, KEDA and croft scale each application's frontend. The services behind it stay at one replica.
@@ -173,7 +173,13 @@ frontend (Go) → productcatalog
 no load generator and no external LoadBalancer
 an ingress on boutique.127.0.0.1.sslip.io and boutique.100.64.0.10.sslip.io
 the frontend's CPU request equal to its 200m limit, and 256Mi of memory
+replicas: 1 on every other Deployment
+    the namespace was once scaled to zero; a deploy restores the backends
+a 1-core CPU limit on currencyservice, not 200m
+    it stays at one replica and would otherwise saturate before the frontend
 ```
+
+The frontend costs about 3.3 ms of CPU per request: one pod holds about 43 RPS at 70%, so a burst at `--scale 1` needs about four pods.
 
 Earlier versions of this lab ran Online Boutique as background load, with an HPA on every service. Remove those HPAs once, so only the frontend scales:
 
