@@ -6,6 +6,12 @@ Every run is recorded so croft's dataset can be joined to it exactly. croft tags
 
 The step-by-step procedure for the autoscaler comparison is in [RUNNING.md](RUNNING.md). Deploying the applications is in [workloads/README.md](workloads/README.md).
 
+<p align="center">
+  <img src="assets/architecture.png" width="900" alt="Experiment architecture: the experimenter's harness deploys an application and one autoscaler on the k3s cluster and sends an open-loop burst through ingress-nginx. HPA scales on CPU from metrics-server, KEDA on the ingress request rate from Prometheus, croft on the syscall rate from its eBPF collector. Each run is exported to data/web and analysed in Jupyter.">
+</p>
+
+The diagram's source is [`assets/architecture.drawio`](assets/architecture.drawio); open it in draw.io and export the PNG again after an edit.
+
 ---
 
 # 1. Purpose
