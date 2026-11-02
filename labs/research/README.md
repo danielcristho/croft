@@ -1,5 +1,66 @@
-# Reseacrh
+# croft Research — Lab Workloads
 
-SOurces:
+This folder holds the workloads and the harness that croft's experiments run on the k3s lab cluster.
 
-- Online Boutique: https://github.com/GoogleCloudPlatform/anthos-service-mesh-packages/tree/main/samples/online-boutique/kubernetes-manifests/namespaces
+The cluster itself is provisioned from [`labs/k3s-cluster`](../k3s-cluster).
+
+## Directory structure
+
+```text
+research/
+├── README.md
+├── apps/
+│   └── online-boutique/     Google's Online Boutique, a background microservice workload
+└── experiment/
+    ├── README.md            the harness: suites, commands, output
+    ├── RUNNING.md           the procedure: comparing HPA, KEDA and croft
+    └── workloads/
+        └── README.md        the applications under test
+```
+
+---
+
+# 1. Order of work
+
+A complete study follows this order:
+
+```text
+provision the cluster          labs/k3s-cluster/README.md
+       |
+       v
+deploy the applications        experiment/workloads/README.md
+       |
+       v
+calibrate each application     experiment/RUNNING.md, section 8
+       |
+       v
+one burst per arm              experiment/RUNNING.md, section 12
+       |
+       v
+the comparison series          experiment/RUNNING.md, section 16
+       |
+       v
+collect croft's datasets       labs/k3s-cluster/README.md
+```
+
+Do not begin with a series. First establish that each application, its calibration and each arm are valid.
+
+---
+
+# 2. Online Boutique
+
+[Online Boutique](https://github.com/GoogleCloudPlatform/anthos-service-mesh-packages/tree/main/samples/online-boutique/kubernetes-manifests/namespaces) runs in the `boutique` namespace with ten HPAs.
+
+It is not one of the applications under test.
+
+Scale it to zero before a series, so it takes no CPU from the runs:
+
+```sh
+kubectl -n boutique scale deployment --all --replicas=0
+```
+
+Bring it back afterwards:
+
+```sh
+kubectl -n boutique scale deployment --all --replicas=1
+```

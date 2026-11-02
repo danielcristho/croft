@@ -36,6 +36,12 @@
     "manifests": "workloads/otel-demo",
     "host": "http://otel.127.0.0.1.sslip.io:30080",
     "path": "/api/recommendations?productIds=OLJCESPC7Z&currencyCode=EUR",
-    "health": "/"
+    "health": "/",
+    "scaler": {
+      "syscall": "writev",
+      "calls_per_request": 5.21,
+      "cpu_per_request_ms": 4.73
+    },
+    "scale": 1
   }
 }
