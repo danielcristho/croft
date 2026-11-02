@@ -39,8 +39,8 @@
     "health": "/",
     "scaler": {
       "syscall": "writev",
-      "calls_per_request": 5.21,
-      "cpu_per_request_ms": 4.73
+      "calls_per_request": 5.32,
+      "cpu_per_request_ms": 5.64
     },
     "scale": 1
   }

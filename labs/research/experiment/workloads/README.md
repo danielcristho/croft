@@ -236,7 +236,7 @@ frontend (Node.js) → recommendation (Python) → product-catalog (Go) → Post
                    → currency (C++)
 ```
 
-The frontend asks for the 300m it is limited to. At 4.7 ms of CPU per request, one pod holds about 44 RPS at 70%, so a burst at `--scale 1` needs about four pods, while the services behind it stay under half a core each.
+The frontend asks for the 300m it is limited to. At 5.6 ms of CPU per request, one pod holds about 37 RPS at 70%, so a burst at `--scale 1` needs about four pods, while the services behind it stay under half a core each.
 
 Deploy and verify:
 
