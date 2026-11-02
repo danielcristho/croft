@@ -3,7 +3,7 @@
 import argparse
 from pathlib import Path
 
-from experiment import calibrate, compare, gpu, records, web
+from experiment import calibrate, calibrate_scaler, compare, gpu, records, web
 from experiment.apps import APPS
 from experiment.profiles import PROFILES
 
@@ -31,7 +31,7 @@ def main() -> None:
     web_args.add_argument("--node", help="pin every replica to one node")
     web_args.add_argument("--shape", choices=["step", "ramp"], default="step", help="hold each step, or ramp between them")
     web_args.add_argument("--profile", choices=sorted(PROFILES), help="one open-loop run of a cloud2023 RPS profile instead")
-    web_args.add_argument("--scale", type=float, default=1.0, help="multiply every rate of --profile")
+    web_args.add_argument("--scale", type=float, help="multiply every rate of --profile; default the app's scale in apps.json")
     web_args.add_argument("--probes", choices=sorted(web.PROBES), default="default", help="relaxed: no liveness restart, slower readiness; none: no probes, the HPA best case")
     web_args.add_argument("--scaler", choices=["none", "croft", "keda"], default="none", help="croft: croft scale runs next to the HPA; keda: KEDA on the ingress request rate replaces it; needs --profile")
     web_args.add_argument("--warmup", type=int, help="seconds; default 60, or 30 with --profile.")
@@ -48,6 +48,12 @@ def main() -> None:
     calibrate_args.add_argument("--croft-data", type=Path, default=calibrate.DEFAULT_CROFT_DATA, help="per-node croft datasets")
     calibrate_args.add_argument("--from-runs", action="store_true", help="compute from existing runs, measure nothing")
 
+    scaler_args = suites.add_parser("calibrate-scaler", help="syscalls and CPU per request of one app on one pod, for croft scale and KEDA")
+    scaler_args.add_argument("--app", choices=sorted(APPS), required=True)
+    scaler_args.add_argument("--levels", nargs="+", type=int, default=[20, 50, 100], help="constant RPS levels, all below one pod's saturation")
+    scaler_args.add_argument("--seconds", type=int, default=75, help="seconds per level; the first 20 settle")
+    scaler_args.add_argument("--node", help="pin the pod to one node")
+
     compare_args = suites.add_parser("compare", help="score burst runs per arm, the HPA alone against the HPA with croft scale")
     compare_args.add_argument("--prefix", nargs="+", default=[], help="run id prefixes to score; default every burst run")
 
@@ -58,6 +64,9 @@ def main() -> None:
     elif args.suite == "gpu":
         lock = None if args.dry_run else records.hold_lock()
         gpu.run(args.only, args.reps, args.seconds, args.cooldown, args.seed, args.node, args.dry_run)
+    elif args.suite == "calibrate-scaler":
+        lock = records.hold_lock()
+        calibrate_scaler.run(APPS[args.app], args.levels, args.seconds, args.node)
     elif args.suite == "calibrate":
         lock = None if args.from_runs else records.hold_lock()
         calibrate.run(args.prefix, args.nodes, args.users, args.warmup, args.seconds, args.cooldown, args.croft_data, args.from_runs)
@@ -69,7 +78,8 @@ def main() -> None:
         if args.profile:
             warmup = 30 if args.warmup is None else args.warmup
             cooldown = 15 if args.cooldown is None else args.cooldown
-            web.run_profile(app, args.prefix, args.profile, args.scale, warmup, cooldown, args.replicas, args.node, args.probes, args.scaler)
+            scale = app.scale if args.scale is None else args.scale
+            web.run_profile(app, args.prefix, args.profile, scale, warmup, cooldown, args.replicas, args.node, args.probes, args.scaler)
         else:
             warmup = 60 if args.warmup is None else args.warmup
             cooldown = 30 if args.cooldown is None else args.cooldown

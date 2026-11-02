@@ -1,5 +1,8 @@
 # Task recipes for CloudX autoscaler.
 
+# Arguments reach recipes as $1, $2 and "$@", so quoted ones keep their spaces.
+set positional-arguments
+
 manifest := "collector/Cargo.toml"
 
 # List available recipes.
@@ -44,3 +47,6 @@ docker-up:
     -v /sys/kernel/tracing:/sys/kernel/tracing:ro \
     -v /var/lib/croft:/data \
     croft-collector
+# Sample applications of the experiments: just samples <recipe> [args]; just samples list for the recipes.
+samples *args:
+    @just --justfile labs/research/experiment/justfile --working-directory labs/research/experiment "$@"

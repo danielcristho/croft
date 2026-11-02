@@ -46,6 +46,8 @@ kubectl get nodes        # every node Ready
 
 Both applications sit behind the same ingress and take the same load profiles. They differ by about fifty times in CPU per request, so each has its own load scale.
 
+Deploying, checking and removing the samples, `otel-demo` included, has its own guide with `just` recipes: [workloads/README.md](workloads/README.md). `just samples burst <app> [arm]` and `just samples series <app> <prefix>` wrap the runs below.
+
 | Application | Shape | CPU per request | Pod CPU limit | `--scale` |
 |---|---|---:|---:|---:|
 | `webapp` | one Python service | 40 to 65 ms | 1 core | 0.5 |
@@ -155,7 +157,7 @@ The result lands in `data/web/<prefix>-<profile>/`:
 | `periodic` | 10 to 100 RPS, period 120 s | 600 s | autoscaling lag |
 | `variable` | 10 to 100 RPS, a new level every 30 s, seed 42 | 600 s | prediction |
 
-`--scale` multiplies every rate. A good burst saturates one pod at least twice over and stays within ten pods' worth:
+`--scale` multiplies every rate, and defaults to the app's `scale` in `apps.json`. A good burst saturates one pod at least twice over and stays within ten pods' worth:
 
 - `webapp` at `--scale 0.5`: 5, then 75, then 5 RPS. 75 RPS needs 6 to 7 pods at 70%.
 - `hotel-reservation` at `--scale 2`: 20, then 300, then 20 RPS. One frontend pod holds about 130 RPS at 70%.
@@ -259,6 +261,17 @@ The croft and KEDA arms need each application's `scaler` entry in `apps.json`:
 | `hotel-reservation` | `write` | 11.4 | 1.6 |
 
 The hotel frontend is Go, which answers through `write` rather than `sendto`. Its values come from one frontend pod without an autoscaler, at 20, 50 and 100 RPS for 75 s each, read from the collector's `/metrics`. `write` per request moved 1% across the levels; CPU per request went from 1.8 to 1.55 ms.
+
+### Measuring a calibration
+
+```bash
+just samples calibrate otel-demo                 # 20, 50 and 100 RPS, 75 s each, about 5 minutes
+just samples calibrate otel-demo "20 40 70"      # other levels, all below one pod's saturation
+```
+
+The recipe deploys the app at one replica pinned to `node-a`, without an autoscaler, offers each level as constant load and reads the pod's syscall rates and CPU from the collector on its node. For every level it prints the achieved rate, failures, p95, CPU per request, throttling and the busiest pods of the namespace, then the syscall whose calls per request moved least, the `scaler` entry for `apps.json` and the RPS one pod holds at 70% of its limit. Everything is kept in `data/calibration/<app>.json`.
+
+A calibration is valid when every level has no failures, a flat p95 and no throttling, and no other pod of the namespace nears its own CPU limit. Otherwise the levels are too high, or a backend service saturates before the pod being calibrated.
 
 Recalibrate after changing an application's image or its frontend resources.
 

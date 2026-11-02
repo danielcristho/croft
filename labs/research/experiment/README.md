@@ -37,7 +37,7 @@ Use open-loop load for bursts. A Locust user waits for each answer before sendin
 
 - The cluster from [`labs/k3s-cluster`](../../k3s-cluster): k3s, the NVIDIA device plugin, ingress-nginx on NodePort 30080, kube-prometheus-stack, and the croft collector DaemonSet with `WATCH_CGROUPS=kubepods`.
 - `KUBECONFIG` pointing at the cluster, and [`uv`](https://docs.astral.sh/uv/).
-- Each application's images on every node. See [RUNNING.md](RUNNING.md#applications).
+- Each application's images on every node. See [workloads/README.md](workloads/README.md).
 
 ```bash
 cd labs/research/experiment
@@ -82,11 +82,13 @@ Only one experiment runs at a time (`data/experiment.lock`): two workloads shari
 | `manifests` | a folder with `k8s.yaml` for the application and `hpa.yaml` for its baseline autoscaler |
 | `host`, `path`, `health` | the ingress host, the request path the load hits, and the readiness check |
 | `scaler` | the calibration croft scale and KEDA need: `syscall`, `calls_per_request`, `cpu_per_request_ms` |
+| `scale` | the `--profile` scale a burst runs at by default |
 
-Two applications are defined:
+Three applications are defined; [workloads/README.md](workloads/README.md) covers deploying them:
 
 - **`webapp`**: a CPU-bound Python service, 40 to 65 ms of CPU per request, one core per pod.
 - **`hotel-reservation`**: [DeathStarBench](https://github.com/delimitrou/DeathStarBench) hotelReservation. Every request is a hotel search that crosses five Go services. The frontend costs 1.6 ms of CPU per request and is limited to 200m.
+- **`otel-demo`**: the [OpenTelemetry Demo](https://github.com/open-telemetry/opentelemetry-demo) 3.1.0. Every request asks for recommendations, which crosses Node.js, Python, Go and C++ services. Not calibrated yet.
 
 The workload folders:
 
@@ -95,6 +97,7 @@ The workload folders:
 | `workloads/gpu/` | the GPU workloads (PyTorch, ollama), mounted into Jobs through a ConfigMap |
 | `workloads/webapp/` | the service, its image, manifest and HPA |
 | `workloads/hotel-reservation/` | 19 Deployments, their Services, the ingress and the frontend's HPA |
+| `workloads/otel-demo/` | OpenTelemetry Demo 3.1.0: 15 Deployments, a collector that drops every signal, the frontend's HPA |
 | `workloads/ingress-nginx/` | the PodMonitor for the ingress request counts, KEDA's signal |
 | `workloads/linkerd/` | the PodMonitor for the Linkerd proxies |
 

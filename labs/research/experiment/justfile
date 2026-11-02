@@ -1,0 +1,71 @@
+# Sample applications for the burst experiments: deploy, check, run and remove them.
+# From the repository root: just samples <recipe> [args].
+
+export KUBECONFIG := env_var_or_default("KUBECONFIG", env_var("HOME") + "/.kube/croft-k3s.yaml")
+
+tailscale_ip := "100.64.0.10"
+node := "node-a"
+
+# List available recipes.
+list:
+    @just --list
+
+# The samples of apps.json: name, namespace, request URL.
+apps:
+    @python3 -m experiment.apps
+
+# Build the webapp image; the other samples pull theirs from public registries.
+build-webapp:
+    docker build -t croft-webapp:v1 workloads/webapp
+
+# Load a local Docker image into every node's k3s. Asks for the sudo password.
+load-image image:
+    cd ../../k3s-cluster && ansible-playbook load-image.yml -e image={{ image }} --ask-become-pass
+
+# Apply a sample's manifest and wait until every Deployment is Available.
+deploy app:
+    kubectl apply -f workloads/{{ app }}/k8s.yaml
+    kubectl -n $(python3 -m experiment.apps {{ app }} namespace) wait --for=condition=Available deployment --all --timeout=600s
+
+# Pods of a sample, with their node.
+status app:
+    kubectl -n $(python3 -m experiment.apps {{ app }} namespace) get pods -o wide
+
+# One request on the sample's experiment path: status code and time.
+smoke app:
+    curl -s -o /dev/null -w "%{http_code} %{time_total}s\n" "$(python3 -m experiment.apps {{ app }} url)"
+
+# The sample's URL on the LAN and over Tailscale.
+url app:
+    @python3 -m experiment.apps {{ app }} url
+    @python3 -m experiment.apps {{ app }} url | sed 's/127.0.0.1/{{ tailscale_ip }}/'
+
+# Restart every Deployment of a sample, e.g. to reseed hotel-reservation's MongoDB.
+restart app:
+    kubectl -n $(python3 -m experiment.apps {{ app }} namespace) rollout restart deployment
+    kubectl -n $(python3 -m experiment.apps {{ app }} namespace) wait --for=condition=Available deployment --all --timeout=600s
+
+# Delete a sample and its namespace.
+remove app:
+    kubectl delete -f workloads/{{ app }}/k8s.yaml --ignore-not-found
+
+# One burst run, pinned to one node; arm is none (HPA), keda or croft.
+burst app arm="none" prefix="try":
+    uv run run.py web --app {{ app }} --node {{ node }} --prefix {{ prefix }} --profile burst --probes relaxed --scaler {{ arm }}
+
+# Three repetitions of all three arms, alternated, then the scores.
+series app prefix:
+    for i in 1 2 3; do \
+      for arm in none keda croft; do \
+        uv run run.py web --app {{ app }} --node {{ node }} --prefix {{ prefix }}-$arm-$i --profile burst --probes relaxed --scaler $arm || exit 1; \
+      done; \
+    done
+    uv run run.py compare --prefix {{ prefix }}-none- {{ prefix }}-keda- {{ prefix }}-croft-
+
+# Measure croft scale's calibration on one pinned pod at constant loads (about 5 minutes).
+calibrate app levels="20 50 100" seconds="75":
+    uv run run.py calibrate-scaler --app {{ app }} --node {{ node }} --levels {{ levels }} --seconds {{ seconds }}
+
+# Score finished burst runs by prefix.
+compare +prefixes:
+    uv run run.py compare --prefix {{ prefixes }}
