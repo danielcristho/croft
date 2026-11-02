@@ -76,6 +76,12 @@ series app prefix:
 calibrate app levels="20 50 100" seconds="75":
     uv run run.py calibrate-scaler --app {{ app }} --node {{ node }} --levels {{ levels }} --seconds {{ seconds }}
 
-# Score finished burst runs by prefix.
+# Apply the Grafana dashboard and the croft collector scrape it reads, then print its URL.
+monitoring:
+    kubectl apply -k workloads/monitoring
+    @echo "http://grafana.127.0.0.1.sslip.io:30080/d/croft-experiment"
+    @echo "http://grafana.{{ tailscale_ip }}.sslip.io:30080/d/croft-experiment"
+
+# Score finished burst runs by prefix; rows of other runs in compare.csv are kept.
 compare +prefixes:
     uv run run.py compare --prefix {{ prefixes }}

@@ -1,0 +1,19 @@
+# croft's signal in Prometheus, for the dashboard: the collector's per-container syscall rates and CPU.
+# Scraped every 5 s, as the ingress request counts are.
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: croft-collector
+  namespace: monitoring
+  labels:
+    release: monitoring
+spec:
+  namespaceSelector:
+    matchNames: [croft]
+  selector:
+    matchLabels:
+      app: croft-collector
+  podMetricsEndpoints:
+    - port: metrics
+      path: /metrics
+      interval: 5s

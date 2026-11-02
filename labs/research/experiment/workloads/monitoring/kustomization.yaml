@@ -1,0 +1,14 @@
+# The experiment dashboard and the scrape it needs; Grafana's sidecar loads every ConfigMap labelled grafana_dashboard.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: monitoring
+resources:
+  - collector-podmonitor.yaml
+configMapGenerator:
+  - name: croft-experiment-dashboard
+    files:
+      - dashboard.json
+generatorOptions:
+  disableNameSuffixHash: true
+  labels:
+    grafana_dashboard: "1"

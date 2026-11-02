@@ -184,6 +184,7 @@ workloads/
 ├── hotel-reservation/   19 Deployments, their Services, the ingress and the frontend's HPA
 ├── otel-demo/           15 Deployments, a collector that drops every signal, the frontend's HPA
 ├── ingress-nginx/       the PodMonitor for the ingress request counts, KEDA's signal
+├── monitoring/          the Grafana dashboard of a run and the croft collector's PodMonitor
 └── linkerd/             the PodMonitor for the Linkerd proxies
 ```
 
@@ -203,7 +204,7 @@ data/
 │   └── runs.jsonl               one line per GPU run: label, parameters, node, container id, start and end
 └── web/
     ├── runs.jsonl               one line per web run: app, load, autoscaler, window, containers
-    ├── compare.csv              run.py compare: one scored row per burst run
+    ├── compare.csv              run.py compare: one scored row per burst run, kept across prefixes
     └── <run>/
         ├── workload.csv         open-loop runs: target and achieved RPS, latency, per second
         ├── locust_*.csv         Locust runs: stats, history, failures, exceptions

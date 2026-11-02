@@ -43,6 +43,10 @@ workloads/
 │   └── hpa.yaml
 ├── ingress-nginx/
 │   └── podmonitor.yaml     KEDA's signal
+├── monitoring/
+│   ├── kustomization.yaml
+│   ├── dashboard.json      the Grafana dashboard of a run
+│   └── collector-podmonitor.yaml
 ├── linkerd/
 ├── gpu/
 └── frameworks/
@@ -343,6 +347,7 @@ Reading and accepting the result is described in [RUNNING.md](../RUNNING.md#8-ca
 | `series <app> <prefix>` | three repetitions of the three arms, then `compare` |
 | `calibrate <app> [levels] [seconds]` | measures the `scaler` entry on one pinned pod at constant loads |
 | `compare <prefix>...` | scores finished burst runs |
+| `monitoring` | applies the Grafana dashboard and prints its URL |
 
 ---
 

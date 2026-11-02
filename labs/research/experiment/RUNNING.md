@@ -434,6 +434,35 @@ Inspect the replica changes:
 python3 -m json.tool data/web/otel-try-croft-burst/timeline.json | less
 ```
 
+## Live, in Grafana
+
+The cluster's Grafana has a dashboard for a run: the arm, the ingress traffic and p95, the replicas, every frontend pod's lifetime, croft's syscall rate per pod, and CPU per pod.
+
+Apply it once per cluster:
+
+```sh
+just samples monitoring
+```
+
+The recipe also lets Prometheus scrape the croft collector every 5 s, and prints the URL:
+
+```text
+http://grafana.127.0.0.1.sslip.io:30080/d/croft-experiment
+http://grafana.100.64.0.10.sslip.io:30080/d/croft-experiment
+```
+
+Sign in as `admin` with the password from:
+
+```sh
+kubectl -n monitoring get secret monitoring-grafana -o jsonpath='{.data.admin-password}' | base64 -d; echo
+```
+
+Choose the application, and the syscall from its calibration: `sendto` for webapp, `write` for hotel-reservation, `writev` for otel-demo.
+
+Set the time range to one run, from `started_ms` to `ended_ms` in `runs.jsonl`, to read the pods it created, its peak and its replica-seconds. The arm band at the top tells the runs of a series apart.
+
+Replica counts come from kube-state-metrics, scraped every 30 s: a pod shows up to 30 s late. The ingress p95 counts the requests the client gave up on at 5 s, so it can read above 5 s. The scores come from the run's files, not from the dashboard.
+
 ---
 
 # 14. Accept or reject a run
@@ -532,7 +561,9 @@ Score finished runs by prefix:
 just samples compare otel-none- otel-keda- otel-croft-
 ```
 
-`compare` groups the runs by app, profile, scale, probes and arm, prints mean ± sd for each group, and writes one row per run to `data/web/compare.csv`:
+`compare` groups the runs by app, profile, scale, probes and arm, prints mean ± sd for each group, and writes one row per run to `data/web/compare.csv`.
+
+Rows of runs it scores again are replaced; rows of other runs stay, so scoring one series keeps the others.
 
 | Column | Meaning |
 |---|---|
@@ -541,6 +572,7 @@ just samples compare otel-none- otel-keda- otel-croft-
 | `first_ready_s` | burst start to the first new pod Ready |
 | `peak_replicas`, `time_to_peak_s` | the most replicas, and when |
 | `scale_down_events` | scale-downs inside the burst, such as the HPA undoing croft |
+| `pods_created` | pods the autoscaler added over the run: the sum of the replica increases |
 | `slo_violation_s` | seconds with p95 above 500 ms |
 | `failed_fraction` | failed over answered requests in the burst |
 | `success_ratio` | successes over offered requests in the burst |

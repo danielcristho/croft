@@ -111,10 +111,17 @@ class CompareTest(unittest.TestCase):
         self.assertEqual(scores["peak_replicas"], 6)
         self.assertEqual(scores["time_to_peak_s"], 30.0)
         self.assertEqual(scores["scale_down_events"], 1)
+        self.assertEqual(scores["pods_created"], 5)
         self.assertEqual(scores["slo_violation_s"], 10)
         self.assertEqual(scores["failed_fraction"], 0.2)
         self.assertEqual(scores["success_ratio"], 0.8)
         self.assertEqual(scores["replica_seconds"], 13 * 5)
+
+    def test_scoring_one_series_keeps_the_others(self) -> None:
+        previous = [{"run_id": "hr-1", "peak_replicas": "3"}, {"run_id": "web-1", "peak_replicas": "7"}]
+        merged = compare.merge(previous, [{"run_id": "web-1", "peak_replicas": 8}, {"run_id": "otel-1", "peak_replicas": 4}])
+        self.assertEqual([(row["run_id"], row["peak_replicas"]) for row in merged],
+                         [("hr-1", "3"), ("web-1", 8), ("otel-1", 4)])
 
     def test_summary_groups_runs_by_arm(self) -> None:
         runs = [

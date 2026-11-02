@@ -17,7 +17,7 @@ OUTPUT = records.DATA / "web" / "compare.csv"
 ARM = ("app", "profile", "scale", "probes", "scaler")
 METRICS = [
     "hpa_first_up_s", "croft_first_up_s", "first_ready_s", "peak_replicas", "time_to_peak_s",
-    "scale_down_events", "slo_violation_s", "failed_fraction", "success_ratio", "replica_seconds",
+    "scale_down_events", "pods_created", "slo_violation_s", "failed_fraction", "success_ratio", "replica_seconds",
 ]
 CROFT_SCALE_UP = re.compile(r"scale up from=\d+ to=(\d+)")
 HPA_NEW_SIZE = re.compile(r"New size: (\d+); reason: .*above target")
@@ -78,6 +78,7 @@ def load_metrics(rows: list[dict], start_ms: int, end_ms: int) -> dict:
 
 
 # replica_metrics reads the Deployment's replicas from prometheus.csv, sampled every prometheus.STEP_S.
+# pods_created sums the replica increases: events merge repeats and the pod list misses pods already deleted.
 def replica_metrics(rows: list[dict], start_ms: int, end_ms: int) -> dict:
     replicas = [(int(r["unix_s"]) * 1000, float(r["replicas"])) for r in rows if r.get("replicas")]
     burst = [(t, n) for t, n in replicas if start_ms <= t <= end_ms]
@@ -88,6 +89,7 @@ def replica_metrics(rows: list[dict], start_ms: int, end_ms: int) -> dict:
         "peak_replicas": peak,
         "time_to_peak_s": seconds_after(start_ms, (t for t, n in burst if n == peak)),
         "replica_seconds": sum(n for _, n in replicas) * prometheus.STEP_S,
+        "pods_created": sum(max(0, b - a) for (_, a), (_, b) in zip(replicas, replicas[1:])),
     }
 
 
@@ -163,12 +165,19 @@ def burst_records(path: Path, prefixes: list[str]) -> list[dict]:
     return list(latest.values())
 
 
+# merge replaces the rows of runs scored again and keeps every other run, so scoring one series keeps the others.
+def merge(previous: list[dict], scored: list[dict]) -> list[dict]:
+    fresh = {row["run_id"]: row for row in scored}
+    kept = [fresh.pop(row["run_id"], row) for row in previous]
+    return [*kept, *fresh.values()]
+
+
 def run(prefixes: list[str], runs_path: Path = RUNS, output: Path = OUTPUT) -> None:
     scored = [run_metrics(record, ROOT / record["directory"]) for record in burst_records(runs_path, prefixes)]
     with output.open("w", newline="") as out:
-        writer = csv.DictWriter(out, fieldnames=["run_id", *ARM, *METRICS])
+        writer = csv.DictWriter(out, fieldnames=["run_id", *ARM, *METRICS], restval="", extrasaction="ignore")
         writer.writeheader()
-        writer.writerows(scored)
+        writer.writerows(merge(read_csv(output), scored))
     for row in summarize(scored):
         print(f"{row['app']} {row['profile']} x{row['scale']:g}, probes {row['probes']}, {row['scaler']} (n={row['n']})")
         for metric in METRICS:
