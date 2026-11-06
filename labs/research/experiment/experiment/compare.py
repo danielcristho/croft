@@ -21,6 +21,7 @@ METRICS = [
 ]
 CROFT_SCALE_UP = re.compile(r"scale up from=\d+ to=(\d+)")
 HPA_NEW_SIZE = re.compile(r"New size: (\d+); reason: .*above target")
+NEW_SIZE = re.compile(r"New size: (\d+);")
 # croft colours its log unless NO_COLOR is set, and the scaler pod does not set it.
 ANSI = re.compile(r"\x1b\[[0-9;]*m")
 
@@ -77,19 +78,34 @@ def load_metrics(rows: list[dict], start_ms: int, end_ms: int) -> dict:
     }
 
 
-# replica_metrics reads the Deployment's replicas from prometheus.csv, sampled every prometheus.STEP_S.
-# pods_created sums the replica increases: events merge repeats and the pod list misses pods already deleted.
-def replica_metrics(rows: list[dict], start_ms: int, end_ms: int) -> dict:
-    replicas = [(int(r["unix_s"]) * 1000, float(r["replicas"])) for r in rows if r.get("replicas")]
-    burst = [(t, n) for t, n in replicas if start_ms <= t <= end_ms]
-    if not burst:
-        return {}
-    peak = max(n for _, n in burst)
+# replica_metrics reads the cost from the Deployment's replicas in prometheus.csv, sampled every prometheus.STEP_S.
+def replica_metrics(rows: list[dict]) -> dict:
+    replicas = [float(r["replicas"]) for r in rows if r.get("replicas")]
+    return {"replica_seconds": sum(replicas) * prometheus.STEP_S} if replicas else {}
+
+
+# replica_steps lists every replica count asked of the Deployment as (epoch ms, replicas), from the deploy's size on.
+# kube-state-metrics is scraped every 30 s and misses a count the HPA undoes seconds after croft asked for it.
+# Kubernetes merges an event's repeats into one with a count; the HPA acts once per 15 s sync, so they are spread evenly.
+def replica_steps(record: dict, rescales: list[dict], croft: list[tuple[int, int]]) -> list[tuple[int, int]]:
+    asked = list(croft)
+    for rescale in rescales:
+        if match := NEW_SIZE.search(rescale["message"]):
+            first, last, count = rescale["first_ms"], rescale.get("last_ms", rescale["first_ms"]), rescale.get("count", 1)
+            asked += [(first + (last - first) * i // max(count - 1, 1), int(match.group(1))) for i in range(count)]
+    start = record["started_ms"]
+    return [(start, record.get("replicas") or 1), *sorted((t, n) for t, n in asked if t >= start)]
+
+
+# decision_metrics scores the replica steps: the peak in the burst, when it was first asked, and the pods added over the run.
+def decision_metrics(steps: list[tuple[int, int]], start_ms: int, end_ms: int) -> dict:
+    at_start = [n for t, n in steps if t <= start_ms][-1]
+    burst = [(t, n) for t, n in steps if start_ms < t <= end_ms]
+    peak = max([at_start, *(n for _, n in burst)])
     return {
         "peak_replicas": peak,
-        "time_to_peak_s": seconds_after(start_ms, (t for t, n in burst if n == peak)),
-        "replica_seconds": sum(n for _, n in replicas) * prometheus.STEP_S,
-        "pods_created": sum(max(0, b - a) for (_, a), (_, b) in zip(replicas, replicas[1:])),
+        "time_to_peak_s": 0.0 if at_start == peak else seconds_after(start_ms, (t for t, n in burst if n == peak)),
+        "pods_created": sum(max(0, b - a) for (_, a), (_, b) in zip(steps, steps[1:])),
     }
 
 
@@ -113,7 +129,8 @@ def run_metrics(record: dict, directory: Path) -> dict:
         )),
         "scale_down_events": len(scale_downs),
         **load_metrics(read_csv(directory / "workload.csv"), start_ms, end_ms),
-        **replica_metrics(read_csv(directory / "prometheus.csv"), start_ms, end_ms),
+        **replica_metrics(read_csv(directory / "prometheus.csv")),
+        **decision_metrics(replica_steps(record, timeline.get("rescales", []), croft), start_ms, end_ms),
     }
 
 

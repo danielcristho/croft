@@ -555,15 +555,17 @@ Rows of runs it scores again are replaced; rows of other runs stay, so scoring o
 | `hpa_first_up_s` | burst start to the first HPA scale-up |
 | `croft_first_up_s` | burst start to croft's first scale-up |
 | `first_ready_s` | burst start to the first new pod Ready |
-| `peak_replicas`, `time_to_peak_s` | the most replicas, and when |
+| `peak_replicas`, `time_to_peak_s` | the most replicas asked in the burst, and when it was first asked |
 | `scale_down_events` | scale-downs inside the burst, such as the HPA undoing croft |
-| `pods_created` | pods the autoscaler added over the run: the sum of the replica increases |
+| `pods_created` | pods added over the run: the sum of the replica increases |
 | `slo_violation_s` | seconds with p95 above 500 ms |
 | `failed_fraction` | failed over answered requests in the burst |
 | `success_ratio` | successes over offered requests in the burst |
 | `replica_seconds` | replicas times seconds over the run, the cost |
 
 `[k]` after a value means only k runs of the group have it.
+
+`peak_replicas`, `time_to_peak_s` and `pods_created` follow every scaling decision: the HPA's events and croft's log. kube-state-metrics is scraped every 30 s and misses a count the HPA undoes seconds after croft asked for it. Kubernetes merges an event's repeats into one with a count, so the repeats are spread evenly over its span, one per 15 s HPA sync. `replica_seconds` still comes from kube-state-metrics.
 
 ---
 

@@ -109,13 +109,25 @@ class CompareTest(unittest.TestCase):
         self.assertIsNone(scores["croft_first_up_s"])
         self.assertEqual(scores["first_ready_s"], 12.0)
         self.assertEqual(scores["peak_replicas"], 6)
-        self.assertEqual(scores["time_to_peak_s"], 30.0)
+        self.assertEqual(scores["time_to_peak_s"], 25.0)
         self.assertEqual(scores["scale_down_events"], 1)
         self.assertEqual(scores["pods_created"], 5)
         self.assertEqual(scores["slo_violation_s"], 10)
         self.assertEqual(scores["failed_fraction"], 0.2)
         self.assertEqual(scores["success_ratio"], 0.8)
         self.assertEqual(scores["replica_seconds"], 13 * 5)
+
+    def test_replicas_follow_every_decision_the_scrape_misses(self) -> None:
+        # croft asks for 5 twice and the HPA cuts back to 4 three times, merged into one event.
+        croft = [(BURST_MS + 5_000, 2), (BURST_MS + 20_000, 5), (BURST_MS + 40_000, 5)]
+        rescales = [{"first_ms": BURST_MS + 30_000, "last_ms": BURST_MS + 60_000, "count": 3,
+                     "message": "New size: 4; reason: All metrics below target"}]
+        steps = compare.replica_steps(record("r", "croft"), rescales, croft)
+        self.assertEqual([n for _, n in steps], [1, 2, 5, 4, 5, 4, 4])
+        scores = compare.decision_metrics(steps, BURST_MS, END_MS)
+        self.assertEqual(scores["peak_replicas"], 5)
+        self.assertEqual(scores["time_to_peak_s"], 20.0)
+        self.assertEqual(scores["pods_created"], 5)
 
     def test_scoring_one_series_keeps_the_others(self) -> None:
         previous = [{"run_id": "hr-1", "peak_replicas": "3"}, {"run_id": "web-1", "peak_replicas": "7"}]
