@@ -306,6 +306,10 @@ The frontend HPAs target the application container (`ContainerResource`), and `c
 
 `--mesh` is refused with `--scaler croft`: `croft scale` reads the first container's CPU request and counts the syscalls of every container in the pod, the proxy's too.
 
+**`--concurrent`**
+
+takes a shared lock on `data/experiment.lock` and an exclusive one on `data/experiment-<app>.lock`, so runs of different applications overlap while two runs of one application, or any run without the flag, still wait. The run records `"concurrent": true`, and `compare` keeps concurrent and exclusive runs in separate groups. The applications still share ingress-nginx, Prometheus, the load generator and the nodes their unpinned backends land on. `--concurrent` is refused with `--scaler croft`.
+
 **GPU images are pulled on first use.**
 
 ollama models are cached per node in `/var/lib/croft/ollama`.

@@ -159,7 +159,7 @@ def timeline(app: App, start_ms: int, deployed_ms: int) -> dict:
     }
 
 
-def run_level(app: App, name: str, users: int, warmup: int, seconds: int, replicas: int | None, steps: str | None, step_seconds: int, deployed_ms: int, shape: str = "step", node: str | None = None, mesh: bool = False) -> dict:
+def run_level(app: App, name: str, users: int, warmup: int, seconds: int, replicas: int | None, steps: str | None, step_seconds: int, deployed_ms: int, shape: str = "step", node: str | None = None, mesh: bool = False, concurrent: bool = False) -> dict:
     directory = records.DATA / "web" / name
     directory.mkdir(parents=True, exist_ok=True)
     if warmup:
@@ -183,6 +183,7 @@ def run_level(app: App, name: str, users: int, warmup: int, seconds: int, replic
         "node": node,
         "autoscaling": "hpa" if replicas is None else "static",
         "mesh": recorded_mesh,
+        "concurrent": concurrent,
         "started_ms": start_ms,
         "ended_ms": end_ms,
         "containers": containers,
@@ -190,7 +191,7 @@ def run_level(app: App, name: str, users: int, warmup: int, seconds: int, replic
     }
 
 
-def run(app: App, prefix: str, levels: list[int], warmup: int, seconds: int, cooldown: int, replicas: int | None, steps: str | None, step_seconds: int, shape: str = "step", node: str | None = None, mesh: bool = False) -> None:
+def run(app: App, prefix: str, levels: list[int], warmup: int, seconds: int, cooldown: int, replicas: int | None, steps: str | None, step_seconds: int, shape: str = "step", node: str | None = None, mesh: bool = False, concurrent: bool = False) -> None:
     deployed_ms = records.now_ms()
     deploy(app, replicas, node, mesh=mesh)
     if steps:
@@ -201,13 +202,13 @@ def run(app: App, prefix: str, levels: list[int], warmup: int, seconds: int, coo
     else:
         plan = [(f"{prefix}-u{users}", users) for users in levels]
     for i, (name, users) in enumerate(plan, 1):
-        record = run_level(app, name, users, 0 if steps else warmup, seconds, replicas, steps, step_seconds, deployed_ms, shape, node, mesh)
+        record = run_level(app, name, users, 0 if steps else warmup, seconds, replicas, steps, step_seconds, deployed_ms, shape, node, mesh, concurrent)
         records.append("web", record)
         print(f"[{i}/{len(plan)}] {name}: {json.dumps({k: record[k] for k in ('users', 'autoscaling', 'replicas')})}")
         time.sleep(cooldown)
 
 
-def run_profile(app: App, prefix: str, name: str, scale: float, warmup: int, cooldown: int, replicas: int | None, node: str | None = None, probes: str = "default", arm: str = "none", mesh: bool = False) -> None:
+def run_profile(app: App, prefix: str, name: str, scale: float, warmup: int, cooldown: int, replicas: int | None, node: str | None = None, probes: str = "default", arm: str = "none", mesh: bool = False, concurrent: bool = False) -> None:
     """One open-loop run of a cloud2023 load profile against the app's request path; croft scale replaces the HPA when asked."""
     with_scaler = arm == "croft"
     if with_scaler:
@@ -249,6 +250,7 @@ def run_profile(app: App, prefix: str, name: str, scale: float, warmup: int, coo
         "probes": probes,
         "scaler": None if arm == "none" else arm,
         "mesh": recorded_mesh,
+        "concurrent": concurrent,
         "started_ms": start_ms,
         "ended_ms": end_ms,
         "containers": containers,

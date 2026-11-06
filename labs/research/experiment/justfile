@@ -73,29 +73,27 @@ series app prefix:
 mesh-prepare:
     #!/usr/bin/env bash
     set -euo pipefail
+    source interactions.sh
     mkdir -p data/web
     exec > >(tee -a data/web/mesh-prepare.log) 2>&1
     echo "== mesh-prepare $(date -Is) at $(git rev-parse --short HEAD), node {{ node }}"
-    kubectl get nodes
-    ! kubectl get nodes --no-headers | awk '$2 !~ /^Ready/' | grep . || { echo "a node is not Ready"; exit 1; }
-    kubectl top nodes
-    command -v linkerd >/dev/null || { echo "install Linkerd and linkerd-viz first"; exit 1; }
-    linkerd check --proxy=false
-    viz=1; linkerd viz check || { viz=0; echo "linkerd viz is not healthy: skipping linkerd viz edges"; }
-    kubectl apply -f workloads/linkerd/podmonitor.yaml
-    for app in hotel-reservation online-boutique otel-demo; do
-      ns=$(python3 -m experiment.apps "$app" namespace)
-      echo "== $app: smoke run ($(date +%T))"
-      uv run run.py web --app "$app" --node {{ node }} --prefix "$app-mesh-smoke" --profile constant --probes relaxed --mesh
-      python3 -m experiment.interactions smoke "data/web/$app-mesh-smoke-constant"
-      kubectl get hpa -n "$ns"
-      [ "$viz" = 0 ] || linkerd viz edges deploy -n "$ns"
-      echo "== $app: one-pod ramp ($(date +%T))"
-      uv run run.py web --app "$app" --node {{ node }} --prefix "$app-mesh-cap" --profile ramp --replicas 1 --probes relaxed --mesh
-    done
+    si_preflight full
+    for app in hotel-reservation online-boutique otel-demo; do si_prepare_app "$app" {{ node }}; done
     python3 -m experiment.interactions capacity
 
-# One meshed pod's capacity per sample from mesh-prepare's ramps, with suggested lo and hi scales.
+# Step 1 for one sample on its own node, beside the other two: just samples mesh-prepare-app otel-demo <node>.
+mesh-prepare-app app node:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    source interactions.sh
+    mkdir -p data/web
+    exec > >(tee -a data/web/mesh-prepare-{{ app }}.log) 2>&1
+    echo "== mesh-prepare-app {{ app }} $(date -Is) at $(git rev-parse --short HEAD), node {{ node }}"
+    si_preflight full
+    si_prepare_app {{ app }} {{ node }} --concurrent
+    python3 -m experiment.interactions capacity
+
+# One meshed pod's capacity per sample from the mesh-prepare ramps, with suggested lo and hi scales.
 mesh-capacity:
     @python3 -m experiment.interactions capacity
 
@@ -104,27 +102,44 @@ mesh-capacity:
 interactions hr_lo hr_hi ob_lo ob_hi otel_lo otel_hi:
     #!/usr/bin/env bash
     set -euo pipefail
+    source interactions.sh
+    si_scales {{ hr_lo }} {{ hr_hi }} {{ ob_lo }} {{ ob_hi }} {{ otel_lo }} {{ otel_hi }}
     declare -A scale=([hotel-reservation-lo]={{ hr_lo }} [hotel-reservation-hi]={{ hr_hi }} [online-boutique-lo]={{ ob_lo }}
                       [online-boutique-hi]={{ ob_hi }} [otel-demo-lo]={{ otel_lo }} [otel-demo-hi]={{ otel_hi }})
-    for v in "${scale[@]}"; do [[ $v =~ ^[0-9]*\.?[0-9]+$ ]] && awk "BEGIN{exit !($v > 0)}" || { echo "scale $v is not a positive number"; exit 1; }; done
     mkdir -p data/web
     exec > >(tee -a data/web/interactions.log) 2>&1
     echo "== interactions $(date -Is) at $(git rev-parse --short HEAD), node {{ node }}"
     { echo "$(date -Is) $(git rev-parse HEAD)"; for k in "${!scale[@]}"; do echo "  $k ${scale[$k]}"; done | sort; } | tee -a data/web/interactions-scales.txt
-    ! kubectl get nodes --no-headers | awk '$2 !~ /^Ready/' | grep . || { echo "a node is not Ready"; exit 1; }
-    linkerd check --proxy=false >/dev/null || { echo "linkerd check failed"; exit 1; }
+    si_preflight
     start=$SECONDS; k=0
     for i in 1 2 3; do for app in hotel-reservation online-boutique otel-demo; do for p in burst ramp; do for s in lo hi; do
-      k=$((k + 1)); prefix=si-$app-$s-$i
-      if [ -f data/web/runs.jsonl ] && grep -qF "\"run_id\": \"$prefix-$p\"" data/web/runs.jsonl; then echo "[$k/36] $prefix-$p recorded, skipping"; continue; fi
-      echo "[$k/36] $prefix-$p --scale ${scale[$app-$s]} ($((( SECONDS - start) / 60)) min in, $(date +%T))"
-      uv run run.py web --app "$app" --node {{ node }} --prefix "$prefix" --profile "$p" --scale "${scale[$app-$s]}" --probes relaxed --mesh \
-        || { echo "FAILED: $prefix-$p. Fix the cause and rerun the same command to resume."; exit 1; }
+      k=$((k + 1))
+      si_run "$k/36, $(((SECONDS - start) / 60)) min in" "$app" {{ node }} "si-$app-$s-$i" "$p" "${scale[$app-$s]}"
     done; done; done; done
     echo "== done in $(((SECONDS - start) / 60)) min; $(find data/web -maxdepth 1 -type d \( -name 'si-*-burst' -o -name 'si-*-ramp' \) | wc -l) si-* runs (expect 36)"
     python3 -m experiment.interactions summary
 
-# Acceptance columns of every service-interaction run: mesh, edges, backend restarts, ingress p95.
+# Step 2 for one sample on its own node, beside the other two (about 3 hours): just samples interactions-app otel-demo <node> <lo> <hi>.
+interactions-app app node lo hi:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    source interactions.sh
+    si_scales {{ lo }} {{ hi }}
+    declare -A scale=([lo]={{ lo }} [hi]={{ hi }})
+    mkdir -p data/web
+    exec > >(tee -a data/web/interactions-{{ app }}.log) 2>&1
+    echo "== interactions-app {{ app }} $(date -Is) at $(git rev-parse --short HEAD), node {{ node }}"
+    echo "$(date -Is) $(git rev-parse HEAD) concurrent {{ app }}-lo {{ lo }} {{ app }}-hi {{ hi }} on {{ node }}" | tee -a data/web/interactions-scales.txt
+    si_preflight
+    start=$SECONDS; k=0
+    for i in 1 2 3; do for p in burst ramp; do for s in lo hi; do
+      k=$((k + 1))
+      si_run "{{ app }} $k/12, $(((SECONDS - start) / 60)) min in" {{ app }} {{ node }} "si-{{ app }}-$s-$i" "$p" "${scale[$s]}" --concurrent
+    done; done; done
+    echo "== {{ app }} done in $(((SECONDS - start) / 60)) min"
+    python3 -m experiment.interactions summary
+
+# Acceptance columns of every service-interaction run: mesh, concurrent, edges, backend restarts, ingress p95.
 interactions-check:
     @python3 -m experiment.interactions summary
 

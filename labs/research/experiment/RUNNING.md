@@ -635,6 +635,29 @@ Run it under `tmux` and read its output: a pipe through `grep` or `tail` hides a
 
 A comparison run after the series, without `--mesh`, removes the proxies and restarts the application first.
 
+## Run the three applications at once
+
+`--concurrent` lets runs of different applications share the cluster, which takes the study from about 10 hours to about 4. Pin each frontend to its own node, and run one `tmux` window per application:
+
+```sh
+just samples mesh-prepare-app hotel-reservation <node-a>
+just samples mesh-prepare-app online-boutique <node-b>
+just samples mesh-prepare-app otel-demo <node-c>
+```
+
+Once all three ramps finish, read `just samples mesh-capacity`. Each application's `lo` and `hi` come from its own ramp, so from its own node, since the nodes differ by up to 1.69 times. Then, one window each:
+
+```sh
+just samples interactions-app hotel-reservation <node-a> <lo> <hi>
+just samples interactions-app online-boutique <node-b> <lo> <hi>
+just samples interactions-app otel-demo <node-c> <lo> <hi>
+```
+
+Each window runs that application's 12 runs (about 3 hours), logs to `data/web/interactions-<app>.log`, and resumes the same way after a failure. A run without `--concurrent` waits until all three have finished, and the other way round.
+
+> **Note**
+> Concurrent runs still share ingress-nginx, Prometheus, the load generator and the nodes the backends land on, and the windows drift out of step, so one application's burst can fall on another's run. Compare concurrent runs only with concurrent runs, and report that they shared the cluster; `interactions-check` and `runs.jsonl` mark them.
+
 ## Accept a run
 
 Accept a run as in [Accept or reject a run](#14-accept-or-reject-a-run), and also:

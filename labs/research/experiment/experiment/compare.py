@@ -14,7 +14,7 @@ from .apps import ROOT
 SLO_P95_MS = 500
 RUNS = records.DATA / "web" / "runs.jsonl"
 OUTPUT = records.DATA / "web" / "compare.csv"
-ARM = ("app", "profile", "scale", "probes", "scaler")
+ARM = ("app", "profile", "scale", "probes", "scaler", "concurrent")
 METRICS = [
     "hpa_first_up_s", "croft_first_up_s", "first_ready_s", "peak_replicas", "time_to_peak_s",
     "scale_down_events", "pods_created", "slo_violation_s", "failed_fraction", "success_ratio", "replica_seconds",
@@ -136,7 +136,7 @@ def run_metrics(record: dict, directory: Path) -> dict:
     }
 
 
-# arm names the conditions a run shares with its repetitions; older records lack app, probes and scaler.
+# arm names the conditions a run shares with its repetitions; older records lack app, probes, scaler and concurrent.
 def arm(record: dict) -> dict:
     return {
         "app": record.get("app", "webapp"),
@@ -144,6 +144,7 @@ def arm(record: dict) -> dict:
         "scale": record["scale"],
         "probes": record.get("probes", "default"),
         "scaler": record.get("scaler") or "hpa",
+        "concurrent": record.get("concurrent", False),
     }
 
 
@@ -198,7 +199,7 @@ def run(prefixes: list[str], runs_path: Path = RUNS, output: Path = OUTPUT) -> N
         writer.writeheader()
         writer.writerows(merge(read_csv(output), scored))
     for row in summarize(scored):
-        print(f"{row['app']} {row['profile']} x{row['scale']:g}, probes {row['probes']}, {row['scaler']} (n={row['n']})")
+        print(f"{row['app']} {row['profile']} x{row['scale']:g}, probes {row['probes']}, {row['scaler']}{', concurrent' if row['concurrent'] else ''} (n={row['n']})")
         for metric in METRICS:
             print(f"  {metric:<18} {row[metric]}")
     print(f"per-run scores in {output}")

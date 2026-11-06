@@ -33,6 +33,7 @@ def main() -> None:
     web_args.add_argument("--scale", type=float, help="multiply every rate of --profile; default the app's scale in apps.json")
     web_args.add_argument("--probes", choices=sorted(web.PROBES), default="default", help="relaxed: no liveness restart, slower readiness; none: no probes, the HPA best case")
     web_args.add_argument("--scaler", choices=["none", "croft"], default="none", help="croft: croft scale replaces the HPA; needs --profile")
+    web_args.add_argument("--concurrent", action="store_true", help="share the cluster with runs of other apps; the run records it")
     web_args.add_argument("--mesh", action="store_true", help="Linkerd on the app's namespace; records the call graph in edges.csv and services.csv")
     web_args.add_argument("--warmup", type=int, help="seconds; default 60, or 30 with --profile.")
     web_args.add_argument("--seconds", type=int, default=300)
@@ -63,19 +64,21 @@ def main() -> None:
         # croft scale reads the first container's CPU request and counts every container's syscalls, the proxy's too.
         if args.mesh and args.scaler == "croft":
             parser.error("--mesh does not work with --scaler croft: croft scale would count the linkerd-proxy's syscalls")
-        lock = records.hold_lock()
+        if args.concurrent and args.scaler == "croft":
+            parser.error("--concurrent does not work with --scaler croft: the croft arm needs the cluster alone")
+        lock = records.hold_lock(args.app if args.concurrent else None)
         app = APPS[args.app]
         if args.profile:
             warmup = 30 if args.warmup is None else args.warmup
             cooldown = 15 if args.cooldown is None else args.cooldown
             scale = app.scale if args.scale is None else args.scale
-            web.run_profile(app, args.prefix, args.profile, scale, warmup, cooldown, args.replicas, args.node, args.probes, args.scaler, args.mesh)
+            web.run_profile(app, args.prefix, args.profile, scale, warmup, cooldown, args.replicas, args.node, args.probes, args.scaler, args.mesh, args.concurrent)
         else:
             warmup = 60 if args.warmup is None else args.warmup
             cooldown = 30 if args.cooldown is None else args.cooldown
-            web.run(app, args.prefix, args.users, warmup, args.seconds, cooldown, args.replicas, args.steps, args.step_seconds, args.shape, args.node, args.mesh)
-    if lock:
-        lock.close()
+            web.run(app, args.prefix, args.users, warmup, args.seconds, cooldown, args.replicas, args.steps, args.step_seconds, args.shape, args.node, args.mesh, args.concurrent)
+    for handle in lock or []:
+        handle.close()
 
 
 if __name__ == "__main__":
