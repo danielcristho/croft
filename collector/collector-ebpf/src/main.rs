@@ -5,6 +5,7 @@ mod context;
 mod exit;
 mod gpu;
 mod maps;
+mod operands;
 mod runqueue;
 mod syscalls;
 

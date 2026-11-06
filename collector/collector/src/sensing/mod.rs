@@ -5,5 +5,6 @@ pub mod clock;
 pub mod drops;
 pub mod ebpf;
 pub mod maps;
+pub mod operands;
 pub mod syscalls;
 pub mod watch;

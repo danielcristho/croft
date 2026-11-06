@@ -33,5 +33,18 @@ With `CROFT_METRICS_ADDR` set, the collector serves the latest poll in the Prome
 | `croft_container_cpu_throttled_fraction` | `container_id` |
 | `croft_container_runqueue_wait` | `container_id` |
 | `croft_container_syscall_rate` | `container_id`, `syscall` |
+| `croft_container_syscall_bytes_total` | `container_id`, `syscall` |
+| `croft_container_connects_total` | `container_id`, `address`, `port` |
+| `croft_container_socket_io_total` | `container_id`, `direction` |
 
-`croft scale` reads it from every collector pod.
+The `_total` metrics are counters of what syscalls carry, so read them with `rate()`:
+
+- `syscall_bytes` sums the return values of the read and write family, on x86_64.
+- `connects` counts attempts to IPv4 and IPv6 destinations at entry, so it includes attempts that later fail.
+- `socket_io` counts the read and write family calls that reached a socket. The collector warns and leaves it empty when the kernel lacks `sock_read_iter` or `sock_write_iter`.
+
+A counter drops when one process of a container exits, and `rate()` reads that as a reset.
+
+The probes read no syscall buffer. `connect`'s address is the only user memory they read for these metrics.
+
+`croft scale` reads this endpoint from every collector pod.

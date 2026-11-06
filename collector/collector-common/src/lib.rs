@@ -16,7 +16,23 @@ pub mod map_names {
     pub const RUNQUEUE_SINCE: &str = "RUNQUEUE_SINCE";
     pub const RUNQUEUE_PENDING: &str = "RUNQUEUE_PENDING";
     pub const RUNQUEUE_NS: &str = "RUNQUEUE_NS";
+    pub const SYSCALL_BYTES: &str = "SYSCALL_BYTES";
+    pub const CONNECTS: &str = "CONNECTS";
+    pub const SOCKET_IO: &str = "SOCKET_IO";
     pub const DROPS: &str = "DROPS";
+}
+
+// Consts for the address families connect records.
+pub const AF_INET: u16 = 2;
+pub const AF_INET6: u16 = 10;
+
+// Consts for the keys of SOCKET_IO.
+pub const SOCKET_READ: u32 = 0;
+pub const SOCKET_WRITE: u32 = 1;
+
+// is_byte_syscall matches the x86_64 syscalls that return bytes moved: read, write, pread64, pwrite64, readv, writev, sendto, recvfrom, sendmsg, recvmsg.
+pub const fn is_byte_syscall(nr: i64) -> bool {
+    matches!(nr, 0 | 1 | 17 | 18 | 19 | 20 | 44 | 45 | 46 | 47)
 }
 
 pub fn is_gpu_path(path: &[u8]) -> bool {
@@ -54,6 +70,20 @@ impl GpuActivity {
 // SAFETY: repr(C), two u64 fields, no padding or invalid bit patterns.
 unsafe impl aya::Pod for GpuActivity {}
 
+// ConnectKey is one process's connect destination. An IPv4 address fills the first four bytes of addr.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct ConnectKey {
+    pub tgid: u32,
+    pub family: u16,
+    pub port: u16,
+    pub addr: [u8; 16],
+}
+
+#[cfg(feature = "user")]
+// SAFETY: repr(C), 24 bytes with no padding, and every bit pattern is valid.
+unsafe impl aya::Pod for ConnectKey {}
+
 // DropSite names a map insert the eBPF side can lose; each has a slot in DROPS.
 #[repr(u32)]
 #[derive(Clone, Copy, Debug)]
@@ -65,10 +95,13 @@ pub enum DropSite {
     RunqueueSince,
     RunqueuePending,
     RunqueueNs,
+    SyscallBytes,
+    Connects,
+    SocketIo,
 }
 
 impl DropSite {
-    pub const ALL: [DropSite; 7] = [
+    pub const ALL: [DropSite; 10] = [
         DropSite::PendingOpen,
         DropSite::GpuFd,
         DropSite::GpuActivity,
@@ -76,6 +109,9 @@ impl DropSite {
         DropSite::RunqueueSince,
         DropSite::RunqueuePending,
         DropSite::RunqueueNs,
+        DropSite::SyscallBytes,
+        DropSite::Connects,
+        DropSite::SocketIo,
     ];
 
     pub const fn index(self) -> u32 {
@@ -91,6 +127,9 @@ impl DropSite {
             DropSite::RunqueueSince => map_names::RUNQUEUE_SINCE,
             DropSite::RunqueuePending => map_names::RUNQUEUE_PENDING,
             DropSite::RunqueueNs => map_names::RUNQUEUE_NS,
+            DropSite::SyscallBytes => map_names::SYSCALL_BYTES,
+            DropSite::Connects => map_names::CONNECTS,
+            DropSite::SocketIo => map_names::SOCKET_IO,
         }
     }
 }
@@ -148,6 +187,17 @@ mod tests {
                 last_ns: 20
             }
         );
+    }
+
+    #[test]
+    fn only_syscalls_that_return_bytes_match() {
+        for nr in [0, 1, 17, 18, 19, 20, 44, 45, 46, 47] {
+            assert!(is_byte_syscall(nr), "{nr}");
+        }
+        // close, poll, connect, accept, ioctl, and the -1 of a task outside a syscall
+        for nr in [3, 7, 42, 43, 16, -1] {
+            assert!(!is_byte_syscall(nr), "{nr}");
+        }
     }
 
     #[test]

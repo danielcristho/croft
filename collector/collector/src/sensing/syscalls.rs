@@ -6,6 +6,7 @@ mod rates;
 use std::collections::HashMap;
 
 use collector_common::unpack_key;
+pub use names::name;
 pub use rates::{RateTracker, SyscallRate};
 
 #[derive(Clone, Copy, Debug, PartialEq)]

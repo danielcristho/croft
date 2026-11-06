@@ -11,7 +11,10 @@ use crate::{
         process::ProcessInfo,
         resources::{CgroupUsage, ProcessUsage},
     },
-    sensing::syscalls::SyscallRate,
+    sensing::{
+        operands::{Destination, ProcessOperands, socket_direction},
+        syscalls::{self, SyscallRate},
+    },
 };
 
 pub const CPU_CORES: &str = "croft_container_cpu_cores";
@@ -19,6 +22,10 @@ pub const CPU_PRESSURE: &str = "croft_container_cpu_pressure_avg10";
 pub const CPU_THROTTLED: &str = "croft_container_cpu_throttled_fraction";
 pub const RUNQUEUE: &str = "croft_container_runqueue_wait";
 pub const SYSCALL_RATE: &str = "croft_container_syscall_rate";
+// Counters, not rates: a single connect would otherwise show for one poll and fall between scrapes.
+pub const SYSCALL_BYTES: &str = "croft_container_syscall_bytes_total";
+pub const CONNECTS: &str = "croft_container_connects_total";
+pub const SOCKET_IO: &str = "croft_container_socket_io_total";
 pub const POLL_UNIX_MS: &str = "croft_poll_unix_ms";
 
 #[derive(Debug, Default, PartialEq)]
@@ -28,6 +35,9 @@ pub struct ContainerSignals {
     pub cpu_throttled: Option<f64>,
     pub runqueue: Option<f64>,
     pub syscalls: BTreeMap<String, f64>,
+    pub syscall_bytes: BTreeMap<String, u64>,
+    pub connects: BTreeMap<Destination, u64>,
+    pub socket_io: BTreeMap<&'static str, u64>,
 }
 
 // Field reads one gauge of a container.
@@ -46,6 +56,7 @@ impl Snapshot {
         usage: &ProcessUsage,
         cgroup: Option<&CgroupUsage>,
         rates: &[SyscallRate],
+        operands: ProcessOperands,
     ) {
         let Some(id) = &process.container_id else {
             return;
@@ -61,6 +72,21 @@ impl Snapshot {
         }
         for rate in rates {
             *signals.syscalls.entry(rate.name.clone()).or_default() += rate.rate_per_sec;
+        }
+        for bytes in operands.bytes {
+            *signals
+                .syscall_bytes
+                .entry(syscalls::name(bytes.nr))
+                .or_default() += bytes.count;
+        }
+        for &(destination, count) in operands.connects {
+            *signals.connects.entry(destination).or_default() += count;
+        }
+        for io in operands.socket_io {
+            *signals
+                .socket_io
+                .entry(socket_direction(io.nr))
+                .or_default() += io.count;
         }
     }
 
@@ -86,6 +112,33 @@ impl Snapshot {
                 let _ = writeln!(
                     text,
                     "{SYSCALL_RATE}{{container_id=\"{id}\",syscall=\"{syscall}\"}} {rate}"
+                );
+            }
+        }
+        let _ = writeln!(text, "# TYPE {SYSCALL_BYTES} counter");
+        for (id, signals) in &self.containers {
+            for (syscall, bytes) in &signals.syscall_bytes {
+                let _ = writeln!(
+                    text,
+                    "{SYSCALL_BYTES}{{container_id=\"{id}\",syscall=\"{syscall}\"}} {bytes}"
+                );
+            }
+        }
+        let _ = writeln!(text, "# TYPE {CONNECTS} counter");
+        for (id, signals) in &self.containers {
+            for ((address, port), count) in &signals.connects {
+                let _ = writeln!(
+                    text,
+                    "{CONNECTS}{{container_id=\"{id}\",address=\"{address}\",port=\"{port}\"}} {count}"
+                );
+            }
+        }
+        let _ = writeln!(text, "# TYPE {SOCKET_IO} counter");
+        for (id, signals) in &self.containers {
+            for (direction, count) in &signals.socket_io {
+                let _ = writeln!(
+                    text,
+                    "{SOCKET_IO}{{container_id=\"{id}\",direction=\"{direction}\"}} {count}"
                 );
             }
         }
@@ -135,7 +188,10 @@ fn parse_line(line: &str) -> Option<Sample> {
 
 #[cfg(test)]
 mod tests {
+    use collector_common::SOCKET_READ;
+
     use super::*;
+    use crate::sensing::syscalls::SyscallCount;
 
     fn process(id: &str) -> ProcessInfo {
         ProcessInfo {
@@ -167,18 +223,21 @@ mod tests {
             &waiting(0.5),
             Some(&cgroup),
             &[rate("sendto", 10.0)],
+            ProcessOperands::default(),
         );
         snapshot.add(
             &process("a"),
             &waiting(1.25),
             Some(&cgroup),
             &[rate("sendto", 5.0), rate("read", 1.0)],
+            ProcessOperands::default(),
         );
         snapshot.add(
             &ProcessInfo::default(),
             &waiting(9.0),
             None,
             &[rate("sendto", 99.0)],
+            ProcessOperands::default(),
         );
         let a = &snapshot.containers["a"];
         assert_eq!(a.syscalls["sendto"], 15.0);
@@ -200,6 +259,7 @@ mod tests {
             &ProcessUsage::default(),
             Some(&cgroup),
             &[rate("sendto", 34.0)],
+            ProcessOperands::default(),
         );
         let samples = parse(&snapshot.render(1_700_000_000_000));
         let find = |name: &str| samples.iter().find(|s| s.name == name).map(|s| s.value);
@@ -212,6 +272,45 @@ mod tests {
         assert_eq!(sendto.labels["container_id"], "abc");
         assert_eq!(sendto.labels["syscall"], "sendto");
         assert_eq!(sendto.value, 34.0);
+    }
+
+    #[test]
+    fn operands_add_up_per_container_and_round_trip() {
+        let dns = ("10.43.0.10".parse().unwrap(), 53);
+        let backend = ("fd00::1".parse().unwrap(), 8080);
+        let bytes = [SyscallCount { nr: 1, count: 100 }];
+        let reads = [SyscallCount {
+            nr: SOCKET_READ,
+            count: 3,
+        }];
+        let first = [(dns, 2)];
+        let second = [(dns, 5), (backend, 1)];
+        let mut snapshot = Snapshot::default();
+        for connects in [&first[..], &second[..]] {
+            snapshot.add(
+                &process("a"),
+                &ProcessUsage::default(),
+                None,
+                &[],
+                ProcessOperands {
+                    bytes: &bytes,
+                    connects,
+                    socket_io: &reads,
+                },
+            );
+        }
+        let samples = parse(&snapshot.render(0));
+        let find = |name: &str, label: &str, value: &str| {
+            samples
+                .iter()
+                .find(|s| s.name == name && s.labels.get(label).is_some_and(|v| v == value))
+                .map(|s| s.value)
+        };
+        assert_eq!(find(SYSCALL_BYTES, "syscall", "write"), Some(200.0));
+        assert_eq!(find(SOCKET_IO, "direction", "read"), Some(6.0));
+        assert_eq!(find(CONNECTS, "address", "10.43.0.10"), Some(7.0));
+        assert_eq!(find(CONNECTS, "address", "fd00::1"), Some(1.0));
+        assert_eq!(find(CONNECTS, "port", "8080"), Some(1.0));
     }
 
     #[test]

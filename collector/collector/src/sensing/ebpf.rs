@@ -1,7 +1,10 @@
 //! Loads the compiled eBPF object and attaches its tracepoints.
 
 use anyhow::Context as _;
-use aya::{Ebpf, programs::TracePoint};
+use aya::{
+    Ebpf,
+    programs::{KProbe, TracePoint},
+};
 use log::warn;
 
 // Consts for the tracepoints to attach.
@@ -15,7 +18,12 @@ const TRACEPOINTS: &[(&str, &str)] = &[
     ("sched", "sched_wakeup_new"),
     ("sched", "sched_switch"),
     ("raw_syscalls", "sys_enter"),
+    ("raw_syscalls", "sys_exit"),
+    ("syscalls", "sys_enter_connect"),
 ];
+
+// Kernel functions behind reads and writes on a socket. They are not a stable interface, so losing one costs only its count.
+const SOCKET_KPROBES: &[&str] = &["sock_read_iter", "sock_write_iter"];
 
 // load_and_attach loads the eBPF object from the compiled bytes, raises RLIMIT_MEMLOCK, and attaches the tracepoints.
 pub fn load_and_attach() -> anyhow::Result<Ebpf> {
@@ -27,6 +35,11 @@ pub fn load_and_attach() -> anyhow::Result<Ebpf> {
     bridge_ebpf_logger(&mut ebpf)?;
     for &(category, name) in TRACEPOINTS {
         attach(&mut ebpf, category, name)?;
+    }
+    for &name in SOCKET_KPROBES {
+        if let Err(e) = attach_kprobe(&mut ebpf, name) {
+            warn!("no socket counts from {name}: {e:#}");
+        }
     }
     Ok(ebpf)
 }
@@ -41,6 +54,19 @@ fn attach(ebpf: &mut Ebpf, category: &str, name: &str) -> anyhow::Result<()> {
     program
         .attach(category, name)
         .with_context(|| format!("attach {category}/{name}"))?;
+    Ok(())
+}
+
+// attach_kprobe finds the kprobe program named after a kernel function, loads it, and attaches it to that function.
+fn attach_kprobe(ebpf: &mut Ebpf, name: &str) -> anyhow::Result<()> {
+    let program: &mut KProbe = ebpf
+        .program_mut(name)
+        .with_context(|| format!("program {name} not in the eBPF object"))?
+        .try_into()?;
+    program.load()?;
+    program
+        .attach(name, 0)
+        .with_context(|| format!("attach kprobe {name}"))?;
     Ok(())
 }
 

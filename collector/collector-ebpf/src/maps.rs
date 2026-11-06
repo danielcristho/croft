@@ -4,7 +4,7 @@ use aya_ebpf::{
     macros::map,
     maps::{HashMap, LruHashMap, PerCpuArray},
 };
-use collector_common::{DropSite, GpuActivity};
+use collector_common::{ConnectKey, DropSite, GpuActivity};
 
 // Consts for the maximum number of entries in the eBPF maps.
 const MAX_TRACKED: u32 = 10240;
@@ -34,6 +34,15 @@ pub static RUNQUEUE_NS: LruHashMap<u32, u64> = LruHashMap::with_max_entries(MAX_
 #[map]
 pub static SYSCALL_BY_TYPE: LruHashMap<u64, u64> =
     LruHashMap::with_max_entries(MAX_SYSCALL_ENTRIES, 0);
+
+#[map]
+pub static SYSCALL_BYTES: LruHashMap<u64, u64> = LruHashMap::with_max_entries(MAX_TRACKED, 0);
+
+#[map]
+pub static CONNECTS: LruHashMap<ConnectKey, u64> = LruHashMap::with_max_entries(MAX_TRACKED, 0);
+
+#[map]
+pub static SOCKET_IO: LruHashMap<u64, u64> = LruHashMap::with_max_entries(MAX_TRACKED, 0);
 
 // Per-CPU so the hot path increments without atomics; userspace sums the CPUs.
 #[map]

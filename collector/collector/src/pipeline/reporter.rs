@@ -22,6 +22,7 @@ use crate::{
         clock::{self, NANOS_PER_MS},
         drops::DropWatcher,
         maps,
+        operands::Operands,
         syscalls::{self, RateTracker, SyscallCount, SyscallRate},
         watch::CgroupWatch,
     },
@@ -107,11 +108,22 @@ impl Reporter {
         let syscall_counts = maps::syscall_counts(ebpf)?;
         let by_tgid = syscalls::group_by_tgid(syscall_counts.iter().flatten());
         let runqueue: HashMap<u32, u64> = maps::runqueue_ns(ebpf)?.iter().flatten().collect();
+        // Operands reach only the metrics endpoint, so a run without it skips the map reads.
+        let operands = match self.published {
+            Some(_) => Operands::read(ebpf)?,
+            None => Operands::default(),
+        };
         let now = clock::monotonic_ns();
         for mut subject in self.subjects(ebpf)? {
             subject.process.framework = self.frameworks.framework(subject.tgid);
             let counts = by_tgid.get(&subject.tgid).map_or(&[][..], Vec::as_slice);
-            self.report(&subject, counts, runqueue.get(&subject.tgid).copied(), now);
+            self.report(
+                &subject,
+                counts,
+                runqueue.get(&subject.tgid).copied(),
+                &operands,
+                now,
+            );
         }
         self.publish();
         self.dataset.end_poll();
@@ -173,6 +185,7 @@ impl Reporter {
         subject: &Subject,
         counts: &[SyscallCount],
         runqueue_ns: Option<u64>,
+        operands: &Operands,
         now: u64,
     ) {
         let Subject {
@@ -190,8 +203,13 @@ impl Reporter {
             .map(|cgroup| self.resources.cgroup(cgroup, now));
         // The snapshot sees idle processes too: a container's rate must not drop out while its rows are thinned.
         if self.published.is_some() {
-            self.snapshot
-                .add(process, &usage, cgroup_usage.as_ref(), &rates);
+            self.snapshot.add(
+                process,
+                &usage,
+                cgroup_usage.as_ref(),
+                &rates,
+                operands.of(tgid),
+            );
         }
         // GPU holders are never thinned: a process busy on mapped GPU queues looks idle to the CPU.
         let idle = workload == Workload::NoGpu
