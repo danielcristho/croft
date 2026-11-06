@@ -11,7 +11,7 @@ from pathlib import Path
 
 from dataclasses import asdict
 
-from . import kube, prometheus, records, rps, scaler
+from . import kube, linkerd, prometheus, records, rps, scaler
 from .apps import ROOT, App
 from .profiles import PROFILES, Profile
 
@@ -30,10 +30,11 @@ PROBES = {
 
 
 # deploy starts an HPA run from one fresh replica and a new HPA, so no scale-down window or request backlog carries over.
-def deploy(app: App, replicas: int | None, node: str | None = None, probes: str = "default", hpa: bool = True) -> None:
+def deploy(app: App, replicas: int | None, node: str | None = None, probes: str = "default", hpa: bool = True, mesh: bool = False) -> None:
     check_image(app)
     check_finished_pods(app)
     kube.apply((app.manifests / "k8s.yaml").read_text())
+    linkerd.set_mesh(app, mesh)
     pin(app, node)
     if PROBES[probes]:
         patch = json.dumps({"spec": {"template": {"spec": {"containers": [{"name": app.container, **PROBES[probes]}]}}}})
@@ -138,6 +139,18 @@ def pods(app: App, since_ms: int) -> list[dict]:
     return found
 
 
+# export_series writes the app's Prometheus series for the window and, with the mesh, its call graph and every
+# service's resources; it returns the mesh for the run record.
+def export_series(app: App, directory: Path, start_ms: int, end_ms: int, mesh: bool) -> str | None:
+    start_s, end_s = start_ms // 1000, end_ms // 1000
+    prometheus.export(directory / "prometheus.csv", app.namespace, app.deployment, start_s, end_s)
+    if not mesh:
+        return None
+    linkerd.export_edges(directory / "edges.csv", app.namespace, app.deployment, start_s, end_s)
+    linkerd.export_services(directory / "services.csv", app.namespace, start_s, end_s)
+    return "linkerd"
+
+
 def timeline(app: App, start_ms: int, deployed_ms: int) -> dict:
     return {
         "rescales": rescales(app, start_ms),
@@ -146,7 +159,7 @@ def timeline(app: App, start_ms: int, deployed_ms: int) -> dict:
     }
 
 
-def run_level(app: App, name: str, users: int, warmup: int, seconds: int, replicas: int | None, steps: str | None, step_seconds: int, deployed_ms: int, shape: str = "step", node: str | None = None) -> dict:
+def run_level(app: App, name: str, users: int, warmup: int, seconds: int, replicas: int | None, steps: str | None, step_seconds: int, deployed_ms: int, shape: str = "step", node: str | None = None, mesh: bool = False) -> dict:
     directory = records.DATA / "web" / name
     directory.mkdir(parents=True, exist_ok=True)
     if warmup:
@@ -158,7 +171,7 @@ def run_level(app: App, name: str, users: int, warmup: int, seconds: int, replic
     locust(app, users, seconds, directory / "locust", env)
     end_ms = records.now_ms()
     containers |= kube.containers(app.namespace, "-l", app.selector)
-    prometheus.export(directory / "prometheus.csv", app.namespace, app.deployment, start_ms // 1000, end_ms // 1000)
+    recorded_mesh = export_series(app, directory, start_ms, end_ms, mesh)
     (directory / "timeline.json").write_text(json.dumps(timeline(app, start_ms, deployed_ms), indent=1))
     return {
         "run_id": name,
@@ -169,6 +182,7 @@ def run_level(app: App, name: str, users: int, warmup: int, seconds: int, replic
         "replicas": replicas,
         "node": node,
         "autoscaling": "hpa" if replicas is None else "static",
+        "mesh": recorded_mesh,
         "started_ms": start_ms,
         "ended_ms": end_ms,
         "containers": containers,
@@ -176,9 +190,9 @@ def run_level(app: App, name: str, users: int, warmup: int, seconds: int, replic
     }
 
 
-def run(app: App, prefix: str, levels: list[int], warmup: int, seconds: int, cooldown: int, replicas: int | None, steps: str | None, step_seconds: int, shape: str = "step", node: str | None = None) -> None:
+def run(app: App, prefix: str, levels: list[int], warmup: int, seconds: int, cooldown: int, replicas: int | None, steps: str | None, step_seconds: int, shape: str = "step", node: str | None = None, mesh: bool = False) -> None:
     deployed_ms = records.now_ms()
-    deploy(app, replicas, node)
+    deploy(app, replicas, node, mesh=mesh)
     if steps:
         # One run that climbs through every step; the shape in the locustfile sets the users.
         suffix = "steps" if shape == "step" else shape
@@ -187,19 +201,19 @@ def run(app: App, prefix: str, levels: list[int], warmup: int, seconds: int, coo
     else:
         plan = [(f"{prefix}-u{users}", users) for users in levels]
     for i, (name, users) in enumerate(plan, 1):
-        record = run_level(app, name, users, 0 if steps else warmup, seconds, replicas, steps, step_seconds, deployed_ms, shape, node)
+        record = run_level(app, name, users, 0 if steps else warmup, seconds, replicas, steps, step_seconds, deployed_ms, shape, node, mesh)
         records.append("web", record)
         print(f"[{i}/{len(plan)}] {name}: {json.dumps({k: record[k] for k in ('users', 'autoscaling', 'replicas')})}")
         time.sleep(cooldown)
 
 
-def run_profile(app: App, prefix: str, name: str, scale: float, warmup: int, cooldown: int, replicas: int | None, node: str | None = None, probes: str = "default", arm: str = "none") -> None:
+def run_profile(app: App, prefix: str, name: str, scale: float, warmup: int, cooldown: int, replicas: int | None, node: str | None = None, probes: str = "default", arm: str = "none", mesh: bool = False) -> None:
     """One open-loop run of a cloud2023 load profile against the app's request path; croft scale replaces the HPA when asked."""
     with_scaler = arm == "croft"
     if with_scaler:
         scaler.check(app)
     deployed_ms = records.now_ms()
-    deploy(app, replicas, node, probes, hpa=not with_scaler)
+    deploy(app, replicas, node, probes, hpa=not with_scaler, mesh=mesh)
     profile = PROFILES[name].scaled(scale)
     run_id = f"{prefix}-{name}"
     directory = records.DATA / "web" / run_id
@@ -221,7 +235,7 @@ def run_profile(app: App, prefix: str, name: str, scale: float, warmup: int, coo
             finally:
                 scaler.stop(app)
     containers |= kube.containers(app.namespace, "-l", app.selector)
-    prometheus.export(directory / "prometheus.csv", app.namespace, app.deployment, start_ms // 1000, end_ms // 1000)
+    recorded_mesh = export_series(app, directory, start_ms, end_ms, mesh)
     (directory / "timeline.json").write_text(json.dumps(timeline(app, start_ms, deployed_ms), indent=1))
     record = {
         "run_id": run_id,
@@ -234,6 +248,7 @@ def run_profile(app: App, prefix: str, name: str, scale: float, warmup: int, coo
         "autoscaling": "static" if replicas is not None else "croft" if with_scaler else "hpa",
         "probes": probes,
         "scaler": None if arm == "none" else arm,
+        "mesh": recorded_mesh,
         "started_ms": start_ms,
         "ended_ms": end_ms,
         "containers": containers,

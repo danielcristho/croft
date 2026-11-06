@@ -209,6 +209,8 @@ data/
         ├── locust_*.csv         Locust runs: stats, history, failures, exceptions
         ├── prometheus.csv       cpu_cores, cpu_throttled_fraction, memory_bytes, network, restarts, replicas
         ├── timeline.json        HPA rescales, replica set changes from any scaler, pod created and Ready times
+        ├── edges.csv            --mesh: request rate, success rate, p50 and p95 per caller and callee, every 5 s
+        ├── services.csv         --mesh: CPU, throttled share, memory, restarts and replicas of every Deployment
         └── scaler.log           --scaler croft: croft's estimate every poll and its decisions
 ```
 
@@ -295,6 +297,14 @@ kube-prometheus-stack drops `container_cpu_cfs_throttled_seconds_total`, so `cpu
 **`--scaler croft`**
 
 deploys `deploy/kubernetes/scaler.yaml` for the application before the warm-up, saves its log and removes it after the run. It needs the collector with `CROFT_METRICS_ADDR` set.
+
+**`--mesh`**
+
+annotates the application's namespace with `linkerd.io/inject: enabled` and restarts the application through `just restart` when a running pod's proxy disagrees; a run without it removes the annotation and the proxies the same way. Each run then writes `edges.csv` from the proxies' `response_total` and `response_latency_ms`, with `ingress` as the caller of the frontend, and `services.csv` for every Deployment, and records `"mesh": "linkerd"` in `runs.jsonl`.
+
+The frontend HPAs target the application container (`ContainerResource`), and `cpu_cores` and `cpu_throttled_fraction` leave the `linkerd-proxy` container out, so 70% stays 70% of the application's own CPU. The network columns are counted per pod and include the proxy's traffic.
+
+`--mesh` is refused with `--scaler croft`: `croft scale` reads the first container's CPU request and counts the syscalls of every container in the pod, the proxy's too.
 
 **GPU images are pulled on first use.**
 

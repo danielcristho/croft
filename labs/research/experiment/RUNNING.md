@@ -569,7 +569,71 @@ Rows of runs it scores again are replaced; rows of other runs stay, so scoring o
 
 ---
 
-# 18. Troubleshooting
+# 18. Study service interactions
+
+This study offers `burst` and `ramp` loads at two scales to the three applications under the HPA, with Linkerd recording every call between their services. It asks which call slows down first, and how the slowdown travels.
+
+It is a separate study from the comparison series: `--mesh` adds a proxy to every pod and works with the HPA arm only.
+
+## Prepare
+
+1. Let Prometheus scrape the Linkerd proxies, once per cluster:
+   ```sh
+   kubectl apply -f workloads/linkerd/podmonitor.yaml
+   ```
+2. Smoke-test each application with the mesh:
+   ```sh
+   uv run run.py web --app <app> --node <node> --prefix <app>-mesh-smoke --profile constant --probes relaxed --mesh
+   linkerd viz edges deploy -n <namespace>
+   ```
+   The first `--mesh` run restarts the whole application to add the proxies.
+3. Check the smoke run: `edges.csv` has an `ingress → frontend` edge and the calls `linkerd viz edges` lists, `services.csv` has every Deployment, and `kubectl get hpa -n <namespace>` reads a value.
+
+> **Note**
+> The proxy costs CPU and latency. Rerun one burst of each application with `--mesh` next to the [reference run](#15-reference-run), and report both.
+
+## Choose the scales
+
+Find one frontend pod's capacity with the mesh, with a ramp at one replica:
+
+```sh
+uv run run.py web --app <app> --node <node> --prefix <app>-mesh-cap --profile ramp --replicas 1 --probes relaxed --mesh
+```
+
+Read the RPS at which p95 leaves its floor. Choose `lo` so the burst peak is about twice that capacity, and `hi` about four times, within ten pods. Record both, and the reason, before the series: they are chosen from the data.
+
+| Application | One pod holds | `lo` | `hi` |
+|---|---:|---:|---:|
+| `hotel-reservation` | | | |
+| `online-boutique` | | | |
+| `otel-demo` | | | |
+
+## Run the series
+
+3 applications × 2 profiles × 2 scales × 3 repetitions: 36 runs, about 10 hours. Every repetition goes through every group once, so drift falls on all of them:
+
+```sh
+declare -A SCALE=([hotel-reservation-lo]=… [hotel-reservation-hi]=… [online-boutique-lo]=… [online-boutique-hi]=… [otel-demo-lo]=… [otel-demo-hi]=…)
+for i in 1 2 3; do for app in hotel-reservation online-boutique otel-demo; do for p in burst ramp; do for s in lo hi; do
+  uv run run.py web --app $app --node <node> --prefix si-$app-$s-$i --profile $p --scale ${SCALE[$app-$s]} --probes relaxed --mesh || break 4
+done; done; done; done
+```
+
+Run it under `tmux` and read its output: a pipe through `grep` or `tail` hides a failed run. Afterwards, check that `data/web/si-*` holds 36 directories.
+
+A comparison run after the series, without `--mesh`, removes the proxies and restarts the application first.
+
+## Accept a run
+
+Accept a run as in [Accept or reject a run](#14-accept-or-reject-a-run), and also:
+
+- No backend restarted (`restarts` per service in `services.csv`).
+- No edge of `linkerd viz edges` is missing from `edges.csv` for the whole window.
+- Failures inside the mesh show as a `success_rate` below 1; they are data, not a reason to reject the run.
+
+---
+
+# 19. Troubleshooting
 
 | Message | Cause and fix |
 |---|---|
@@ -581,7 +645,7 @@ Rows of runs it scores again are replaced; rows of other runs stay, so scoring o
 
 ---
 
-# 19. Reproducibility checklist
+# 20. Reproducibility checklist
 
 Every accepted run preserves:
 
@@ -604,7 +668,7 @@ Every accepted run preserves:
 
 ---
 
-# 20. Typical session
+# 21. Typical session
 
 Log in and enter the harness:
 
@@ -641,7 +705,7 @@ just samples series otel-demo otel
 
 ---
 
-# 21. Clean up
+# 22. Clean up
 
 The applications can stay deployed. An idle one uses little CPU.
 
@@ -659,7 +723,7 @@ After a series, pull croft's datasets for the same window:
 
 ---
 
-# 22. Final output
+# 23. Final output
 
 After a campaign:
 

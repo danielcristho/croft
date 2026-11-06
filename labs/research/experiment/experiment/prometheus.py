@@ -16,7 +16,8 @@ WINDOW = "1m"
 
 def queries(namespace: str, deployment: str) -> dict[str, str]:
     pods = f'namespace="{namespace}",pod=~"{deployment}-.*"'
-    containers = f'{pods},container!="",container!="POD"'
+    # The linkerd-proxy sidecar is left out, so CPU and throttling stay the application's own.
+    containers = f'{pods},container!="",container!="POD",container!="linkerd-proxy"'
     return {
         "cpu_cores": f"sum(rate(container_cpu_usage_seconds_total{{{containers}}}[{WINDOW}]))",
         "memory_bytes": f"sum(container_memory_working_set_bytes{{{containers}}})",
@@ -34,15 +35,26 @@ def queries(namespace: str, deployment: str) -> dict[str, str]:
     }
 
 
-def series(query: str, start_s: int, end_s: int) -> dict[int, float]:
+def query_range(query: str, start_s: int, end_s: int) -> list[dict]:
     params = urllib.parse.urlencode({"query": query, "start": start_s, "end": end_s, "step": STEP_S})
     with urllib.request.urlopen(f"{PROMETHEUS}/api/v1/query_range?{params}", timeout=30) as response:
-        result = json.load(response)["data"]["result"]
-    values: dict[int, float] = {}
-    for stream in result:
+        return json.load(response)["data"]["result"]
+
+
+def series(query: str, start_s: int, end_s: int) -> dict[int, float]:
+    """One value per timestamp, summed over every stream the query returns."""
+    return series_by(query, (), start_s, end_s).get((), {})
+
+
+def series_by(query: str, labels: tuple[str, ...], start_s: int, end_s: int) -> dict[tuple[str, ...], dict[int, float]]:
+    """Values per timestamp for each combination of labels, summed over the streams sharing it; NaN samples are dropped."""
+    streams: dict[tuple[str, ...], dict[int, float]] = {}
+    for stream in query_range(query, start_s, end_s):
+        values = streams.setdefault(tuple(stream["metric"].get(label, "") for label in labels), {})
         for timestamp, value in stream["values"]:
-            values[int(timestamp)] = values.get(int(timestamp), 0.0) + float(value)
-    return values
+            if value != "NaN":
+                values[int(timestamp)] = values.get(int(timestamp), 0.0) + float(value)
+    return streams
 
 
 def export(path: Path, namespace: str, deployment: str, start_s: int, end_s: int) -> None:

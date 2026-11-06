@@ -1,3 +1,4 @@
+# ContainerResource targets the server container alone, so a sidecar such as linkerd-proxy does not shift the 70%.
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
@@ -11,9 +12,10 @@ spec:
   minReplicas: 1
   maxReplicas: 10
   metrics:
-    - type: Resource
-      resource:
+    - type: ContainerResource
+      containerResource:
         name: cpu
+        container: server
         target:
           type: Utilization
           averageUtilization: 70
