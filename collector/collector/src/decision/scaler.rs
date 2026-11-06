@@ -1,6 +1,6 @@
 //! Scaler turns syscall rates into replica counts, using a calibration and a target CPU limit.
 
-use std::collections::HashSet;
+use std::collections::{HashSet, VecDeque};
 
 use crate::pipeline::metrics::{SYSCALL_RATE, Sample};
 
@@ -69,6 +69,38 @@ impl Confirm {
     }
 }
 
+// ScaleDown follows the HPA's stabilization: it lowers replicas to the highest need seen over a full window.
+pub struct ScaleDown {
+    polls: usize,
+    needs: VecDeque<u32>,
+}
+
+impl ScaleDown {
+    pub fn new(polls: usize) -> Self {
+        Self {
+            polls: polls.max(1),
+            needs: VecDeque::new(),
+        }
+    }
+
+    pub fn step(&mut self, needed: u32, current: u32) -> Option<u32> {
+        if self.needs.len() == self.polls {
+            self.needs.pop_front();
+        }
+        self.needs.push_back(needed);
+        if self.needs.len() < self.polls {
+            return None;
+        }
+        let highest = self.needs.iter().copied().max()?;
+        (highest < current).then_some(highest)
+    }
+
+    // restart empties the window, since a poll that missed a collector undercounts the need.
+    pub fn restart(&mut self) {
+        self.needs.clear();
+    }
+}
+
 // cpu_cores reads a Kubernetes CPU quantity such as "1", "1.5" or "500m".
 pub fn cpu_cores(quantity: &str) -> Option<f64> {
     match quantity.strip_suffix('m') {
@@ -130,6 +162,41 @@ mod tests {
         assert_eq!(confirm.step(6, 1), None);
         assert_eq!(confirm.step(7, 1), Some(7));
         assert_eq!(confirm.step(7, 7), None);
+    }
+
+    #[test]
+    fn scale_down_waits_for_a_full_window() {
+        let mut down = ScaleDown::new(3);
+        assert_eq!(down.step(1, 5), None);
+        assert_eq!(down.step(1, 5), None);
+        assert_eq!(down.step(1, 5), Some(1));
+    }
+
+    #[test]
+    fn scale_down_keeps_the_highest_need_of_the_window() {
+        let mut down = ScaleDown::new(3);
+        assert_eq!(down.step(1, 5), None);
+        assert_eq!(down.step(4, 5), None);
+        assert_eq!(down.step(1, 5), Some(4));
+        assert_eq!(down.step(1, 4), None);
+        assert_eq!(down.step(1, 4), Some(1));
+    }
+
+    #[test]
+    fn scale_down_holds_replicas_the_need_reaches() {
+        let mut down = ScaleDown::new(2);
+        assert_eq!(down.step(5, 5), None);
+        assert_eq!(down.step(5, 5), None);
+        assert_eq!(down.step(7, 5), None);
+    }
+
+    #[test]
+    fn scale_down_restart_empties_the_window() {
+        let mut down = ScaleDown::new(2);
+        assert_eq!(down.step(1, 5), None);
+        down.restart();
+        assert_eq!(down.step(1, 5), None);
+        assert_eq!(down.step(1, 5), Some(1));
     }
 
     #[test]

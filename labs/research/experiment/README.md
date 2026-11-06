@@ -139,7 +139,7 @@ Web suite, open loop:
 
 ```sh
 uv run run.py web --prefix cd --profile ramp --scale 0.3                    # a ramp at 30% of its rates
-uv run run.py web --prefix duo --profile burst --scaler croft               # croft scale next to the HPA
+uv run run.py web --prefix duo --profile burst --scaler croft               # croft scale instead of the HPA
 ```
 
 Calibration and scoring:

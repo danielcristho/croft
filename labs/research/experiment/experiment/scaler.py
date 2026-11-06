@@ -1,4 +1,4 @@
-"""croft scale next to the HPA for one run: deployed from deploy/kubernetes/scaler.yaml with the app's calibration."""
+"""croft scale in place of the HPA for one run: deployed from deploy/kubernetes/scaler.yaml with the app's calibration."""
 
 import json
 from pathlib import Path

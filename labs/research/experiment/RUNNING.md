@@ -47,9 +47,9 @@ Each arm is one value of `--scaler`.
 | Arm | Who adds replicas | Signal | Signal path |
 |---|---|---|---|
 | `none` | the HPA from `hpa.yaml` | CPU at 70% of the request | metrics-server, checked every 15 s |
-| `croft` | `croft scale`, next to the HPA | the calibrated syscall rate | collector `/metrics` every 2 s |
+| `croft` | `croft scale`, with no HPA | the calibrated syscall rate | collector `/metrics` every 2 s |
 
-The two arms share one capacity model:
+Both arms scale down after a 300 s window and share one capacity model:
 
 ```text
 a pod is full at 70% of its CPU limit
@@ -337,7 +337,7 @@ Five profiles are available:
 |---|---|---|---|
 | `constant` | 25 RPS | 30 s | check that the setup works |
 | `ramp` | 10 to 200 RPS | 600 s | find one pod's capacity |
-| `burst` | 10 RPS, 150 RPS from 180 s to 300 s, then 10 RPS | 600 s | reaction and recovery |
+| `burst` | 10 RPS, 150 RPS from 180 s to 300 s, then 10 RPS | 900 s | reaction, recovery and scale-down |
 | `periodic` | 10 to 100 RPS, period 120 s | 600 s | autoscaling lag |
 | `variable` | 10 to 100 RPS, a new level every 30 s, seed 42 | 600 s | prediction |
 
@@ -519,7 +519,7 @@ otel-none-3   otel-croft-3
 
 and scores them at the end.
 
-A series takes about 1 h 15 min per application.
+A series takes about 1 h 40 min per application.
 
 It outlives an SSH session only under `tmux` or `nohup`:
 
@@ -530,7 +530,7 @@ just samples series online-boutique ob
 just samples series otel-demo otel
 ```
 
-The full study is 3 applications × 2 arms × 3 repetitions: 18 runs, about 3.5 hours of cluster time.
+The full study is 3 applications × 2 arms × 3 repetitions: 18 runs, about 5 hours of cluster time.
 
 Compare the arms within one application. Absolute latencies differ between the applications by design.
 
@@ -556,7 +556,7 @@ Rows of runs it scores again are replaced; rows of other runs stay, so scoring o
 | `croft_first_up_s` | burst start to croft's first scale-up |
 | `first_ready_s` | burst start to the first new pod Ready |
 | `peak_replicas`, `time_to_peak_s` | the most replicas asked in the burst, and when it was first asked |
-| `scale_down_events` | scale-downs inside the burst, such as the HPA undoing croft |
+| `scale_down_events` | scale-downs inside the burst |
 | `pods_created` | pods added over the run: the sum of the replica increases |
 | `slo_violation_s` | seconds with p95 above 500 ms |
 | `failed_fraction` | failed over answered requests in the burst |

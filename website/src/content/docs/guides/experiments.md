@@ -48,7 +48,7 @@ Each run deploys the webapp at one replica with its HPA, warms up for 30 s at 5 
 ```sh
 uv run run.py gpu --dry-run                                  # the plan
 uv run run.py web --prefix lead --steps 2,4,8,12 --shape ramp
-uv run run.py web --prefix duo --profile burst --scale 0.5 --scaler croft   # croft scale next to the HPA
+uv run run.py web --prefix duo --profile burst --scale 0.5 --scaler croft   # croft scale instead of the HPA
 uv run run.py calibrate                                      # CPU per request on each node
 uv run run.py compare --prefix hpa- duo-                     # burst runs scored per arm
 ```
@@ -57,7 +57,7 @@ Only one experiment runs at a time (`data/experiment.lock`): two workloads shari
 
 ## Kubernetes HPA and croft
 
-`--scaler` picks the autoscaler of a burst run: `none` for the HPA alone, `croft` for croft scale next to the HPA. Both assume the same capacity per pod, so they differ only in their signal.
+`--scaler` picks the autoscaler of a burst run: `none` for the HPA alone, `croft` for croft scale instead of the HPA. Both assume the same capacity per pod, so they differ only in their signal.
 
 ```sh
 for i in 1 2 3; do

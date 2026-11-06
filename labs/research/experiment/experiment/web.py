@@ -30,7 +30,7 @@ PROBES = {
 
 
 # deploy starts an HPA run from one fresh replica and a new HPA, so no scale-down window or request backlog carries over.
-def deploy(app: App, replicas: int | None, node: str | None = None, probes: str = "default") -> None:
+def deploy(app: App, replicas: int | None, node: str | None = None, probes: str = "default", hpa: bool = True) -> None:
     check_image(app)
     check_finished_pods(app)
     kube.apply((app.manifests / "k8s.yaml").read_text())
@@ -43,7 +43,7 @@ def deploy(app: App, replicas: int | None, node: str | None = None, probes: str 
     # Without probes nothing restarts an overloaded pod; a restart drops the requests queued by the last run.
     kube.kubectl("rollout", "restart", f"deployment/{app.deployment}", "-n", app.namespace)
     kube.kubectl("rollout", "status", f"deployment/{app.deployment}", "-n", app.namespace, "--timeout=300s")
-    if replicas is None:
+    if replicas is None and hpa:
         kube.apply((app.manifests / "hpa.yaml").read_text())
     wait_for_ingress(app)
 
@@ -194,12 +194,12 @@ def run(app: App, prefix: str, levels: list[int], warmup: int, seconds: int, coo
 
 
 def run_profile(app: App, prefix: str, name: str, scale: float, warmup: int, cooldown: int, replicas: int | None, node: str | None = None, probes: str = "default", arm: str = "none") -> None:
-    """One open-loop run of a cloud2023 load profile against the app's request path; croft scale joins the HPA when asked."""
+    """One open-loop run of a cloud2023 load profile against the app's request path; croft scale replaces the HPA when asked."""
     with_scaler = arm == "croft"
     if with_scaler:
         scaler.check(app)
     deployed_ms = records.now_ms()
-    deploy(app, replicas, node, probes)
+    deploy(app, replicas, node, probes, hpa=not with_scaler)
     profile = PROFILES[name].scaled(scale)
     run_id = f"{prefix}-{name}"
     directory = records.DATA / "web" / run_id
@@ -231,7 +231,7 @@ def run_profile(app: App, prefix: str, name: str, scale: float, warmup: int, coo
         "scale": scale,
         "replicas": replicas,
         "node": node,
-        "autoscaling": "static" if replicas is not None else "hpa",
+        "autoscaling": "static" if replicas is not None else "croft" if with_scaler else "hpa",
         "probes": probes,
         "scaler": None if arm == "none" else arm,
         "started_ms": start_ms,

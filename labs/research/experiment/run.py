@@ -32,7 +32,7 @@ def main() -> None:
     web_args.add_argument("--profile", choices=sorted(PROFILES), help="one open-loop run of a cloud2023 RPS profile instead")
     web_args.add_argument("--scale", type=float, help="multiply every rate of --profile; default the app's scale in apps.json")
     web_args.add_argument("--probes", choices=sorted(web.PROBES), default="default", help="relaxed: no liveness restart, slower readiness; none: no probes, the HPA best case")
-    web_args.add_argument("--scaler", choices=["none", "croft"], default="none", help="croft: croft scale runs next to the HPA; needs --profile")
+    web_args.add_argument("--scaler", choices=["none", "croft"], default="none", help="croft: croft scale replaces the HPA; needs --profile")
     web_args.add_argument("--warmup", type=int, help="seconds; default 60, or 30 with --profile.")
     web_args.add_argument("--seconds", type=int, default=300)
     web_args.add_argument("--cooldown", type=int, help="seconds; default 30, or 15 with --profile.")

@@ -9,10 +9,10 @@ not: how to run series safely and the traps met so far.
 | `--scaler` | Who adds replicas | Signal |
 |---|---|---|
 | `none` | the HPA | CPU at 70% of the request, through metrics-server |
-| `croft` | `croft scale`, next to the HPA for now | calibrated syscall rate from the collector's `/metrics` |
+| `croft` | `croft scale`, with no HPA | calibrated syscall rate from the collector's `/metrics` |
 
-The final series compares the HPA with croft alone (#46), which needs scale-down
-in `croft scale` (#44).
+Both arms scale down after a 300 s window. Runs before this change had the HPA
+next to `croft scale`, so do not pool them with new runs.
 
 ## A burst series
 
@@ -28,7 +28,7 @@ just samples series hotel-reservation hr
 | `--probes relaxed` | no liveness probe, readiness tolerates 60 s; an HPA baseline not killed by its own probes |
 | `--probes none` | no probes; the HPA's best case |
 | `--app NAME` | an application of `apps.json`; `hotel-reservation` by default |
-| `--scaler croft` | `croft scale` next to the HPA for the run; needs `--profile` and the collector's `/metrics` |
+| `--scaler croft` | `croft scale` instead of the HPA for the run; needs `--profile` and the collector's `/metrics` |
 | `--replicas N` | fixed replicas instead of the HPA |
 
 Every run redeploys at one replica and recreates the HPA, so runs carry no state
@@ -37,7 +37,7 @@ over. One experiment runs at a time (`data/experiment.lock`).
 ## Running a series
 
 - Run it in the background and wait for its completion notice; a burst run takes
-  about 11–12 minutes.
+  about 17 minutes.
 - Do not pipe the loop through `grep` or `tail`. The pipe hides the exit code,
   and a series that stopped at its first run looks like it succeeded. Read the
   output and check that `data/web/<run>/` exists for every run.
@@ -57,10 +57,9 @@ over. One experiment runs at a time (`data/experiment.lock`).
 ## croft scale against the HPA
 
 Pair the arms: the HPA alone and `--scaler croft`, same profile, scale and `--probes relaxed`,
-three repetitions each, then `uv run run.py compare --prefix hpa- duo-`. Per-run scores go to
-`data/web/compare.csv`. Two things to check: `scale_down_events` inside the burst (the HPA owns
-`spec.replicas` and can undo croft's scale-up), and croft climbing in small steps, since `sendto`
-shows a saturated pod's capacity, not the offered load (issue #8).
+three repetitions each, then score them with `just samples compare`. Per-run scores go to
+`data/web/compare.csv`. Check for croft climbing in small steps, since a syscall shows a
+saturated pod's capacity, not the offered load (issue #8).
 
 ## Load: open loop for bursts
 

@@ -13,8 +13,8 @@ kernel tracepoints (eBPF) -> collector -> dataset (JSON Lines, 2 s poll)
 A stage never depends on one to its right. `decision/` depends on no platform
 code, so it can be tested without a cluster.
 
-**Known limit.** `croft scale` only adds replicas, and the HPA next to it can undo
-them. The final series needs scale-down in `croft scale` (#44).
+`croft scale` owns `spec.replicas`, so it never runs next to an HPA on the same
+Deployment.
 
 - One module, one pipeline stage.
 - Add a trait only at a seam with a second real implementation.

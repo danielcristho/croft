@@ -1,4 +1,4 @@
-//! The scaler loop: reads every collector's /metrics, sums the Deployment's request rate and adds replicas.
+//! The scaler loop: reads every collector's /metrics, sums the Deployment's request rate and sets its replicas.
 
 use std::{
     collections::HashSet,
@@ -12,7 +12,7 @@ use serde_json::{Value, json};
 
 use crate::{
     cli::ScaleArgs,
-    decision::scaler::{self, Calibration, Confirm},
+    decision::scaler::{self, Calibration, Confirm, ScaleDown},
     pipeline::metrics,
     runtime::http,
 };
@@ -32,8 +32,10 @@ pub fn execute(args: &ScaleArgs) -> anyhow::Result<()> {
     };
     let mut confirm = Confirm::new(args.confirm_polls);
     let interval = Duration::from_secs(args.interval);
+    let mut scale_down =
+        ScaleDown::new(args.scale_down_window.div_ceil(args.interval.max(1)) as usize);
     info!(
-        "scaling {}/{} from {} per request ({} ms CPU, {} calls), target {}, confirm {} polls{}",
+        "scaling {}/{} from {} per request ({} ms CPU, {} calls), target {}, confirm {} polls, scale down after {} s{}",
         args.namespace,
         args.deployment,
         args.syscall,
@@ -41,27 +43,38 @@ pub fn execute(args: &ScaleArgs) -> anyhow::Result<()> {
         args.calls_per_request,
         args.target,
         args.confirm_polls,
+        args.scale_down_window,
         if args.dry_run { ", dry run" } else { "" }
     );
     loop {
         let started = Instant::now();
-        if let Err(e) = poll(args, &calibration, &mut confirm) {
+        if let Err(e) = poll(args, &calibration, &mut confirm, &mut scale_down) {
             warn!("scale poll: {e:#}");
         }
         thread::sleep(interval.saturating_sub(started.elapsed()));
     }
 }
 
-fn poll(args: &ScaleArgs, calibration: &Calibration, confirm: &mut Confirm) -> anyhow::Result<()> {
+fn poll(
+    args: &ScaleArgs,
+    calibration: &Calibration,
+    confirm: &mut Confirm,
+    scale_down: &mut ScaleDown,
+) -> anyhow::Result<()> {
     let target = target(args)?;
-    let samples: Vec<metrics::Sample> = collector_addresses(args)?
+    let addresses = collector_addresses(args)?;
+    let pages: Vec<String> = addresses
         .iter()
         .filter_map(|ip| {
             let url = format!("http://{ip}:{}/metrics", args.metrics_port);
             http::get(&url).map_err(|e| debug!("{e:#}")).ok()
         })
-        .flat_map(|text| metrics::parse(&text))
         .collect();
+    if pages.len() < addresses.len() || addresses.is_empty() {
+        scale_down.restart();
+    }
+    let samples: Vec<metrics::Sample> =
+        pages.iter().flat_map(|text| metrics::parse(text)).collect();
     let rate = scaler::requests_per_sec(&samples, &target.containers, calibration);
     let needed = scaler::needed(
         rate,
@@ -73,11 +86,15 @@ fn poll(args: &ScaleArgs, calibration: &Calibration, confirm: &mut Confirm) -> a
         "rate={rate:.1}/s needed={needed} replicas={}",
         target.replicas
     );
-    let Some(replicas) = confirm.step(needed, target.replicas) else {
-        return Ok(());
+    let up = confirm.step(needed, target.replicas);
+    let down = scale_down.step(needed, target.replicas);
+    let (direction, replicas) = match (up, down) {
+        (Some(replicas), _) => ("up", replicas),
+        (None, Some(replicas)) => ("down", replicas),
+        (None, None) => return Ok(()),
     };
     info!(
-        "scale up from={} to={replicas} rate={rate:.1}/s",
+        "scale {direction} from={} to={replicas} rate={rate:.1}/s",
         target.replicas
     );
     if !args.dry_run {

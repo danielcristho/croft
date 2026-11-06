@@ -30,7 +30,7 @@ class Profile:
 PROFILES = {
     "constant": Profile("constant", 30, rps=25),
     "ramp": Profile("ramp", 600, start_rps=10, end_rps=200),
-    "burst": Profile("burst", 600, base_rps=10, burst_rps=150, burst_start_s=180, burst_duration_s=120),
+    "burst": Profile("burst", 900, base_rps=10, burst_rps=150, burst_start_s=180, burst_duration_s=120),
     "periodic": Profile("periodic", 600, min_rps=10, max_rps=100, period_s=120),
     "variable": Profile("variable", 600, min_rps=10, max_rps=100, change_interval_s=30, seed=42),
 }

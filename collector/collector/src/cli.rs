@@ -153,6 +153,9 @@ pub struct ScaleArgs {
     /// Seconds between polls
     #[arg(long, default_value_t = 2)]
     pub interval: u64,
+    /// Seconds of history before scaling down, as the HPA's stabilization window
+    #[arg(long, default_value_t = 300)]
+    pub scale_down_window: u64,
     /// Kubernetes API through `kubectl proxy`
     #[arg(long, default_value = "http://127.0.0.1:8001")]
     pub api: String,

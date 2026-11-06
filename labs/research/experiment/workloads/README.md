@@ -321,7 +321,7 @@ Run the full comparison, the two arms alternated three times, then scored:
 just samples series hotel-reservation hr
 ```
 
-A series takes about 1 h 15 min per application.
+A series takes about 1 h 40 min per application.
 
 ---
 
