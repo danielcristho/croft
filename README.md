@@ -115,3 +115,6 @@ Enable the commit hooks once per clone: `git config core.hooksPath .githooks`.
 
 Apache 2.0. See [LICENSE](LICENSE). The eBPF program is declared `Dual MIT/GPL`,
 which the kernel requires for the helpers it calls.
+
+Project documents: [maintainers](MAINTAINERS.md), [governance](GOVERNANCE.md),
+[roadmap](ROADMAP.md), [security](SECURITY.md).

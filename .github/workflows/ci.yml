@@ -1,0 +1,46 @@
+# Checks every pull request and main: the collector, its eBPF program and the experiment harness.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  collector:
+    runs-on: ubuntu-latest
+    env:
+      # The image job builds the eBPF program; bpf-linker takes minutes to install.
+      AYA_BUILD_SKIP: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup toolchain install nightly --profile minimal --component rustfmt
+      - run: rustup component add clippy
+      - run: cargo +nightly fmt --manifest-path collector/Cargo.toml --all -- --check
+      - run: cargo clippy --manifest-path collector/Cargo.toml --all-targets -- -D warnings
+      - run: cargo test --manifest-path collector/Cargo.toml
+
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -f deploy/docker/Dockerfile -t croft-collector:ci .
+      - run: docker run --rm croft-collector:ci --version
+
+  harness:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: labs/research/experiment
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync --locked
+      - run: uv run python -m unittest tests.test_calibrate_scaler tests.test_compare tests.test_kube tests.test_scaler

@@ -22,7 +22,8 @@ type(scope): description
   Omit it for repository-wide changes.
 - **Description**: lowercase, imperative or noun phrase, no trailing period, at
   most 72 characters. It says what changed and, when it fits, why.
-- One line. No body, no co-author or attribution line.
+- One line. No body, no co-author or attribution line. A person adds
+  `Signed-off-by` (see `CONTRIBUTING.md`); an agent never certifies the DCO.
 - One logical change per commit.
 
 ## Examples from the history

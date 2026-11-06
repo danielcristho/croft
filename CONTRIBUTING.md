@@ -251,6 +251,23 @@ The `pre-commit` hook runs `rustfmt`, clippy and the tests when a staged change
 touches `collector/`. Without `bpf-linker` it skips the eBPF build and checks
 the userspace crate (`AYA_BUILD_SKIP=1`, see [Testing changes](#testing-changes)).
 
+## Developer Certificate of Origin
+
+Sign off every commit with `git commit -s`. The line certifies the
+[Developer Certificate of Origin](https://developercertificate.org/), so a person
+adds it, never an AI tool.
+
+## AI-assisted contributions
+
+AI tools are welcome. The person who opens the pull request answers for all of it:
+
+- Read and understand every change, and test it. It gets the same review as any other code.
+- Check that the tool's terms allow contributing its output under this project's license.
+- When the output holds third-party code, confirm the license allows it, and give its notice and attribution.
+- Run a change to the eBPF program on a real kernel: unit tests do not run the verifier.
+
+Say in the pull request when an AI tool wrote a substantial part of the change.
+
 ## Pushing changes
 
 ```sh
