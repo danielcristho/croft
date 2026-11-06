@@ -20,7 +20,6 @@
 <text class="tile" x="62" y="344">kubectl</text>
 <rect class="frame" x="150.0" y="30.0" width="392.0" height="358.0" rx="6" fill="var(--cp)"/>
 <text class="head" x="346" y="56">Control plane</text>
-<text class="spec" x="346" y="77">24 CPU · 128 GB · 1 GPU</text>
 <rect class="ink" x="166.0" y="96.0" width="112.0" height="84.0" rx="3" fill="var(--tile)"/>
 <rect class="ink" x="209.0" y="113.5" width="26.0" height="7.0" rx="1.5" fill="none"/>
 <rect class="ink" x="209.0" y="122.5" width="26.0" height="7.0" rx="1.5" fill="none"/>
@@ -113,7 +112,6 @@
 <path class="head-fill" d="M236.0,475.0 L240.0,466.0 L232.0,466.0 Z"/>
 <rect class="frame" x="40.0" y="478.0" width="392.0" height="262.0" rx="6" fill="var(--wk)"/>
 <text class="head" x="236" y="504">Worker</text>
-<text class="spec" x="236" y="525">20 CPU · 32 GB</text>
 <rect class="ink" x="56.0" y="544.0" width="112.0" height="84.0" rx="3" fill="var(--tile)"/>
 <circle class="ink" cx="112.0" cy="574.0" r="11" fill="none"/>
 <circle class="ink" cx="112.0" cy="574.0" r="3" fill="none"/>
@@ -144,7 +142,6 @@
 <path class="head-fill" d="M664.0,475.0 L668.0,466.0 L660.0,466.0 Z"/>
 <rect class="frame" x="468.0" y="478.0" width="392.0" height="262.0" rx="6" fill="var(--wk)"/>
 <text class="head" x="664" y="504">GPU worker</text>
-<text class="spec" x="664" y="525">24 CPU · 15 GB · 1 GPU</text>
 <rect class="ink" x="484.0" y="544.0" width="112.0" height="84.0" rx="3" fill="var(--tile)"/>
 <circle class="ink" cx="540.0" cy="574.0" r="11" fill="none"/>
 <circle class="ink" cx="540.0" cy="574.0" r="3" fill="none"/>

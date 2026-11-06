@@ -2,11 +2,11 @@
 
 # Croft
 
-**Proactive autoscaling from what processes do in the kernel**
+**Autoscaling that reacts to what processes do in the kernel**
 
 Read each pod's request rate through eBPF and its CPU pressure from cgroups,
-notice a workload burst within seconds, and add replicas before the application
-slows down.
+notice a workload burst within seconds, and add replicas earlier than a
+CPU-based autoscaler.
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/danielcristho/croft?style=flat)](https://github.com/danielcristho/croft/stargazers)
@@ -41,7 +41,7 @@ seen from inside the node. Multiplied by the CPU each request costs, it gives th
 replicas the burst will need, within one poll of its start.
 
 <p align="center">
-  <img src="assets/architecture.svg" width="860" alt="Architecture: the web app's syscalls and cgroup pressure are read in the kernel through eBPF by a collector on each node. The collector writes a dataset and will feed a burst detector, a scaler and OpenTelemetry towards Prometheus. The HPA scales the same pods from CPU utilization. Kernel, collector and dataset are built.">
+  <img src="assets/architecture.svg" width="860" alt="Architecture: the kernel reports a web app's syscalls through eBPF to a collector on each node. The collector writes a dataset and serves metrics to Prometheus and to croft scale, which sets the number of pods.">
 </p>
 
 ## What it reads

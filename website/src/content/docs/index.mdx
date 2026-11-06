@@ -1,9 +1,9 @@
 ---
 title: Croft
-description: Proactive autoscaling from what processes do in the kernel.
+description: Autoscaling that reacts to what processes do in the kernel.
 template: splash
 hero:
-  tagline: Read each pod's request rate through eBPF and its CPU pressure from cgroups, notice a workload burst within seconds, and add replicas before the application slows down.
+  tagline: Read each pod's request rate through eBPF and its CPU pressure from cgroups, notice a workload burst within seconds, and add replicas earlier than a CPU-based autoscaler.
   actions:
     - text: Introduction
       link: /croft/start/introduction/
@@ -38,4 +38,4 @@ The collector records a dataset; nothing scales yet. Early burst detection is me
 	</Card>
 </CardGrid>
 
-![Architecture: the web app's syscalls and cgroup pressure are read in the kernel through eBPF by a collector on each node. The collector writes a dataset and will feed a burst detector, a scaler and OpenTelemetry towards Prometheus. The HPA scales the same pods from CPU utilization.](../../../../assets/architecture.svg)
+![Architecture: the kernel reports a web app's syscalls through eBPF to a collector on each node. The collector writes a dataset and serves metrics to Prometheus and to croft scale, which sets the number of pods.](../../../../assets/architecture.svg)
