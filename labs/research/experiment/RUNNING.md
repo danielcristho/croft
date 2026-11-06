@@ -1,11 +1,10 @@
-# croft Experiments — Comparing HPA, KEDA and croft
+# croft Experiments — Comparing the HPA and croft
 
 This guide is the step-by-step procedure for the **burst autoscaling experiments**.
 
-It compares three autoscalers on the same applications, under the same load, on the same node:
+It compares two autoscalers on the same applications, under the same load, on the same node:
 
 - the Kubernetes **HPA**, scaling on CPU from metrics-server;
-- **KEDA**, scaling on the request rate the ingress reports to Prometheus;
 - **croft**, scaling on the syscall rate the collector reads through eBPF.
 
 The harness itself, its suites and its output are described in [README.md](README.md). Deploying the applications is described in [workloads/README.md](workloads/README.md).
@@ -28,7 +27,7 @@ application under test
          |
 open-loop burst  ---->  workload.csv
          |
-         +---- HPA / KEDA / croft  ---->  timeline.json, scaler.log
+         +---- HPA / croft  ---->  timeline.json, scaler.log
          |
          +---- Prometheus export   ---->  prometheus.csv
                        |
@@ -41,29 +40,20 @@ open-loop burst  ---->  workload.csv
 
 ---
 
-# 2. The three arms
+# 2. The two arms
 
 Each arm is one value of `--scaler`.
 
 | Arm | Who adds replicas | Signal | Signal path |
 |---|---|---|---|
 | `none` | the HPA from `hpa.yaml` | CPU at 70% of the request | metrics-server, checked every 15 s |
-| `keda` | the HPA that KEDA builds from a ScaledObject | `nginx_ingress_controller_requests` for the app's Service | Prometheus every 5 s, `rate()` over 30 s, then the HPA |
 | `croft` | `croft scale`, next to the HPA | the calibrated syscall rate | collector `/metrics` every 2 s |
 
-The three arms share one capacity model:
+The two arms share one capacity model:
 
 ```text
 a pod is full at 70% of its CPU limit
 ```
-
-KEDA's threshold is that capacity in requests per second:
-
-```text
-threshold = 0.7 × CPU limit ÷ CPU per request
-```
-
-The harness computes it from `apps.json` and the deployed limit.
 
 The arms therefore differ only in **their signal** and **how late it arrives**.
 
@@ -78,7 +68,6 @@ k3s cluster from labs/k3s-cluster
 ingress-nginx on NodePort 30080
 kube-prometheus-stack
 croft collector DaemonSet with CROFT_METRICS_ADDR set   (croft arm)
-KEDA                                                    (KEDA arm)
 ```
 
 The machine running the harness needs:
@@ -179,9 +168,9 @@ Do not start a run until the smoke test returns `200`.
 
 ---
 
-# 7. Set up KEDA
+# 7. Enable the ingress metrics
 
-KEDA scales on the request rate that the ingress reports through Prometheus.
+The dashboard and the offered-load check read the request rate that the ingress reports through Prometheus.
 
 Set it up once per cluster.
 
@@ -195,17 +184,10 @@ kubectl -n ingress-nginx patch deployment ingress-nginx-controller --type=json -
 
 The controller restarts for a few seconds.
 
-Scrape the metrics every 5 s instead of the stack's 30 s, so KEDA is not late by configuration alone:
+Scrape the metrics every 5 s instead of the stack's 30 s:
 
 ```sh
 kubectl apply -f workloads/ingress-nginx/podmonitor.yaml
-```
-
-Install KEDA:
-
-```sh
-kubectl apply --server-side -f https://github.com/kedacore/keda/releases/download/v2.21.0/keda-2.21.0.yaml
-kubectl -n keda rollout status deployment
 ```
 
 Check that Prometheus has the request counts:
@@ -221,7 +203,7 @@ The answer must list a `service` for each application that received traffic.
 
 # 8. Calibrate an application
 
-The croft and KEDA arms need each application's `scaler` entry in `apps.json`:
+The croft arm needs each application's `scaler` entry in `apps.json`:
 
 ```text
 syscall              the syscall counted per request
@@ -385,7 +367,6 @@ Run each arm once on the application before a series:
 
 ```sh
 just samples burst otel-demo none   otel-try
-just samples burst otel-demo keda   otel-try
 just samples burst otel-demo croft  otel-try
 ```
 
@@ -531,14 +512,14 @@ just samples series otel-demo otel
 The recipe runs, in order:
 
 ```text
-otel-none-1   otel-keda-1   otel-croft-1
-otel-none-2   otel-keda-2   otel-croft-2
-otel-none-3   otel-keda-3   otel-croft-3
+otel-none-1   otel-croft-1
+otel-none-2   otel-croft-2
+otel-none-3   otel-croft-3
 ```
 
 and scores them at the end.
 
-A series takes about 1 h 50 min per application.
+A series takes about 1 h 15 min per application.
 
 It outlives an SSH session only under `tmux` or `nohup`:
 
@@ -549,11 +530,11 @@ just samples series online-boutique ob
 just samples series otel-demo otel
 ```
 
-The full study is 3 applications × 3 arms × 3 repetitions: 27 runs, about 5.5 hours of cluster time.
+The full study is 3 applications × 2 arms × 3 repetitions: 18 runs, about 3.5 hours of cluster time.
 
 Compare the arms within one application. Absolute latencies differ between the applications by design.
 
-nginx counts a request when it completes, but the ingress still sees the offered load sooner than a saturated pod's syscalls do, which only show what the pod manages to answer ([#8](https://github.com/danielcristho/croft/issues/8)). Expect KEDA to be the stronger baseline.
+A saturated pod's syscalls show what the pod manages to answer, not the offered load ([#8](https://github.com/danielcristho/croft/issues/8)).
 
 ---
 
@@ -562,7 +543,7 @@ nginx counts a request when it completes, but the ingress still sees the offered
 Score finished runs by prefix:
 
 ```sh
-just samples compare otel-none- otel-keda- otel-croft-
+just samples compare otel-none- otel-croft-
 ```
 
 `compare` groups the runs by app, profile, scale, probes and arm, prints mean ± sd for each group, and writes one row per run to `data/web/compare.csv`.
@@ -571,7 +552,7 @@ Rows of runs it scores again are replaced; rows of other runs stay, so scoring o
 
 | Column | Meaning |
 |---|---|
-| `hpa_first_up_s` | burst start to the first HPA scale-up; in the KEDA arm, the HPA KEDA built |
+| `hpa_first_up_s` | burst start to the first HPA scale-up |
 | `croft_first_up_s` | burst start to croft's first scale-up |
 | `first_ready_s` | burst start to the first new pod Ready |
 | `peak_replicas`, `time_to_peak_s` | the most replicas, and when |
@@ -592,9 +573,7 @@ Rows of runs it scores again are replaced; rows of other runs stay, so scoring o
 |---|---|
 | `<image> is missing on <nodes>` | Load the image on those nodes, see [workloads/README.md](workloads/README.md). The node status can take a few minutes to list it. |
 | `another experiment holds data/experiment.lock` | A run is in progress. Wait for it, or stop it. |
-| `KEDA is not installed` | Follow [Set up KEDA](#7-set-up-keda). |
 | `apps.json has no calibration for <app>` | Measure one, see [Calibrate an application](#8-calibrate-an-application). |
-| KEDA's HPA shows `0/<threshold>` under load | The query matched no series. Prometheus moves the metric's `namespace` to `exported_namespace`; filter on that. |
 | `kubectl get nodes … returned non-zero exit status` | `KUBECONFIG` is not set in this shell. |
 | `<host>/ did not answer 200 within 120 s` | The ingress has no Ready backend. Check `just samples status <app>`. |
 
@@ -648,7 +627,6 @@ Run each arm once:
 
 ```sh
 just samples burst otel-demo none  otel-try
-just samples burst otel-demo keda  otel-try
 just samples burst otel-demo croft otel-try
 ```
 
@@ -692,7 +670,6 @@ data/
     ├── runs.jsonl
     ├── compare.csv
     ├── hr-none-1-burst/
-    ├── hr-keda-1-burst/
     ├── hr-croft-1-burst/
     ├── ...
     └── otel-croft-3-burst/

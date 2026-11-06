@@ -23,7 +23,7 @@ Every recipe below runs from the repository root as `just samples <recipe>`, or 
 | `online-boutique` | [Online Boutique](https://github.com/GoogleCloudPlatform/microservices-demo) v0.10.7 | `/`: frontend (Go), productcatalog, currency, cart, recommendation, ad (gRPC) | 12 | 1 |
 | `otel-demo` | [OpenTelemetry Demo](https://github.com/open-telemetry/opentelemetry-demo) 3.1.0 | `/api/recommendations`: frontend (Node.js), recommendation (Python), product-catalog (Go, PostgreSQL), currency (C++) | 15 | 1 |
 
-The HPA, KEDA and croft scale each application's frontend. The services behind it stay at one replica.
+The HPA and croft scale each application's frontend. The services behind it stay at one replica.
 
 ## Directory structure
 
@@ -40,7 +40,7 @@ workloads/
 │   ├── k8s.yaml
 │   └── hpa.yaml
 ├── ingress-nginx/
-│   └── podmonitor.yaml     KEDA's signal
+│   └── podmonitor.yaml     request counts
 ├── monitoring/
 │   ├── kustomization.yaml
 │   ├── dashboard.json      the Grafana dashboard of a run
@@ -305,12 +305,6 @@ Run one burst with the HPA alone:
 just samples burst hotel-reservation
 ```
 
-Run it with KEDA:
-
-```sh
-just samples burst hotel-reservation keda
-```
-
 Run it with croft, under the prefix `hr-x`, into `data/web/hr-x-croft-burst/`:
 
 ```sh
@@ -321,19 +315,19 @@ A burst runs the `burst` profile at the application's `scale` from `apps.json`, 
 
 The nodes differ by up to 1.69 times in CPU speed, so every run of a comparison has to land on the same one.
 
-Run the full comparison, the three arms alternated three times, then scored:
+Run the full comparison, the two arms alternated three times, then scored:
 
 ```sh
 just samples series hotel-reservation hr
 ```
 
-A series takes about 1 h 50 min per application.
+A series takes about 1 h 15 min per application.
 
 ---
 
 # 10. Calibrate an application
 
-Measure the `scaler` entry croft and KEDA need:
+Measure the `scaler` entry croft needs:
 
 ```sh
 just samples calibrate otel-demo
@@ -361,8 +355,8 @@ Reading and accepting the result is described in [RUNNING.md](../RUNNING.md#8-ca
 | `url <app>` | the request URL on the server and over Tailscale |
 | `restart <app>` | restarts every Deployment of the application |
 | `remove <app>` | deletes the application and its namespace |
-| `burst <app> [arm] [prefix]` | one burst run; `arm` is `none`, `keda` or `croft` |
-| `series <app> <prefix>` | three repetitions of the three arms, then `compare` |
+| `burst <app> [arm] [prefix]` | one burst run; `arm` is `none` or `croft` |
+| `series <app> <prefix>` | three repetitions of the two arms, then `compare` |
 | `calibrate <app> [levels] [seconds]` | measures the `scaler` entry on one pinned pod at constant loads |
 | `compare <prefix>...` | scores finished burst runs |
 | `monitoring` | applies the Grafana dashboard and prints its URL |

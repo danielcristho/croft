@@ -13,7 +13,7 @@ The question behind the web experiments:
 
 Each run changes the offered load and records, for the same window, what the client, the kernel (through croft, every 2 s), the HPA (every 15 s) and Prometheus saw.
 
-The step-by-step procedure for the web applications, `webapp` and `hotel-reservation`, and the comparison of the Kubernetes HPA, KEDA and croft is in [`RUNNING.md`](https://github.com/danielcristho/croft/blob/main/labs/research/experiment/RUNNING.md).
+The step-by-step procedure for the web applications, `webapp` and `hotel-reservation`, and the comparison of the Kubernetes HPA and croft is in [`RUNNING.md`](https://github.com/danielcristho/croft/blob/main/labs/research/experiment/RUNNING.md).
 
 ## Suites
 
@@ -55,24 +55,23 @@ uv run run.py compare --prefix hpa- duo-                     # burst runs scored
 
 Only one experiment runs at a time (`data/experiment.lock`): two workloads sharing CPUs pollute each other's numbers.
 
-## Kubernetes, KEDA and croft
+## Kubernetes HPA and croft
 
-`--scaler` picks the autoscaler of a burst run: `none` for the HPA alone, `keda` for a KEDA ScaledObject on the ingress request rate, `croft` for croft scale next to the HPA. All three assume the same capacity per pod, so they differ only in their signal.
+`--scaler` picks the autoscaler of a burst run: `none` for the HPA alone, `croft` for croft scale next to the HPA. Both assume the same capacity per pod, so they differ only in their signal.
 
 ```sh
 for i in 1 2 3; do
   uv run run.py web --app hotel-reservation --prefix hr-hpa-$i  --profile burst --scale 2 --probes relaxed || break
-  uv run run.py web --app hotel-reservation --prefix hr-keda-$i --profile burst --scale 2 --probes relaxed --scaler keda || break
   uv run run.py web --app hotel-reservation --prefix hr-duo-$i  --profile burst --scale 2 --probes relaxed --scaler croft || break
 done
-uv run run.py compare --prefix hr-hpa- hr-keda- hr-duo-
+uv run run.py compare --prefix hr-hpa- hr-duo-
 ```
 
 `compare` scores each burst run (first scale-up, first new pod Ready, peak replicas, scale-downs inside the burst, seconds above the 500 ms p95 objective, failures, replica-seconds) and prints mean ± sd per arm; the per-run rows go to `data/web/compare.csv`.
 
 ## Applications and profiles
 
-- `apps.json` lists the applications under test: namespace, Deployment, manifests, host, paths and the calibration croft scale and KEDA need. `--app` picks one; a new app is a new entry, not new code.
+- `apps.json` lists the applications under test: namespace, Deployment, manifests, host, paths and the calibration croft scale needs. `--app` picks one; a new app is a new entry, not new code.
 - `experiment/profiles.py` holds the open-loop profiles: constant, ramp, burst, periodic, variable.
 
 ## Output

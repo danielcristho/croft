@@ -11,7 +11,7 @@ research/
 ├── README.md
 └── experiment/
     ├── README.md            the harness: suites, commands, output
-    ├── RUNNING.md           the procedure: comparing HPA, KEDA and croft
+    ├── RUNNING.md           the procedure: comparing the HPA and croft
     └── workloads/
         └── README.md        the applications under test
 ```

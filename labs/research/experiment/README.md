@@ -7,7 +7,7 @@ Every run is recorded so croft's dataset can be joined to it exactly. croft tags
 The step-by-step procedure for the autoscaler comparison is in [RUNNING.md](RUNNING.md). Deploying the applications is in [workloads/README.md](workloads/README.md).
 
 <p align="center">
-  <img src="assets/architecture.png" width="900" alt="Experiment architecture: the experimenter's harness deploys an application and one autoscaler on the k3s cluster and sends an open-loop burst through ingress-nginx. HPA scales on CPU from metrics-server, KEDA on the ingress request rate from Prometheus, croft on the syscall rate from its eBPF collector. Each run is exported to data/web and analysed in Jupyter.">
+  <img src="assets/architecture.png" width="900" alt="Experiment architecture: the experimenter's harness deploys an application and one autoscaler on the k3s cluster and sends an open-loop burst through ingress-nginx. HPA scales on CPU from metrics-server, croft on the syscall rate from its eBPF collector. Each run is exported to data/web and analysed in Jupyter.">
 </p>
 
 The diagram's source is [`assets/architecture.drawio`](assets/architecture.drawio); open it in draw.io and export the PNG again after an edit.
@@ -25,7 +25,7 @@ Each run changes the offered load and records, for the same window, what four ob
 ```text
 the client        latency, throughput, failures
 the kernel        syscall rates, through croft
-the autoscaler    HPA, KEDA or croft decisions
+the autoscaler    HPA or croft decisions
 Prometheus        CPU, throttling, memory, network, replicas
 ```
 
@@ -79,7 +79,6 @@ experiment/
 │   ├── profiles.py        constant, ramp, burst, periodic, variable
 │   ├── prometheus.py      series export
 │   ├── scaler.py          the croft arm
-│   ├── keda.py            the KEDA arm
 │   ├── calibrate_scaler.py  syscalls and CPU per request per application
 │   ├── compare.py         scoring
 │   └── gpu.py             the GPU suite
@@ -102,7 +101,6 @@ NVIDIA device plugin                       (gpu suite)
 ingress-nginx on NodePort 30080
 kube-prometheus-stack
 croft collector DaemonSet, WATCH_CGROUPS=kubepods
-KEDA                                       (keda arm)
 ```
 
 Each application's images must be on every node. See [workloads/README.md](workloads/README.md).
@@ -142,7 +140,6 @@ Web suite, open loop:
 ```sh
 uv run run.py web --prefix cd --profile ramp --scale 0.3                    # a ramp at 30% of its rates
 uv run run.py web --prefix duo --profile burst --scaler croft               # croft scale next to the HPA
-uv run run.py web --app hotel-reservation --prefix hr --profile burst --scaler keda   # KEDA instead of the HPA
 ```
 
 Calibration and scoring:
@@ -167,7 +164,7 @@ A new application is a new entry, not new code. `--app` picks one.
 | `namespace`, `deployment`, `container` | where the application runs; the harness selects its pods with `app=<deployment>` |
 | `manifests` | a folder with `k8s.yaml` for the application and `hpa.yaml` for its baseline autoscaler |
 | `host`, `path`, `health` | the ingress host, the request path the load hits, and the readiness check |
-| `scaler` | the calibration croft and KEDA need: `syscall`, `calls_per_request`, `cpu_per_request_ms` |
+| `scaler` | the calibration croft needs: `syscall`, `calls_per_request`, `cpu_per_request_ms` |
 | `scale` | the `--profile` scale a burst runs at by default |
 
 Three applications are defined:
@@ -186,7 +183,7 @@ workloads/
 ├── hotel-reservation/   19 Deployments, their Services, the ingress and the frontend's HPA
 ├── online-boutique/     11 Deployments, Redis, the ingress and the frontend's HPA
 ├── otel-demo/           15 Deployments, a collector that drops every signal, the frontend's HPA
-├── ingress-nginx/       the PodMonitor for the ingress request counts, KEDA's signal
+├── ingress-nginx/       the PodMonitor for the ingress request counts
 ├── monitoring/          the Grafana dashboard of a run and the croft collector's PodMonitor
 └── linkerd/             the PodMonitor for the Linkerd proxies
 ```
@@ -232,7 +229,7 @@ They land in `research/data/nodes/<node>/` and are analysed in `research/burst_s
 Factors deliberately changed:
 
 ```text
-autoscaler arm (none, keda, croft)
+autoscaler arm (none, croft)
 application
 offered load profile and scale
 ```
@@ -298,10 +295,6 @@ kube-prometheus-stack drops `container_cpu_cfs_throttled_seconds_total`, so `cpu
 **`--scaler croft`**
 
 deploys `deploy/kubernetes/scaler.yaml` for the application before the warm-up, saves its log and removes it after the run. It needs the collector with `CROFT_METRICS_ADDR` set.
-
-**`--scaler keda`**
-
-applies a ScaledObject instead of `hpa.yaml`, with the same capacity per pod as croft and the HPA. Every deploy removes the previous run's ScaledObject.
 
 **GPU images are pulled on first use.**
 

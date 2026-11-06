@@ -19,6 +19,18 @@ def name(app: App) -> str:
     return f"croft-scaler-{app.name}"
 
 
+# cpu_cores reads a Kubernetes CPU quantity: "200m", "1" or "1.5".
+def cpu_cores(quantity: str) -> float:
+    return float(quantity[:-1]) / 1000 if quantity.endswith("m") else float(quantity)
+
+
+# limit_cores reads the app container's CPU limit from the deployed Deployment.
+def limit_cores(app: App) -> float:
+    deployment = kube.get("deployment", app.namespace, app.deployment)
+    container = next(c for c in deployment["spec"]["template"]["spec"]["containers"] if c["name"] == app.container)
+    return cpu_cores(container["resources"]["limits"]["cpu"])
+
+
 # check stops before a run: without a calibration or collector metrics the scaler would run blind.
 def check(app: App) -> None:
     if app.scaler is None:

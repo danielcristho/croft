@@ -3,6 +3,8 @@
 From the hotel-reservation series of 2026-11-02 (13:36–15:14 WIB): three autoscalers,
 three runs each, one burst of 20 → 300 RPS for 120 s per run.
 
+These figures record the earlier series, which still included KEDA. The final series compares the HPA with croft alone.
+
 | File | Caption |
 |---|---|
 | `hr-series-requests.png` | The same burst is sent nine times: HPA, KEDA and croft, three rounds in that order. |

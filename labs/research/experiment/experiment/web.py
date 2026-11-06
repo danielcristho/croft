@@ -11,7 +11,7 @@ from pathlib import Path
 
 from dataclasses import asdict
 
-from . import keda, kube, prometheus, records, rps, scaler
+from . import kube, prometheus, records, rps, scaler
 from .apps import ROOT, App
 from .profiles import PROFILES, Profile
 
@@ -30,8 +30,7 @@ PROBES = {
 
 
 # deploy starts an HPA run from one fresh replica and a new HPA, so no scale-down window or request backlog carries over.
-# With KEDA a ScaledObject takes the HPA's place.
-def deploy(app: App, replicas: int | None, node: str | None = None, probes: str = "default", autoscaler: str = "hpa") -> None:
+def deploy(app: App, replicas: int | None, node: str | None = None, probes: str = "default") -> None:
     check_image(app)
     check_finished_pods(app)
     kube.apply((app.manifests / "k8s.yaml").read_text())
@@ -39,15 +38,12 @@ def deploy(app: App, replicas: int | None, node: str | None = None, probes: str 
     if PROBES[probes]:
         patch = json.dumps({"spec": {"template": {"spec": {"containers": [{"name": app.container, **PROBES[probes]}]}}}})
         kube.kubectl("patch", f"deployment/{app.deployment}", "-n", app.namespace, "--type=strategic", "-p", patch)
-    keda.stop(app)
     kube.kubectl("delete", "hpa", app.deployment, "-n", app.namespace, "--ignore-not-found")
     kube.kubectl("scale", f"deployment/{app.deployment}", "-n", app.namespace, f"--replicas={replicas or 1}")
     # Without probes nothing restarts an overloaded pod; a restart drops the requests queued by the last run.
     kube.kubectl("rollout", "restart", f"deployment/{app.deployment}", "-n", app.namespace)
     kube.kubectl("rollout", "status", f"deployment/{app.deployment}", "-n", app.namespace, "--timeout=300s")
-    if replicas is None and autoscaler == "keda":
-        keda.start(app)
-    elif replicas is None:
+    if replicas is None:
         kube.apply((app.manifests / "hpa.yaml").read_text())
     wait_for_ingress(app)
 
@@ -198,14 +194,12 @@ def run(app: App, prefix: str, levels: list[int], warmup: int, seconds: int, coo
 
 
 def run_profile(app: App, prefix: str, name: str, scale: float, warmup: int, cooldown: int, replicas: int | None, node: str | None = None, probes: str = "default", arm: str = "none") -> None:
-    """One open-loop run of a cloud2023 load profile against the app's request path; croft scale joins the HPA, or KEDA replaces it, when asked."""
+    """One open-loop run of a cloud2023 load profile against the app's request path; croft scale joins the HPA when asked."""
     with_scaler = arm == "croft"
     if with_scaler:
         scaler.check(app)
-    if arm == "keda":
-        keda.check(app)
     deployed_ms = records.now_ms()
-    deploy(app, replicas, node, probes, "keda" if arm == "keda" else "hpa")
+    deploy(app, replicas, node, probes)
     profile = PROFILES[name].scaled(scale)
     run_id = f"{prefix}-{name}"
     directory = records.DATA / "web" / run_id
@@ -237,7 +231,7 @@ def run_profile(app: App, prefix: str, name: str, scale: float, warmup: int, coo
         "scale": scale,
         "replicas": replicas,
         "node": node,
-        "autoscaling": "static" if replicas is not None else "keda" if arm == "keda" else "hpa",
+        "autoscaling": "static" if replicas is not None else "hpa",
         "probes": probes,
         "scaler": None if arm == "none" else arm,
         "started_ms": start_ms,

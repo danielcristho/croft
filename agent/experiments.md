@@ -12,14 +12,12 @@ not: how to run series safely and the traps met so far.
 | `croft` | `croft scale`, next to the HPA for now | calibrated syscall rate from the collector's `/metrics` |
 
 The final series compares the HPA with croft alone (#46), which needs scale-down
-in `croft scale` (#44). Do not use `just samples series` until #46 reworks it,
-because it still runs an arm outside the comparison.
+in `croft scale` (#44).
 
-## A burst run
+## A burst series
 
 ```sh
-just samples burst hotel-reservation none hr
-just samples burst hotel-reservation croft hr
+just samples series hotel-reservation hr
 ```
 
 | Option | Meaning |

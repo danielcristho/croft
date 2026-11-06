@@ -9,7 +9,7 @@ import time
 import urllib.request
 from pathlib import Path
 
-from . import keda, kube, records, rps, scaler, web
+from . import kube, records, rps, scaler, web
 from .apps import App
 from .profiles import Profile
 
@@ -98,7 +98,7 @@ def run(app: App, levels: list[int], seconds: int, node: str | None) -> None:
     pod = pods[0]
     container_id = kube.container_id(next(s for s in pod["status"]["containerStatuses"] if s["name"] == app.container))
     url = collector_url(pod["spec"]["nodeName"])
-    limit = keda.limit_cores(app)
+    limit = scaler.limit_cores(app)
     OUT.mkdir(parents=True, exist_ok=True)
     print(f"{app.name}: {pod['metadata']['name']} on {pod['spec']['nodeName']}, CPU limit {limit:g}")
 
