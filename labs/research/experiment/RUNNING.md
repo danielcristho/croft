@@ -585,6 +585,8 @@ It is a separate study from the comparison series: `--mesh` adds a proxy to ever
 
 ## Prepare
 
+`just samples mesh-prepare` runs these steps and the capacity ramps below for all three applications, in about an hour, and logs to `data/web/mesh-prepare.log`.
+
 1. Let Prometheus scrape the Linkerd proxies, once per cluster:
    ```sh
    kubectl apply -f workloads/linkerd/podmonitor.yaml
@@ -608,7 +610,7 @@ Find one frontend pod's capacity with the mesh, with a ramp at one replica:
 uv run run.py web --app <app> --node <node> --prefix <app>-mesh-cap --profile ramp --replicas 1 --probes relaxed --mesh
 ```
 
-Read the RPS at which p95 leaves its floor. Choose `lo` so the burst peak is about twice that capacity, and `hi` about four times, within ten pods. Record both, and the reason, before the series: they are chosen from the data.
+Read the RPS at which p95 leaves its floor; `just samples mesh-capacity` prints the p95 per rate and suggests a knee. Choose `lo` so the burst peak is about twice that capacity, and `hi` about four times, within ten pods. Record both, and the reason, before the series: they are chosen from the data.
 
 | Application | One pod holds | `lo` | `hi` |
 |---|---:|---:|---:|
@@ -626,6 +628,8 @@ for i in 1 2 3; do for app in hotel-reservation online-boutique otel-demo; do fo
   uv run run.py web --app $app --node <node> --prefix si-$app-$s-$i --profile $p --scale ${SCALE[$app-$s]} --probes relaxed --mesh || break 4
 done; done; done; done
 ```
+
+`just samples interactions <hr-lo> <hr-hi> <ob-lo> <ob-hi> <otel-lo> <otel-hi>` runs this loop. It logs to `data/web/interactions.log`, records the scales in `data/web/interactions-scales.txt`, and when rerun after a failure it skips the runs already recorded. `just samples interactions-check` prints mesh, edges, backend restarts and ingress p95 per run.
 
 Run it under `tmux` and read its output: a pipe through `grep` or `tail` hides a failed run. Afterwards, check that `data/web/si-*` holds 36 directories.
 
