@@ -27,6 +27,10 @@ JSON; parsing tens of gigabytes in Python takes many minutes.
 
 ## Signals for web services
 
+The signal differs per application: `croft scale` reads the calibrated syscall of
+`apps.json` (see [project.md](project.md)). The table below holds the first findings,
+measured on a synthetic web app.
+
 | Signal | Use |
 |---|---|
 | `sendto` rate ÷ 2.06 | request rate as the kernel sees it; correlation about 0.8 with the load generator |
@@ -77,3 +81,11 @@ new collect invalidates the cache, and the next run rereads everything.
 
 The ramp rule (the episode in progress when the SLO breaks) was chosen after
 seeing the data; say so when citing it.
+
+On hotel-reservation (scale 2, three repetitions each), the first scale-up came
+5.6 s after the burst with croft and 28.1 s with the HPA. croft used about 1.8 times
+the replica-seconds. The burst was too light to separate the SLO. In those runs the
+HPA undid croft's scale-up, up to seven times in one run.
+
+On a sudden burst, no signal rose before the load arrived: the gain is acting at
++4 to +6 s, not predicting.

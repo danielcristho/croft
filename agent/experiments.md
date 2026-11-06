@@ -4,10 +4,22 @@ The harness is `labs/research/experiment` (`run.py`, `uv`). Its README, written
 in cloud2023's style, lists every command; this file holds what the README does
 not: how to run series safely and the traps met so far.
 
-## A burst series
+## Arms
+
+| `--scaler` | Who adds replicas | Signal |
+|---|---|---|
+| `none` | the HPA | CPU at 70% of the request, through metrics-server |
+| `croft` | `croft scale`, next to the HPA for now | calibrated syscall rate from the collector's `/metrics` |
+
+The final series compares the HPA with croft alone (#46), which needs scale-down
+in `croft scale` (#44). Do not use `just samples series` until #46 reworks it,
+because it still runs an arm outside the comparison.
+
+## A burst run
 
 ```sh
-just samples series hotel-reservation hr
+just samples burst hotel-reservation none hr
+just samples burst hotel-reservation croft hr
 ```
 
 | Option | Meaning |
@@ -31,6 +43,8 @@ over. One experiment runs at a time (`data/experiment.lock`).
 - Do not pipe the loop through `grep` or `tail`. The pipe hides the exit code,
   and a series that stopped at its first run looks like it succeeded. Read the
   output and check that `data/web/<run>/` exists for every run.
+- `kube-state-metrics` is scraped every 30 s and misses fast replica changes. Take
+  replica metrics from scaling decisions (#35).
 - Do not edit the harness while a series runs. Each repetition starts a new
   Python process and loads whatever the files hold at that moment.
 - Test a Kubernetes patch with `--dry-run=server` before a series depends on it.

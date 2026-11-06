@@ -40,7 +40,12 @@ chore: add commit-msg and pre-commit hooks
 
 ## Workflow
 
-Propose the message and ask before committing. The user often commits and
-pushes themselves. Never push unless asked, and check `git remote -v` first:
-croft moved to the user's personal repository, and an old clone may still point
-at the organisation's.
+- Commit only when asked. The user often commits and pushes themselves.
+- Work on a branch and open a pull request. Merge only with explicit permission:
+  the user merges.
+- Pull requests carry no "Generated with" line.
+- Never push unless asked, and check `git remote -v` first: croft moved to the
+  user's personal repository, and an old clone may still point at the
+  organisation's.
+- Never commit `.env`, datasets, binaries, generated reports or credentials.
+- Check `git diff` before finishing.

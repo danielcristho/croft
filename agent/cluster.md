@@ -46,12 +46,11 @@ Large images, and images in no registry, are loaded on every node:
 
 ```sh
 docker pull deathstarbench/hotel-reservation:0.3.5
-cd labs/k3s-cluster && ansible-playbook load-image.yml -e image=deathstarbench/hotel-reservation:0.3.5 --become-password-file <file>
+just samples load-image deathstarbench/hotel-reservation:0.3.5
 ```
 
-The user gives the become password. Write it to a mode-600 file in a scratch
-directory, pass the file, and delete it right after the playbook. It never goes
-into a repository file or onto a command line.
+The recipe asks for the sudo password through `--ask-become-pass`, so the user
+runs it themselves. Agents never ask for, use or store this password.
 
 The harness refuses to run when a node's status does not list the image. After a
 load, the node status can lag for minutes. To check the runtime itself, run a

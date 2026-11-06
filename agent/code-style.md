@@ -3,6 +3,16 @@
 Clean Code, SOLID and DRY apply to every part of croft: the Rust collector, the
 Python harness and the notebooks.
 
+## Tooling
+
+- Rust: `just fmt` and `just lint`. Formatting needs nightly, because `rustfmt.toml`
+  opts into unstable options that stable rustfmt ignores. Clippy runs with
+  `-D warnings`.
+- The pre-commit hook runs rustfmt, clippy and the tests when a staged change
+  touches `collector/`. Without `bpf-linker` it skips the eBPF build.
+- Python: `uv` for every project.
+- Comments follow [code-conventions.md](code-conventions.md).
+
 ## Clean Code
 
 - Write the smallest code that solves the actual problem. Delete before adding.
@@ -73,18 +83,6 @@ test, load profiles, probe settings, calibration numbers.
   said to be so.
 - Experiment code never becomes a dependency of the pipeline.
 
-## Comments
-
-- Default to none. A comment earns its place for a non-obvious why or constraint.
-- One line at the top of a file says what it holds: `//!` in Rust, a module
-  docstring in Python.
-- Before a function that needs it: one plain line starting with its name,
-  Go-style (`// raise_memlock lifts ...`).
-- No adverbs ("only", "safely", "usually", "never", "already"), no tags.
-- `// SAFETY:` on every `unsafe` block.
-- Never delete or reword comments the user wrote, even when they break these
-  rules; point it out at most.
-
 ## Python and notebooks
 
 - Python 3.12+, `uv` for every project (`uv sync`, `uv run`).
@@ -93,3 +91,6 @@ test, load profiles, probe settings, calibration numbers.
   notebooks need moves into a module.
 - Plots: one finding per figure, labelled axes, the same palette across
   notebooks.
+- Show diagrams in light mode, with minimal text and no crossing arrows.
+- Never draw metric charts in ASCII. Harness docs follow the numbered-section
+  style of `rm77/cloud2023`.
