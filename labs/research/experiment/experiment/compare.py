@@ -19,7 +19,7 @@ METRICS = [
     "hpa_first_up_s", "croft_first_up_s", "first_ready_s", "peak_replicas", "time_to_peak_s",
     "scale_down_events", "pods_created", "slo_violation_s", "failed_fraction", "success_ratio", "replica_seconds",
 ]
-CROFT_SCALE_UP = re.compile(r"scale up from=\d+ to=(\d+)")
+CROFT_SCALE = re.compile(r"scale (up|down) from=\d+ to=(\d+)")
 HPA_NEW_SIZE = re.compile(r"New size: (\d+); reason: .*above target")
 NEW_SIZE = re.compile(r"New size: (\d+);")
 # croft colours its log unless NO_COLOR is set, and the scaler pod does not set it.
@@ -33,13 +33,14 @@ def burst_window(record: dict) -> tuple[int, int]:
     return start_ms, start_ms + int(profile["burst_duration_s"] * 1000)
 
 
-# parse_scaler_log reads croft's scale-ups as (epoch ms, new replicas) from kubectl's --timestamps prefix.
-def parse_scaler_log(text: str) -> list[tuple[int, int]]:
+# parse_scaler_log reads croft's decisions in the given directions as (epoch ms, new replicas) from kubectl's --timestamps prefix.
+def parse_scaler_log(text: str, directions: tuple[str, ...] = ("up",)) -> list[tuple[int, int]]:
     decisions = []
     for line in text.splitlines():
         stamp, _, message = line.partition(" ")
-        if match := CROFT_SCALE_UP.search(ANSI.sub("", message)):
-            decisions.append((kube.epoch_ms(stamp), int(match.group(1))))
+        match = CROFT_SCALE.search(ANSI.sub("", message))
+        if match and match.group(1) in directions:
+            decisions.append((kube.epoch_ms(stamp), int(match.group(2))))
     return decisions
 
 
@@ -114,7 +115,8 @@ def run_metrics(record: dict, directory: Path) -> dict:
     timeline_path = directory / "timeline.json"
     timeline = json.loads(timeline_path.read_text()) if timeline_path.is_file() else {}
     log_path = directory / "scaler.log"
-    croft = parse_scaler_log(log_path.read_text()) if log_path.is_file() else []
+    log = log_path.read_text() if log_path.is_file() else ""
+    croft = parse_scaler_log(log)
     scale_downs = [
         event for event in timeline.get("replica_sets", [])
         if event["message"].startswith("Scaled down") and start_ms <= event["last_ms"] and event["first_ms"] <= end_ms
@@ -130,7 +132,7 @@ def run_metrics(record: dict, directory: Path) -> dict:
         "scale_down_events": len(scale_downs),
         **load_metrics(read_csv(directory / "workload.csv"), start_ms, end_ms),
         **replica_metrics(read_csv(directory / "prometheus.csv")),
-        **decision_metrics(replica_steps(record, timeline.get("rescales", []), croft), start_ms, end_ms),
+        **decision_metrics(replica_steps(record, timeline.get("rescales", []), parse_scaler_log(log, ("up", "down"))), start_ms, end_ms),
     }
 
 

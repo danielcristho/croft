@@ -94,6 +94,16 @@ class CompareTest(unittest.TestCase):
         self.assertEqual(len(decisions), 1)
         self.assertEqual(decisions[0][1], 2)
 
+    def test_scaler_log_separates_scale_downs(self) -> None:
+        log = ("2026-11-02T00:00:01Z INFO scale up from=1 to=5 rate=9.0/s\n"
+               "2026-11-02T00:05:01Z INFO scale down from=5 to=1 rate=1.0/s\n"
+               "2026-11-02T00:06:01Z INFO scale up from=1 to=3 rate=5.0/s\n")
+        self.assertEqual([n for _, n in compare.parse_scaler_log(log)], [5, 3])
+        both = compare.parse_scaler_log(log, ("up", "down"))
+        self.assertEqual([n for _, n in both], [5, 1, 3])
+        steps = compare.replica_steps({"started_ms": 0}, [], both)
+        self.assertEqual(compare.decision_metrics(steps, 0, 1)["pods_created"], 6)
+
     def test_hpa_rescales_count_only_scale_ups(self) -> None:
         rescales = [
             {"first_ms": 1, "message": "New size: 6; reason: cpu resource utilization (percentage of request) above target"},
