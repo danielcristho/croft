@@ -16,3 +16,7 @@ spec:
     - port: linkerd-admin
       path: /metrics
       interval: 10s
+      # The proxy does not label its own deployment; edges.csv reads it, as Linkerd's own Prometheus does.
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_pod_label_linkerd_io_proxy_deployment]
+          targetLabel: deployment
