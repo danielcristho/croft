@@ -78,7 +78,7 @@ kubectl
 just
 ```
 
-Run the harness on the server, `node-a`.
+Run the harness on the k3s server node.
 
 `apps.json` reaches the applications at `127.0.0.1`, and the load generator should not share a network path with anything else.
 
@@ -90,7 +90,7 @@ Log in to the server:
 
 ```sh
 ssh <user>@<server>
-cd ~/daniel/github/cloudx/croft/labs/research/experiment
+cd croft/labs/research/experiment
 ```
 
 Install the Python environment:
@@ -106,6 +106,15 @@ export KUBECONFIG=~/.kube/croft-k3s.yaml
 ```
 
 The `just` recipes set this default on their own.
+
+Choose the node that runs the pods of every experiment:
+
+```sh
+kubectl get nodes
+export CROFT_NODE=<node>
+```
+
+The recipes also read it from `.local/env` at the repository root, a gitignored file for settings of one checkout.
 
 ---
 
@@ -133,7 +142,7 @@ kubectl -n croft get pods -l app=croft-collector -o wide
 
 Do not run experiments until all three checks pass.
 
-A laptop on the tailnet can follow a run with `~/.kube/croft-k3s-tailscale.yaml`, and open Grafana or Prometheus at `*.100.64.0.10.sslip.io:30080`.
+Another machine can follow a run with a kubeconfig that points at the server's reachable address, as in [the cluster guide](../../k3s-cluster/README.md).
 
 ---
 
@@ -228,7 +237,7 @@ just samples calibrate otel-demo "10 20 35"
 The recipe:
 
 ```text
-deploys the application at one replica, pinned to node-a, without an autoscaler
+deploys the application at one replica, pinned to `CROFT_NODE`, without an autoscaler
 offers each level as constant load
 reads the pod's syscall rates and CPU from the collector on its node
 reads the busiest pods of the namespace from metrics-server
@@ -237,7 +246,7 @@ reads the busiest pods of the namespace from metrics-server
 A successful calibration resembles:
 
 ```text
-otel-demo: frontend-66f497f847-4mbx2 on node-a, CPU limit 1
+otel-demo: frontend-66f497f847-4mbx2 on node-1, CPU limit 1
     20 RPS: achieved 20.0, failed 0, p95 17 ms, CPU 6.26 ms/request, throttled 0%
         busiest pods: frontend 140m, recommendation 75m, astronomy-db 61m, product-catalog 49m
     50 RPS: achieved 50.0, failed 0, p95 13 ms, CPU 4.15 ms/request, throttled 0%
@@ -375,13 +384,13 @@ Each arm lands in its own directory, `data/web/otel-try-<arm>-burst/`.
 The recipe expands to:
 
 ```sh
-uv run run.py web --app otel-demo --node node-a --prefix otel-try-none \
+uv run run.py web --app otel-demo --node node-1 --prefix otel-try-none \
   --profile burst --probes relaxed --scaler none
 ```
 
-`--node node-a` pins every replica to one node.
+`--node node-1` pins every replica to one node.
 
-The nodes differ by up to 1.69 times in CPU speed, and the scheduler otherwise places the first pod anywhere. In the smoke runs a single frontend on `node-a` held the 300 RPS hotel burst at a 143 ms median p95, while a pod on `node-b` reached 1,181 ms.
+The nodes differ by up to 1.69 times in CPU speed, and the scheduler otherwise places the first pod anywhere. In the smoke runs a single frontend on the fastest node held the 300 RPS hotel burst at a 143 ms median p95, while a pod on the slowest reached 1,181 ms.
 
 Without the pin, node placement outweighs the autoscaler.
 
@@ -433,7 +442,6 @@ The recipe also lets Prometheus scrape the croft collector every 5 s, and prints
 
 ```text
 http://grafana.127.0.0.1.sslip.io:30080/d/croft-experiment
-http://grafana.100.64.0.10.sslip.io:30080/d/croft-experiment
 ```
 
 Sign in as `admin` with the password from:
@@ -674,7 +682,7 @@ Log in and enter the harness:
 
 ```sh
 ssh <user>@<server>
-cd ~/daniel/github/cloudx/croft/labs/research/experiment
+cd croft/labs/research/experiment
 ```
 
 Verify the application:

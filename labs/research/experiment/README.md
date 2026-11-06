@@ -145,7 +145,7 @@ uv run run.py web --prefix duo --profile burst --scaler croft               # cr
 Calibration and scoring:
 
 ```sh
-uv run run.py calibrate-scaler --app otel-demo --node node-a   # an application's scaler entry
+uv run run.py calibrate-scaler --app otel-demo --node <node>   # an application's scaler entry
 uv run run.py compare --prefix hpa- duo-                  # burst runs scored per arm
 ```
 
@@ -254,7 +254,7 @@ replica-seconds
 Factors kept unchanged:
 
 ```text
-node the frontend runs on (node-a)
+node the frontend runs on (CROFT_NODE)
 frontend CPU request and limit
 capacity model: a pod is full at 70% of its CPU limit
 replica bounds: 1 to 10

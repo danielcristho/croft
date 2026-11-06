@@ -27,15 +27,14 @@ export KUBECONFIG=~/.kube/croft-k3s.yaml   # the default kubeconfig does not rea
 |---|---|
 | `hotel-res`, `boutique`, `otel-demo` | the applications under test, from `labs/research/experiment/workloads` |
 | `croft-exp` | the harness's GPU Jobs |
-| `cloud-dynamics` | cloud2023's `cpu-bound` and `stateless-api`, Linkerd-injected |
 
 Node access goes through Ansible. Never accept an SSH host key automatically.
 
 ## Disk
 
-The control plane's disk is tight. After every `docker build`, run
-`docker builder prune -f`; build cache once filled it and the kubelet evicted
-pods for DiskPressure. Check `df -h /` before pulling datasets or images.
+After every `docker build` on a node, run `docker builder prune -f`: build cache
+can fill the disk, and the kubelet then evicts pods for DiskPressure. Check
+`df -h /` before pulling datasets or images.
 
 Old evicted pods may linger as `ContainerStatusUnknown` in `croft-exp`. They are
 harmless; delete them only with the user's approval.
@@ -62,14 +61,3 @@ image is there.
 Do not install addons, redeploy apps or change cluster settings while an
 experiment runs: it pollutes the measurement. Idle apps in other namespaces are
 fine.
-
-## cloud2023 scripts
-
-The course framework (`rm77/cloud2023`, cloned next to croft) has setup scripts
-for OTel Collector, NetObserv and Inspektor Gadget under
-`kubernetes/setup-cluster/supporting`, written for kind. Its `variables.sh` pins
-the lecturer's `HOST_IP`. Run the scripts from a scratch directory with a local
-`variables.sh` (`HOST_IP=127.0.0.1`) and point `PROMETHEUS_URL` at port 30080,
-so its files stay untouched. Pull its updates with `git pull --ff-only`; the
-local clone keeps a few fixes uncommitted (collector regex escape, a throttling
-ratio metric, Linkerd queries on `pod` and `target_port`).

@@ -85,15 +85,16 @@ The recipes point `kubectl` at:
 To use another cluster, export it once:
 
 ```sh
-export KUBECONFIG=~/.kube/croft-k3s-tailscale.yaml
+export KUBECONFIG=~/.kube/other-cluster.yaml
 ```
 
-The applications answer on two hosts:
+The applications answer on the server:
 
 ```text
-<name>.127.0.0.1.sslip.io:30080        on the server
-<name>.100.64.0.10.sslip.io:30080     over Tailscale
+<name>.127.0.0.1.sslip.io:30080
 ```
+
+To reach one from another machine, add a rule for `<name>.<address>.sslip.io` to its Ingress.
 
 List the applications, their namespaces and request URLs:
 
@@ -143,7 +144,7 @@ A successful smoke test resembles:
 200 0.014s
 ```
 
-Print the request URL, on the server and over Tailscale:
+Print the request URL:
 
 ```sh
 just samples url hotel-reservation
@@ -171,7 +172,7 @@ frontend (Go) → productcatalog
 
 ```text
 no load generator and no external LoadBalancer
-an ingress on boutique.127.0.0.1.sslip.io and boutique.100.64.0.10.sslip.io
+an ingress on boutique.127.0.0.1.sslip.io
 the frontend's CPU request equal to its 200m limit, and 256Mi of memory
 replicas: 1 on every other Deployment
     the namespace was once scaled to zero; a deploy restores the backends
@@ -311,7 +312,7 @@ Run it with croft, under the prefix `hr-x`, into `data/web/hr-x-croft-burst/`:
 just samples burst hotel-reservation croft hr-x
 ```
 
-A burst runs the `burst` profile at the application's `scale` from `apps.json`, with relaxed probes, pinned to `node-a`.
+A burst runs the `burst` profile at the application's `scale` from `apps.json`, with relaxed probes, pinned to the node in `CROFT_NODE`.
 
 The nodes differ by up to 1.69 times in CPU speed, so every run of a comparison has to land on the same one.
 
@@ -352,7 +353,7 @@ Reading and accepting the result is described in [RUNNING.md](../RUNNING.md#8-ca
 | `deploy <app>` | applies `k8s.yaml` and waits until every Deployment is Available |
 | `status <app>` | the application's pods and their nodes |
 | `smoke <app>` | one request on the experiment path: status code and time |
-| `url <app>` | the request URL on the server and over Tailscale |
+| `url <app>` | the request URL on the server |
 | `restart <app>` | restarts every Deployment of the application |
 | `remove <app>` | deletes the application and its namespace |
 | `burst <app> [arm] [prefix]` | one burst run; `arm` is `none` or `croft` |
@@ -396,7 +397,7 @@ Create `workloads/<name>/k8s.yaml`:
 ```text
 [ ] its own namespace
 [ ] an app: <name> label on every pod
-[ ] an Ingress on <name>.127.0.0.1.sslip.io and <name>.100.64.0.10.sslip.io
+[ ] an Ingress on <name>.127.0.0.1.sslip.io
 [ ] equal CPU request and limit on the frontend container
 [ ] readiness and liveness probes on the frontend container
 ```

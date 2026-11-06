@@ -955,14 +955,3 @@ spec:
                 name: frontend
                 port:
                   number: 5000
-    # The server's Tailscale address, for access from outside the LAN.
-    - host: hotel.100.64.0.10.sslip.io
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: frontend
-                port:
-                  number: 5000

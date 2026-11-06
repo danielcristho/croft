@@ -45,9 +45,6 @@
         <mxCell id="docker" value="Docker" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#6b6b6b;dashed=1;fontSize=12;" vertex="1" parent="1">
           <mxGeometry x="720" y="280" width="90" height="40" as="geometry" />
         </mxCell>
-        <mxCell id="cloudx" value="CloudX" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#6b6b6b;dashed=1;fontSize=12;" vertex="1" parent="1">
-          <mxGeometry x="830" y="280" width="90" height="40" as="geometry" />
-        </mxCell>
         <mxCell id="nomad" value="Nomad" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#6b6b6b;dashed=1;fontSize=12;" vertex="1" parent="1">
           <mxGeometry x="940" y="280" width="90" height="40" as="geometry" />
         </mxCell>
@@ -56,9 +53,6 @@
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="e-act-docker" style="endArrow=block;html=1;dashed=1;strokeColor=#6b6b6b;exitX=0.4;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="act" target="docker">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="e-act-cloudx" style="endArrow=block;html=1;dashed=1;strokeColor=#6b6b6b;exitX=0.6;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="act" target="cloudx">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="e-act-nomad" style="endArrow=block;html=1;dashed=1;strokeColor=#6b6b6b;exitX=0.7;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="act" target="nomad">

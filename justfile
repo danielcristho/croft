@@ -1,4 +1,4 @@
-# Task recipes for CloudX autoscaler.
+# Task recipes for croft.
 
 # Arguments reach recipes as $1, $2 and "$@", so quoted ones keep their spaces.
 set positional-arguments

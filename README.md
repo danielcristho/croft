@@ -15,7 +15,7 @@ slows down.
 [![Rust](https://img.shields.io/badge/Rust-2024-000000?logo=rust&logoColor=white)](https://www.rust-lang.org)
 [![eBPF](https://img.shields.io/badge/eBPF-aya%200.14-FF6600)](https://aya-rs.dev)
 
-[Deployment](deploy/README.md) · [CloudX](https://github.com/danielcristho/cloudx)
+[Deployment](deploy/README.md)
 
 </div>
 

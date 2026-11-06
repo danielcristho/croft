@@ -35,7 +35,7 @@ Rust has no inheritance, so these are the Rust-native readings.
   `rps.py` sends load, `profiles.py` defines load shapes, `web.py` orchestrates.
 - **Open/closed.** A trait or plug-in point only at a seam with a second real
   implementation: collector, extractor, analyzer, decision engine, platform
-  client (Kubernetes, Docker, CloudX, Nomad). Elsewhere, the concrete type.
+  client (Kubernetes, Docker, Nomad). Elsewhere, the concrete type.
 - **Liskov substitution.** An implementation owes its trait's contract, not just
   its signature. A test collector that never applies backpressure is not a
   stand-in for the eBPF one.

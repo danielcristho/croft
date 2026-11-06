@@ -1,10 +1,12 @@
 # Sample applications for the burst experiments: deploy, check, run and remove them.
 # From the repository root: just samples <recipe> [args].
 
+set dotenv-filename := ".local/env"
+
 export KUBECONFIG := env_var_or_default("KUBECONFIG", env_var("HOME") + "/.kube/croft-k3s.yaml")
 
-tailscale_ip := "100.64.0.10"
-node := "node-a"
+# The node that pins a run's pods: CROFT_NODE, from the environment or .local/env.
+node := "${CROFT_NODE:?set CROFT_NODE to a node name from kubectl get nodes}"
 
 # List available recipes.
 list:
@@ -31,10 +33,9 @@ status app:
 smoke app:
     curl -s -o /dev/null -w "%{http_code} %{time_total}s\n" "$(python3 -m experiment.apps {{ app }} url)"
 
-# The sample's URL on the LAN and over Tailscale.
+# The sample's request URL.
 url app:
     @python3 -m experiment.apps {{ app }} url
-    @python3 -m experiment.apps {{ app }} url | sed 's/127.0.0.1/{{ tailscale_ip }}/'
 
 # Restart every Deployment of a sample, e.g. to reseed hotel-reservation's MongoDB.
 # Registries and stores go first: a service that starts before consul never registers.
@@ -76,7 +77,6 @@ calibrate app levels="20 50 100" seconds="75":
 monitoring:
     kubectl apply -k workloads/monitoring
     @echo "http://grafana.127.0.0.1.sslip.io:30080/d/croft-experiment"
-    @echo "http://grafana.{{ tailscale_ip }}.sslip.io:30080/d/croft-experiment"
 
 # Score finished burst runs by prefix; rows of other runs in compare.csv are kept.
 compare +prefixes:

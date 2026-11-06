@@ -4,7 +4,7 @@
 
 croft reads what processes do in the kernel through eBPF (syscall rates, CPU,
 pressure, throttling, GPU use) and uses those signals to scale Kubernetes
-Deployments. It is a Cloud Computing course final project that compares
+Deployments. The project compares
 eBPF-based autoscaling with the HPA on Kubernetes microservices.
 
 - Rust (edition 2024) for the collector, the eBPF program and the `croft` CLI.
@@ -82,6 +82,7 @@ CROFT_ROTATE_SECS     dataset rotation by age
 CROFT_RETAIN_BYTES    dataset retention by size
 CROFT_RETAIN_DAYS     dataset retention by age
 KUBECONFIG            ~/.kube/croft-k3s.yaml for the lab cluster
+CROFT_NODE            the node that pins a run's pods, for the just samples recipes
 JUPYTER_TOKEN         JupyterLab token, in research/.env
 ```
 

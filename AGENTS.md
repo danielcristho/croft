@@ -23,5 +23,8 @@ code; read the others when the task touches their topic.
 The results so far support "croft reacts earlier". They do not support "croft
 predicts a burst" or "croft improves the SLO", so do not write those claims.
 
-Reply to the user in plain, short Indonesian with the idea first. Work as a
-critical peer: question weak claims and give a recommendation.
+Work as a critical peer: question weak claims and give a recommendation.
+
+Notes for one checkout, such as its real hosts and team preferences, live in the
+gitignored `.local/`. If `.local/AGENTS.md` exists, read it too. Nothing in a
+committed file may depend on it.

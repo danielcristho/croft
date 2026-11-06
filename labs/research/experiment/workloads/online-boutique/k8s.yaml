@@ -916,13 +916,3 @@ spec:
               number: 80
         path: /
         pathType: Prefix
-  - host: boutique.100.64.0.10.sslip.io
-    http:
-      paths:
-      - backend:
-          service:
-            name: frontend
-            port:
-              number: 80
-        path: /
-        pathType: Prefix

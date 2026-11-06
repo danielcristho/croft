@@ -225,3 +225,6 @@ labs/k3s-cluster/hosts.ini
 
 # Working design notes, kept local
 /docs/
+
+# Notes and settings for one checkout
+/.local/
