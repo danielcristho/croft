@@ -47,11 +47,13 @@ def knee(table: list[tuple[int, float]]) -> int | None:
 def smoke(directory: Path) -> int:
     pairs = sorted({(row["src"], row["dst"]) for row in rows(directory / "edges.csv")})
     services = {row["service"] for row in rows(directory / "services.csv")}
+    signals = {(row["service"], row["signal"]) for row in rows(directory / "signals.csv")}
     print(f"{directory.name}: {len(pairs)} edges, {len(services)} services")
     for src, dst in pairs:
         print(f"  {src} -> {dst}")
     problems = [p for p, bad in [("no ingress -> frontend edge in edges.csv", ("ingress", "frontend") not in pairs),
-                                 ("services.csv is missing or empty", not services)] if bad]
+                                 ("services.csv is missing or empty", not services),
+                                 ("no frontend syscalls in signals.csv", ("frontend", "syscall_rate") not in signals)] if bad]
     for problem in problems:
         print(f"  PROBLEM: {problem}")
     return 1 if problems else 0

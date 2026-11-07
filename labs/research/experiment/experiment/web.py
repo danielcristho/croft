@@ -139,11 +139,12 @@ def pods(app: App, since_ms: int) -> list[dict]:
     return found
 
 
-# export_series writes the app's Prometheus series for the window and, with the mesh, its call graph and every
-# service's resources; it returns the mesh for the run record.
+# export_series writes the app's Prometheus series and collector signals for the window and, with the mesh, its call
+# graph and every service's resources; it returns the mesh for the run record.
 def export_series(app: App, directory: Path, start_ms: int, end_ms: int, mesh: bool) -> str | None:
     start_s, end_s = start_ms // 1000, end_ms // 1000
     prometheus.export(directory / "prometheus.csv", app.namespace, app.deployment, start_s, end_s)
+    prometheus.export_signals(directory / "signals.csv", app.namespace, start_s, end_s)
     if not mesh:
         return None
     linkerd.export_edges(directory / "edges.csv", app.namespace, app.deployment, start_s, end_s)

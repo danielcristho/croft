@@ -54,6 +54,27 @@ class LinkerdTest(unittest.TestCase):
         with mock.patch.object(prometheus, "query_range", answer):
             self.assertEqual(prometheus.series("response_total", 0, 1), {100: 20.0, 105: 580.0})
 
+    def test_signal_query_joins_the_app_pod_and_leaves_out_the_proxy(self) -> None:
+        query = prometheus.signal_query("boutique", "m_total", ("syscall",), True)
+        self.assertIn("rate(m_total[15s]) * on (container_id) group_left (pod)", query)
+        self.assertIn('namespace="boutique",container!="linkerd-proxy"', query)
+        self.assertIn("sum by (service, syscall)", query)
+        self.assertNotIn("rate(", prometheus.signal_query("boutique", "m", (), False))
+
+    def test_signals_csv_is_long_and_joins_multiple_labels(self) -> None:
+        def result(query: str, start_s: int, end_s: int) -> list[dict]:
+            if "croft_container_connects_total" not in query:
+                return []
+            metric = {"service": "frontend", "address": "10.0.0.1", "port": "53"}
+            return [{"metric": metric, "values": [[10, "2.5"]]}]
+
+        with tempfile.TemporaryDirectory() as directory, mock.patch.object(prometheus, "query_range", result):
+            path = Path(directory) / "signals.csv"
+            prometheus.export_signals(path, "boutique", 0, 20)
+            with path.open(newline="") as f:
+                rows = list(csv.DictReader(f))
+        self.assertEqual(rows, [{"unix_s": "10", "service": "frontend", "signal": "connects_s", "key": "10.0.0.1:53", "value": "2.5"}])
+
     def test_edges_csv_holds_ingress_and_meshed_calls(self) -> None:
         with mock.patch.object(prometheus, "query_range", answer), tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "edges.csv"

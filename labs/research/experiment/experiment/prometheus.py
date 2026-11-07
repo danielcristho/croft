@@ -12,6 +12,17 @@ PROMETHEUS = os.environ.get("PROM_HOST", "http://prometheus.127.0.0.1.sslip.io:3
 STEP_S = 5
 # rate needs at least two samples per window; cAdvisor is scraped every 10 s, so 30 s drops pods at random.
 WINDOW = "1m"
+# The collector is scraped every 5 s, so 15 s holds three samples and keeps the signal's timing.
+SIGNAL_WINDOW = "15s"
+# Each collector series: its labels beyond the container, and whether it is a counter.
+SIGNALS = {
+    "syscall_rate": ("croft_container_syscall_rate", ("syscall",), False),
+    "syscall_bytes_s": ("croft_container_syscall_bytes_total", ("syscall",), True),
+    "socket_io_s": ("croft_container_socket_io_total", ("direction",), True),
+    "connects_s": ("croft_container_connects_total", ("address", "port"), True),
+    "cpu_cores": ("croft_container_cpu_cores", (), False),
+    "runqueue_wait": ("croft_container_runqueue_wait", (), False),
+}
 
 
 def queries(namespace: str, deployment: str) -> dict[str, str]:
@@ -65,3 +76,27 @@ def export(path: Path, namespace: str, deployment: str, start_s: int, end_s: int
         writer.writerow(["unix_s", *columns])
         for timestamp in timestamps:
             writer.writerow([timestamp, *(columns[name].get(timestamp, "") for name in columns)])
+
+
+# signal_query joins on container_id because a collector series names the collector's pod. Zero rates are dropped,
+# and the linkerd-proxy sidecar stays out, as in queries.
+def signal_query(namespace: str, metric: str, labels: tuple[str, ...], counter: bool) -> str:
+    source = f"rate({metric}[{SIGNAL_WINDOW}])" if counter else metric
+    pods = f'kube_pod_container_info{{namespace="{namespace}",container!="linkerd-proxy"}}'
+    ids = f'label_replace({pods}, "container_id", "$1", "container_id", ".*://(.+)")'
+    joined = f"{source} * on (container_id) group_left (pod) {ids}"
+    by = ", ".join(("service", *labels))
+    return f'sum by ({by}) (label_replace({joined}, "service", "$1", "pod", "(.+)-[^-]+-[^-]+")) > 0'
+
+
+# export_signals records the collector's series for every service, in long form since their labels differ.
+def export_signals(path: Path, namespace: str, start_s: int, end_s: int) -> None:
+    rows = []
+    for signal, (metric, labels, counter) in SIGNALS.items():
+        query = signal_query(namespace, metric, labels, counter)
+        for (service, *key), values in series_by(query, ("service", *labels), start_s, end_s).items():
+            rows.extend((timestamp, service, signal, ":".join(key), value) for timestamp, value in values.items())
+    with path.open("w", newline="") as out:
+        writer = csv.writer(out)
+        writer.writerow(["unix_s", "service", "signal", "key", "value"])
+        writer.writerows(sorted(rows))

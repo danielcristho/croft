@@ -597,7 +597,7 @@ It is a separate study from the comparison series: `--mesh` adds a proxy to ever
    linkerd viz edges deploy -n <namespace>
    ```
    The first `--mesh` run restarts the whole application to add the proxies.
-3. Check the smoke run: `edges.csv` has an `ingress → frontend` edge and the calls `linkerd viz edges` lists, `services.csv` has every Deployment, and `kubectl get hpa -n <namespace>` reads a value.
+3. Check the smoke run: `edges.csv` has an `ingress → frontend` edge and the calls `linkerd viz edges` lists, `services.csv` has every Deployment, `signals.csv` has the frontend's `syscall_rate`, and `kubectl get hpa -n <namespace>` reads a value.
 
 > **Note**
 > The proxy costs CPU and latency. Rerun one burst of each application with `--mesh` next to the [reference run](#15-reference-run), and report both.

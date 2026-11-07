@@ -149,4 +149,6 @@ During the first interaction series the control plane used about 2.5 to 3.4 core
 
 `prometheus.csv` has a 5 s step with `rate()` over 1 minute. `edges.csv` and `services.csv` use a 30 s window.
 
+`signals.csv` holds the collector's series for every service, in long form (`unix_s`, `service`, `signal`, `key`, `value`), with a 5 s step, `rate()` over 15 s for counters and without the Linkerd proxy. A missing row means zero. Runs before this file existed can be exported while Prometheus keeps them, 10 days.
+
 The collector image running on the cluster is `croft-collector:operands`, while the manifests name `croft-collector:dev`.

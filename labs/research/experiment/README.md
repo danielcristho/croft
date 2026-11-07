@@ -208,6 +208,7 @@ data/
         ├── workload.csv         open-loop runs: target and achieved RPS, latency, per second
         ├── locust_*.csv         Locust runs: stats, history, failures, exceptions
         ├── prometheus.csv       cpu_cores, cpu_throttled_fraction, memory_bytes, network, restarts, replicas
+        ├── signals.csv          collector series of every service, per 5 s: syscalls, bytes, socket I/O, connects, CPU
         ├── timeline.json        HPA rescales, replica set changes from any scaler, pod created and Ready times
         ├── edges.csv            --mesh: request rate, success rate, p50 and p95 per caller and callee, every 5 s
         ├── services.csv         --mesh: CPU, throttled share, memory, restarts and replicas of every Deployment
