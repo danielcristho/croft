@@ -3,7 +3,7 @@ title: Croft
 description: Autoscaling that reacts to what processes do in the kernel.
 template: splash
 hero:
-  tagline: Read each pod's request rate through eBPF and its CPU pressure from cgroups, notice a workload burst within seconds, and add replicas earlier than a CPU-based autoscaler.
+  tagline: Read each pod's request rate through eBPF and its CPU pressure from cgroups, and scale on the requests themselves, without waiting for average CPU to climb.
   actions:
     - text: Introduction
       link: /croft/start/introduction/
@@ -20,12 +20,12 @@ hero:
 import { Card, CardGrid } from '@astrojs/starlight/components';
 
 :::note[Status]
-The collector records a dataset; nothing scales yet. Early burst detection is measured offline against the HPA; the detector and the scaler are not validated.
+Croft is experimental and runs in a lab cluster, not in production. The comparison of `croft scale` with the HPA is still running, so this project does not yet claim an improvement.
 :::
 
 <CardGrid>
 	<Card title="Sees requests before CPU" icon="rocket">
-		A web server answers each request with about two `sendto` calls. Their rate is the request rate, seen from inside the node, within one 2 s poll of a burst.
+		A web server makes a steady number of syscalls per request, measured for each application. Their rate is the request rate, seen from inside the node, polled every 2 s.
 	</Card>
 	<Card title="eBPF, /proc and cgroups" icon="puzzle">
 		eBPF for events no file keeps: syscalls, waits for a CPU, calls into the GPU driver. Files for the counters the kernel already keeps.
@@ -38,4 +38,4 @@ The collector records a dataset; nothing scales yet. Early burst detection is me
 	</Card>
 </CardGrid>
 
-![Architecture: the kernel reports a web app's syscalls through eBPF to a collector on each node. The collector writes a dataset and serves metrics to Prometheus and to croft scale, which sets the number of pods.](../../../../assets/architecture.svg)
+![croft architecture: inside the Linux kernel, eBPF programs and kernel files record syscall rates, bytes moved, CPU wait, connections, socket I/O, GPU use, CPU pressure and processes for your app's pods. The croft collector reads them every 2 seconds and writes a dataset, serves Prometheus and feeds croft scale, which sets the number of pods.](../../../../assets/architecture.svg)
