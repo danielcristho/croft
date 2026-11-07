@@ -14,6 +14,11 @@ si_preflight() {
   fi
 }
 
+# si_series name: a series name that cannot run into another run id.
+si_series() {
+  [[ $1 =~ ^[a-z][a-z0-9]*$ ]] || { echo "series $1 is not lowercase letters and digits"; return 1; }
+}
+
 # si_scales v...: every value is a positive number.
 si_scales() {
   for v in "$@"; do

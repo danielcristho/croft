@@ -242,6 +242,7 @@ def run_profile(app: App, prefix: str, name: str, scale: float, warmup: int, coo
         "run_id": run_id,
         "app": app.name,
         "load": "open-loop",
+        "generator": rps.GENERATOR,
         "profile": asdict(profile),
         "scale": scale,
         "replicas": replicas,

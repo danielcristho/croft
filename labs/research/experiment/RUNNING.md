@@ -629,9 +629,9 @@ for i in 1 2 3; do for app in hotel-reservation online-boutique otel-demo; do fo
 done; done; done; done
 ```
 
-`just samples interactions <hr-lo> <hr-hi> <ob-lo> <ob-hi> <otel-lo> <otel-hi>` runs this loop. It logs to `data/web/interactions.log`, records the scales in `data/web/interactions-scales.txt`, and when rerun after a failure it skips the runs already recorded. `just samples interactions-check` prints mesh, edges, backend restarts and ingress p95 per run.
+`just samples interactions <series> <hr-lo> <hr-hi> <ob-lo> <ob-hi> <otel-lo> <otel-hi>` runs this loop, with `<series>` in place of `si` in the run names. A name already recorded in `runs.jsonl` resumes that series, so a repeat of the study needs a new name such as `si2`. It logs to `data/web/interactions.log`, records the scales in `data/web/interactions-scales.txt`, and when rerun after a failure it skips the runs already recorded. `just samples interactions-check` prints mesh, edges, backend restarts and ingress p95 per run.
 
-Run it under `tmux` and read its output: a pipe through `grep` or `tail` hides a failed run. Afterwards, check that `data/web/si-*` holds 36 directories. Read `failed_pct` in `just samples interactions-check` too: ingress p95 can look healthy while requests fail fast.
+Run it under `tmux` and read its output: a pipe through `grep` or `tail` hides a failed run. Afterwards, check that `data/web/<series>-*` holds 36 directories. Read `failed_pct` in `just samples interactions-check <series>` too: ingress p95 can look healthy while requests fail fast.
 
 A comparison run after the series, without `--mesh`, removes the proxies and restarts the application first.
 
@@ -648,9 +648,9 @@ just samples mesh-prepare-app otel-demo <node-c>
 Once all three ramps finish, read `just samples mesh-capacity`. Each application's `lo` and `hi` come from its own ramp, so from its own node, since the nodes differ by up to 1.69 times. Then, one window each:
 
 ```sh
-just samples interactions-app hotel-reservation <node-a> <lo> <hi>
-just samples interactions-app online-boutique <node-b> <lo> <hi>
-just samples interactions-app otel-demo <node-c> <lo> <hi>
+just samples interactions-app <series> hotel-reservation <node-a> <lo> <hi>
+just samples interactions-app <series> online-boutique <node-b> <lo> <hi>
+just samples interactions-app <series> otel-demo <node-c> <lo> <hi>
 ```
 
 Each window runs that application's 12 runs (about 3 hours), logs to `data/web/interactions-<app>.log`, and resumes the same way after a failure. A run without `--concurrent` waits until all three have finished, and the other way round.

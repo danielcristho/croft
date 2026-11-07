@@ -98,50 +98,52 @@ mesh-capacity:
     @python3 -m experiment.interactions capacity
 
 # Service-interaction study, step 2 (about 8.5 hours): 3 samples x burst, ramp x lo, hi x 3 repetitions under the HPA with --mesh.
-# Stops at the first failed run; the same command again skips the recorded runs and resumes.
-interactions hr_lo hr_hi ob_lo ob_hi otel_lo otel_hi:
+# Stops at the first failed run; the same command again skips the recorded runs and resumes. A new series name starts over.
+interactions series hr_lo hr_hi ob_lo ob_hi otel_lo otel_hi:
     #!/usr/bin/env bash
     set -euo pipefail
     source interactions.sh
+    si_series {{ series }}
     si_scales {{ hr_lo }} {{ hr_hi }} {{ ob_lo }} {{ ob_hi }} {{ otel_lo }} {{ otel_hi }}
     declare -A scale=([hotel-reservation-lo]={{ hr_lo }} [hotel-reservation-hi]={{ hr_hi }} [online-boutique-lo]={{ ob_lo }}
                       [online-boutique-hi]={{ ob_hi }} [otel-demo-lo]={{ otel_lo }} [otel-demo-hi]={{ otel_hi }})
     mkdir -p data/web
     exec > >(tee -a data/web/interactions.log) 2>&1
-    echo "== interactions $(date -Is) at $(git rev-parse --short HEAD), node {{ node }}"
-    { echo "$(date -Is) $(git rev-parse HEAD)"; for k in "${!scale[@]}"; do echo "  $k ${scale[$k]}"; done | sort; } | tee -a data/web/interactions-scales.txt
+    echo "== interactions {{ series }} $(date -Is) at $(git rev-parse --short HEAD), node {{ node }}"
+    { echo "$(date -Is) $(git rev-parse HEAD) {{ series }}"; for k in "${!scale[@]}"; do echo "  $k ${scale[$k]}"; done | sort; } | tee -a data/web/interactions-scales.txt
     si_preflight
     start=$SECONDS; k=0
     for i in 1 2 3; do for app in hotel-reservation online-boutique otel-demo; do for p in burst ramp; do for s in lo hi; do
       k=$((k + 1))
-      si_run "$k/36, $(((SECONDS - start) / 60)) min in" "$app" {{ node }} "si-$app-$s-$i" "$p" "${scale[$app-$s]}"
+      si_run "$k/36, $(((SECONDS - start) / 60)) min in" "$app" {{ node }} "{{ series }}-$app-$s-$i" "$p" "${scale[$app-$s]}"
     done; done; done; done
-    echo "== done in $(((SECONDS - start) / 60)) min; $(find data/web -maxdepth 1 -type d \( -name 'si-*-burst' -o -name 'si-*-ramp' \) | wc -l) si-* runs (expect 36)"
-    python3 -m experiment.interactions summary
+    echo "== done in $(((SECONDS - start) / 60)) min; $(find data/web -maxdepth 1 -type d \( -name '{{ series }}-*-burst' -o -name '{{ series }}-*-ramp' \) | wc -l) {{ series }}-* runs (expect 36)"
+    python3 -m experiment.interactions summary {{ series }}
 
-# Step 2 for one sample on its own node, beside the other two (about 3 hours): just samples interactions-app otel-demo <node> <lo> <hi>.
-interactions-app app node lo hi:
+# Step 2 for one sample on its own node, beside the other two (about 3 hours): just samples interactions-app <series> otel-demo <node> <lo> <hi>.
+interactions-app series app node lo hi:
     #!/usr/bin/env bash
     set -euo pipefail
     source interactions.sh
+    si_series {{ series }}
     si_scales {{ lo }} {{ hi }}
     declare -A scale=([lo]={{ lo }} [hi]={{ hi }})
     mkdir -p data/web
     exec > >(tee -a data/web/interactions-{{ app }}.log) 2>&1
-    echo "== interactions-app {{ app }} $(date -Is) at $(git rev-parse --short HEAD), node {{ node }}"
-    echo "$(date -Is) $(git rev-parse HEAD) concurrent {{ app }}-lo {{ lo }} {{ app }}-hi {{ hi }} on {{ node }}" | tee -a data/web/interactions-scales.txt
+    echo "== interactions-app {{ series }} {{ app }} $(date -Is) at $(git rev-parse --short HEAD), node {{ node }}"
+    echo "$(date -Is) $(git rev-parse HEAD) {{ series }} concurrent {{ app }}-lo {{ lo }} {{ app }}-hi {{ hi }} on {{ node }}" | tee -a data/web/interactions-scales.txt
     si_preflight
     start=$SECONDS; k=0
     for i in 1 2 3; do for p in burst ramp; do for s in lo hi; do
       k=$((k + 1))
-      si_run "{{ app }} $k/12, $(((SECONDS - start) / 60)) min in" {{ app }} {{ node }} "si-{{ app }}-$s-$i" "$p" "${scale[$s]}" --concurrent
+      si_run "{{ app }} $k/12, $(((SECONDS - start) / 60)) min in" {{ app }} {{ node }} "{{ series }}-{{ app }}-$s-$i" "$p" "${scale[$s]}" --concurrent
     done; done; done
     echo "== {{ app }} done in $(((SECONDS - start) / 60)) min"
-    python3 -m experiment.interactions summary
+    python3 -m experiment.interactions summary {{ series }}
 
-# Acceptance columns of every service-interaction run: mesh, concurrent, edges, backend restarts, ingress p95.
-interactions-check:
-    @python3 -m experiment.interactions summary
+# Acceptance columns of a service-interaction series: mesh, concurrent, edges, backend restarts, ingress p95, failed requests.
+interactions-check series="si":
+    @python3 -m experiment.interactions summary {{ series }}
 
 # Measure croft scale's calibration on one pinned pod at constant loads (about 5 minutes).
 calibrate app levels="20 50 100" seconds="75":

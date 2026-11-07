@@ -2,7 +2,7 @@
 
   python3 -m experiment.interactions smoke <run-directory>   the call graph of a --mesh smoke run
   python3 -m experiment.interactions capacity                one meshed pod's capacity from <app>-mesh-cap-ramp
-  python3 -m experiment.interactions summary                 acceptance columns of every si-* run
+  python3 -m experiment.interactions summary [series]        acceptance columns of a series; default si
 """
 
 import csv
@@ -76,11 +76,11 @@ def capacity() -> int:
     return 0
 
 
-def summary() -> int:
+def summary(series: str = "si") -> int:
     runs = {}
     for line in (WEB / "runs.jsonl").read_text().splitlines() if (WEB / "runs.jsonl").exists() else []:
         record = json.loads(line)
-        if record["run_id"].startswith("si-"):
+        if record["run_id"].startswith(f"{series}-"):
             runs[record["run_id"]] = record
     print(f"{'run_id':<40} {'mesh':<8} {'concurrent':<10} {'edges':>5} {'restarts':>8} {'ingress_p95_ms':>14} {'failed_pct':>10}")
     for run_id, record in sorted(runs.items()):
@@ -97,7 +97,7 @@ def summary() -> int:
         failed = 100 * sum(float(row["failed"]) for row in workload) / sent if sent else float("nan")
         print(f"{run_id:<40} {str(record.get('mesh')):<8} {str(record.get('concurrent', False)):<10} {len({(e['src'], e['dst']) for e in edges}):>5} "
               f"{added:>8.0f} {statistics.median(p95) if p95 else float('nan'):>14.0f} {failed:>10.2f}")
-    print(f"\n{len(runs)} si-* runs; restarts is the largest restart increase of one service in the run; failed_pct is of the requests sent")
+    print(f"\n{len(runs)} {series}-* runs; restarts is the largest restart increase of one service in the run; failed_pct is of the requests sent")
     return 0
 
 
@@ -109,5 +109,7 @@ if __name__ == "__main__":
             sys.exit(capacity())
         case ["summary"]:
             sys.exit(summary())
+        case ["summary", series]:
+            sys.exit(summary(series))
         case _:
             sys.exit(__doc__)

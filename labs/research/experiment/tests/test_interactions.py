@@ -46,6 +46,17 @@ class Summary(unittest.TestCase):
         self.assertEqual(rows["si-otel-demo-hi-1-burst"][2], "False")
         self.assertIn("2 si-* runs", out.getvalue())
 
+    def test_summary_reads_one_series(self):
+        with tempfile.TemporaryDirectory() as directory, mock.patch.object(interactions, "WEB", Path(directory)):
+            lines = [{"run_id": "si-otel-demo-lo-1-burst"}, {"run_id": "si2-otel-demo-lo-1-burst"}]
+            (Path(directory) / "runs.jsonl").write_text("".join(json.dumps(line) + "\n" for line in lines))
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                interactions.summary("si2")
+        self.assertIn("si2-otel-demo-lo-1-burst", out.getvalue())
+        self.assertNotIn("\nsi-otel-demo-lo-1-burst", out.getvalue())
+        self.assertIn("1 si2-* runs", out.getvalue())
+
     def test_failed_column(self):
         with tempfile.TemporaryDirectory() as directory, mock.patch.object(interactions, "WEB", Path(directory)):
             lines = [{"run_id": "si-otel-demo-lo-1-burst"}, {"run_id": "si-otel-demo-hi-1-burst"}]
