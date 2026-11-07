@@ -6,8 +6,9 @@ pub const BOLD_CYAN: &str = "\x1b[1;36m";
 pub const DIM_GREY: &str = "\x1b[2;90m";
 pub const RESET: &str = "\x1b[0m";
 
-pub const ENTER_SCREEN: &str = "\x1b[?1049h\x1b[?25l";
-pub const LEAVE_SCREEN: &str = "\x1b[?25h\x1b[?1049l";
+// Wrapping stays off so a long row is clipped instead of pushing the header away; 1007 turns the mouse wheel into arrow keys.
+pub const ENTER_SCREEN: &str = "\x1b[?1049h\x1b[2J\x1b[?25l\x1b[?7l\x1b[?1007h";
+pub const LEAVE_SCREEN: &str = "\x1b[?1007l\x1b[?7h\x1b[?25h\x1b[?1049l";
 pub const HOME: &str = "\x1b[H";
 pub const CLEAR_LINE_END: &str = "\x1b[K";
 pub const CLEAR_BELOW: &str = "\x1b[J";

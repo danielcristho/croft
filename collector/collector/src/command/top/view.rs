@@ -26,6 +26,8 @@ const THROTTLED_HIGH: f64 = 20.0;
 const THROTTLED_MID: f64 = 5.0;
 const PSI_HIGH: f64 = 10.0;
 const PSI_MID: f64 = 2.0;
+const HEAD_LINES: usize = 4;
+const FOOT_LINES: usize = 1;
 
 pub struct Style {
     color: bool,
@@ -109,6 +111,44 @@ pub fn render(style: &Style, path: &Path, poll: &[Row], now_ms: u64, cores: usiz
         out.push_str(&line(style, row));
         out.push('\n');
     }
+    out
+}
+
+// visible_rows returns how many process rows fit under the header and above the footer.
+pub fn visible_rows(height: usize) -> usize {
+    height.saturating_sub(HEAD_LINES + FOOT_LINES)
+}
+
+// window keeps the header in place and shows the rows from offset, with the keys in the footer.
+pub fn window(
+    style: &Style,
+    path: &Path,
+    poll: &[Row],
+    now_ms: u64,
+    cores: usize,
+    offset: usize,
+    visible: usize,
+) -> String {
+    let mut out = title(style, path, poll, now_ms);
+    out.push_str(&meters(style, poll, cores));
+    out.push('\n');
+    out.push_str(&header(style));
+    let shown = &poll[offset.min(poll.len())..(offset + visible).min(poll.len())];
+    for row in shown {
+        out.push_str(&line(style, row));
+        out.push('\n');
+    }
+    let first = if shown.is_empty() { 0 } else { offset + 1 };
+    let keys = format!(
+        "q quit  arrows, PgUp, PgDn, Home, End scroll  {first}-{} of {}",
+        if shown.is_empty() {
+            0
+        } else {
+            offset + shown.len()
+        },
+        poll.len()
+    );
+    out.push_str(&style.paint(GREY, &keys));
     out
 }
 
@@ -315,6 +355,33 @@ mod tests {
             syscalls: Vec::new(),
             label: None,
         }
+    }
+
+    #[test]
+    fn window_keeps_the_header_and_fits_the_height() {
+        let mut rows: Vec<Row> = (0..10).map(|_| row("no-gpu", 0.1)).collect();
+        rows[3].tgid = 333;
+        let height = 8;
+        let frame = window(
+            &Style::new(false),
+            Path::new("d"),
+            &rows,
+            10_000,
+            4,
+            3,
+            visible_rows(height),
+        );
+        let lines: Vec<&str> = frame.lines().collect();
+        assert_eq!(lines.len(), height);
+        assert!(lines[3].contains("TGID"));
+        assert!(lines[4].contains("333"));
+        assert!(lines[7].ends_with("4-6 of 10"));
+    }
+
+    #[test]
+    fn window_without_rows_shows_none() {
+        let frame = window(&Style::new(false), Path::new("d"), &[], 10_000, 4, 5, 3);
+        assert!(frame.ends_with("0-0 of 0"));
     }
 
     #[test]

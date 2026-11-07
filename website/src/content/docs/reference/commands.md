@@ -42,6 +42,8 @@ croft top --once          # print once and exit
 croft top --interval 5
 ```
 
+On a terminal, the header stays in place while the rows scroll. Arrow keys, `j`, `k`, `PgUp`, `PgDn`, `Home` and `End` move the list, and `q` quits.
+
 ## stats
 
 ```sh
