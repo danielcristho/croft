@@ -46,6 +46,20 @@ class Summary(unittest.TestCase):
         self.assertEqual(rows["si-otel-demo-hi-1-burst"][2], "False")
         self.assertIn("2 si-* runs", out.getvalue())
 
+    def test_failed_column(self):
+        with tempfile.TemporaryDirectory() as directory, mock.patch.object(interactions, "WEB", Path(directory)):
+            lines = [{"run_id": "si-otel-demo-lo-1-burst"}, {"run_id": "si-otel-demo-hi-1-burst"}]
+            (Path(directory) / "runs.jsonl").write_text("".join(json.dumps(line) + "\n" for line in lines))
+            run = Path(directory) / "si-otel-demo-lo-1-burst"
+            run.mkdir()
+            (run / "workload.csv").write_text("sent,failed\n30,3\n10,5\n")
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                interactions.summary()
+        rows = {line.split()[0]: line.split() for line in out.getvalue().splitlines() if line.startswith("si-")}
+        self.assertEqual(rows["si-otel-demo-lo-1-burst"][-1], "20.00")
+        self.assertEqual(rows["si-otel-demo-hi-1-burst"][-1], "nan")
+
 
 if __name__ == "__main__":
     unittest.main()

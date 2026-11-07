@@ -983,10 +983,10 @@ spec:
         resources:
           requests:
             cpu: 100m
-            memory: 80Mi
+            memory: 512Mi
           limits:
             cpu: '1'
-            memory: 80Mi
+            memory: 512Mi
         env:
         - name: POSTGRES_PASSWORD
           value: changeit

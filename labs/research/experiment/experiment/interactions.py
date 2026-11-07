@@ -82,7 +82,7 @@ def summary() -> int:
         record = json.loads(line)
         if record["run_id"].startswith("si-"):
             runs[record["run_id"]] = record
-    print(f"{'run_id':<40} {'mesh':<8} {'concurrent':<10} {'edges':>5} {'restarts':>8} {'ingress_p95_ms':>14}")
+    print(f"{'run_id':<40} {'mesh':<8} {'concurrent':<10} {'edges':>5} {'restarts':>8} {'ingress_p95_ms':>14} {'failed_pct':>10}")
     for run_id, record in sorted(runs.items()):
         directory = WEB / run_id
         edges = rows(directory / "edges.csv")
@@ -92,9 +92,12 @@ def summary() -> int:
                 restarts[row["service"]].append(float(row["restarts"]))
         added = max((max(v) - min(v) for v in restarts.values()), default=0)
         p95 = [float(e["p95_ms"]) for e in edges if e["src"] == "ingress" and e["p95_ms"]]
+        workload = rows(directory / "workload.csv")
+        sent = sum(float(row["sent"]) for row in workload)
+        failed = 100 * sum(float(row["failed"]) for row in workload) / sent if sent else float("nan")
         print(f"{run_id:<40} {str(record.get('mesh')):<8} {str(record.get('concurrent', False)):<10} {len({(e['src'], e['dst']) for e in edges}):>5} "
-              f"{added:>8.0f} {statistics.median(p95) if p95 else float('nan'):>14.0f}")
-    print(f"\n{len(runs)} si-* runs; restarts is the largest restart increase of one service in the run")
+              f"{added:>8.0f} {statistics.median(p95) if p95 else float('nan'):>14.0f} {failed:>10.2f}")
+    print(f"\n{len(runs)} si-* runs; restarts is the largest restart increase of one service in the run; failed_pct is of the requests sent")
     return 0
 
 

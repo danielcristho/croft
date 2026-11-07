@@ -631,7 +631,7 @@ done; done; done; done
 
 `just samples interactions <hr-lo> <hr-hi> <ob-lo> <ob-hi> <otel-lo> <otel-hi>` runs this loop. It logs to `data/web/interactions.log`, records the scales in `data/web/interactions-scales.txt`, and when rerun after a failure it skips the runs already recorded. `just samples interactions-check` prints mesh, edges, backend restarts and ingress p95 per run.
 
-Run it under `tmux` and read its output: a pipe through `grep` or `tail` hides a failed run. Afterwards, check that `data/web/si-*` holds 36 directories.
+Run it under `tmux` and read its output: a pipe through `grep` or `tail` hides a failed run. Afterwards, check that `data/web/si-*` holds 36 directories. Read `failed_pct` in `just samples interactions-check` too: ingress p95 can look healthy while requests fail fast.
 
 A comparison run after the series, without `--mesh`, removes the proxies and restarts the application first.
 
