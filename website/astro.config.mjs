@@ -3,6 +3,7 @@ import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 
 export default defineConfig({
+	site: 'https://croft-cog.pages.dev',
 	// Diagrams live in the repository's assets/, shared with the README.
 	vite: { server: { fs: { allow: ['..'] } } },
 	integrations: [

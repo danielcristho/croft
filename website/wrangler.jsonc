@@ -1,6 +1,0 @@
-{
-	"name": "croft",
-	"compatibility_date": "2026-11-01",
-	// A static site: without this file wrangler adds a server adapter, and the build fails.
-	"assets": { "directory": "./dist" }
-}
