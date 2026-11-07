@@ -102,7 +102,7 @@ The `pre-commit` hook runs rustfmt, clippy and the tests when a staged change to
 ```sh
 cd website
 npm install
-npm run dev       # http://localhost:4321/croft/
+npm run dev       # http://localhost:4321/
 npm run build     # static site in website/dist
 ```
 

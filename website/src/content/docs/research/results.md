@@ -5,7 +5,7 @@ sidebar:
   order: 1
 ---
 
-Measured on the three-node [lab cluster](/croft/guides/lab-cluster/) with the [burst harness](/croft/guides/experiments/), against the HPA at a 70% CPU target.
+Measured on the three-node [lab cluster](/guides/lab-cluster/) with the [burst harness](/guides/experiments/), against the HPA at a 70% CPU target.
 
 | Load | Result |
 |---|---|

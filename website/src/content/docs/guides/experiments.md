@@ -5,7 +5,7 @@ sidebar:
   order: 5
 ---
 
-The harness in `labs/research/experiment` runs controlled workloads on the [lab cluster](/croft/guides/lab-cluster/) and records them so croft's dataset joins them exactly: every row carries the container id, so a run's rows are found by id, not by time.
+The harness in `labs/research/experiment` runs controlled workloads on the [lab cluster](/guides/lab-cluster/) and records them so croft's dataset joins them exactly: every row carries the container id, so a run's rows are found by id, not by time.
 
 The question behind the web experiments:
 

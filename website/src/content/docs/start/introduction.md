@@ -26,7 +26,7 @@ A web server answers each request with about two `sendto` calls, so their rate i
 | Open-loop burst, 5 → 75 RPS | croft's request rate reacts in 0–2 s; the HPA never scaled before the overloaded pod failed its probes |
 | Same request on three nodes | it costs 1.69× more CPU on the slowest; the HPA averaged 67% while one replica throttled 34% |
 
-[Results](/croft/research/results/) has the full table and its caveats.
+[Results](/research/results/) has the full table and its caveats.
 
 ## Pipeline
 
@@ -46,6 +46,6 @@ Each stage stays replaceable: a stage never depends on one to its right.
 
 ## Where to go next
 
-- [Quick start](/croft/start/quick-start/) runs the collector on one machine with Docker.
-- [Deploy on Kubernetes](/croft/guides/kubernetes/) runs one collector per node.
-- [Data sources](/croft/reference/data-sources/) lists what comes from eBPF and what from files.
+- [Quick start](/start/quick-start/) runs the collector on one machine with Docker.
+- [Deploy on Kubernetes](/guides/kubernetes/) runs one collector per node.
+- [Data sources](/reference/data-sources/) lists what comes from eBPF and what from files.

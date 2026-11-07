@@ -24,7 +24,7 @@ sudo mkdir -p /var/lib/croft
 just docker-up
 ```
 
-`just docker-up` runs the image with the flags it needs. Without `just`, see [Docker](/croft/guides/docker/).
+`just docker-up` runs the image with the flags it needs. Without `just`, see [Docker](/guides/docker/).
 
 ## Look at what it records
 
@@ -39,4 +39,4 @@ By default only processes holding a GPU get rows. To record every process of som
 WATCH_CGROUPS=docker-<container-id> just docker-up
 ```
 
-The dataset is in `/var/lib/croft/croft-dataset.jsonl`; [Dataset](/croft/reference/dataset/) describes a row.
+The dataset is in `/var/lib/croft/croft-dataset.jsonl`; [Dataset](/reference/dataset/) describes a row.

@@ -11,7 +11,7 @@ Every option of `croft run` has an environment variable, so the same image is co
 |---|---|---|
 | `DATASET_PATH` | `/var/lib/croft/croft-dataset.jsonl` | live dataset file; segments are written beside it |
 | `WATCH_CGROUPS` | empty | comma-separated substrings; every process in a matching cgroup gets rows, GPU or not |
-| `CROFT_FRAMEWORKS` | built in | path to a [framework catalog](/croft/reference/frameworks/) that replaces the built-in one |
+| `CROFT_FRAMEWORKS` | built in | path to a [framework catalog](/reference/frameworks/) that replaces the built-in one |
 | `CROFT_METRICS_ADDR` | empty | serve the latest poll at `http://ADDR/metrics`, e.g. `0.0.0.0:9464`; off when empty |
 | `CROFT_ROTATE_SECS` | `3600` | close the live file into a segment after this long |
 | `CROFT_ROTATE_BYTES` | `1073741824` | or once it reaches this size |

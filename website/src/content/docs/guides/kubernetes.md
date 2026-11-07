@@ -9,7 +9,7 @@ Every node has its own kernel, so the collector runs as a DaemonSet: one instanc
 
 ## Load the image
 
-The manifest uses `croft-collector:dev`, which no registry holds. Build it and load it into each node's containerd. On a k3s cluster set up by [the lab playbook](/croft/guides/lab-cluster/):
+The manifest uses `croft-collector:dev`, which no registry holds. Build it and load it into each node's containerd. On a k3s cluster set up by [the lab playbook](/guides/lab-cluster/):
 
 ```sh
 docker build -f deploy/docker/Dockerfile -t croft-collector:dev .
@@ -35,7 +35,7 @@ The DaemonSet runs privileged with `hostPID`, tolerates every taint and mounts t
 | `CROFT_METRICS_ADDR` | `0.0.0.0:9464` | serve the latest poll per container at `/metrics`, for `croft scale` |
 | `DATASET_PATH` | `/data/croft-dataset.jsonl` | the node's `/var/lib/croft` |
 
-[Configuration](/croft/reference/configuration/) lists the others.
+[Configuration](/reference/configuration/) lists the others.
 
 ## Upgrade
 

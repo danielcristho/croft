@@ -40,8 +40,8 @@ One JSON line per process per 2 s poll, in `/var/lib/croft/croft-dataset.jsonl`.
 | Field | Holds |
 |---|---|
 | `unix_ms`, `tgid` | time and process |
-| `process` | `comm`, `exe`, `cgroup`, `container_id`, `cwd` (names the project of a host process), `framework` ([catalog](/croft/reference/frameworks/); left out when none) |
-| `workload` | `gpu-onset`, `gpu-held` or `no-gpu` ([GPU states](/croft/reference/data-sources/#gpu-states)) |
+| `process` | `comm`, `exe`, `cgroup`, `container_id`, `cwd` (names the project of a host process), `framework` ([catalog](/reference/frameworks/); left out when none) |
+| `workload` | `gpu-onset`, `gpu-held` or `no-gpu` ([GPU states](/reference/data-sources/#gpu-states)) |
 | `ioctl_count`, `since_last_gpu_ioctl_ms` | GPU ioctls this poll, and time since the last one; left out without a GPU |
 | `usage` | process CPU, RSS, threads, context switches, I/O and network bytes per second, `runqueue_s` |
 | `cgroup_usage` | container `cpu_cores`, `cpu_throttled_fraction`, `memory_bytes`, `oom_kills`, PSI `*_pressure_avg10` |
@@ -61,7 +61,7 @@ Every hour, or at 1 GiB, the collector renames the live file to `croft-dataset-<
 └── croft-dataset-20261020T140000Z.jsonl.zst
 ```
 
-[Configuration](/croft/reference/configuration/) changes the limits. A live file left by an older collector becomes a segment on the first poll.
+[Configuration](/reference/configuration/) changes the limits. A live file left by an older collector becomes a segment on the first poll.
 
 ## Reading it
 

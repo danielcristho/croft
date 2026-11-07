@@ -32,7 +32,7 @@ Loads the eBPF programs, polls every 2 s and writes the dataset. Needs root.
 | `--retain-days` | `CROFT_RETAIN_DAYS` | `30` |
 | `--retain-bytes` | `CROFT_RETAIN_BYTES` | `10737418240` (10 GiB) |
 
-[Configuration](/croft/reference/configuration/) explains each.
+[Configuration](/reference/configuration/) explains each.
 
 ## top
 

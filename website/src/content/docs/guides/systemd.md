@@ -31,7 +31,7 @@ sudo systemctl enable --now croft-collector
 journalctl -u croft-collector -f
 ```
 
-The dataset lands in `/var/lib/croft/croft-dataset.jsonl`. Set [variables](/croft/reference/configuration/) with `Environment=` lines in the unit, for example `Environment=WATCH_CGROUPS=docker`.
+The dataset lands in `/var/lib/croft/croft-dataset.jsonl`. Set [variables](/reference/configuration/) with `Environment=` lines in the unit, for example `Environment=WATCH_CGROUPS=docker`.
 
 ## Try it without installing
 
