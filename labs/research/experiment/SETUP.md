@@ -87,6 +87,8 @@ Commit `789540f`, 2026-11-06 and 2026-11-07. These scales were not derived from 
 
 `otel-demo` in that series ran with `astronomy-db` at 80Mi, and 78 to 100% of its requests failed. The limit is now 512Mi.
 
+`product-catalog` was OOMKilled at 64Mi during a trial burst at scale 1.33 on 2026-11-08, and failures went on for two minutes after the burst. Its memory is now 256Mi; its CPU limit stays at 1 core.
+
 ## 4. Autoscaling
 
 Both arms start at one replica and stop at ten.
