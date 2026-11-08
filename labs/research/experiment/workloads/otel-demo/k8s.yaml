@@ -214,7 +214,7 @@ spec:
             cpu: 100m
             memory: 256Mi
           limits:
-            cpu: '1'
+            cpu: '2'
             memory: 256Mi
         env:
         - name: PRODUCT_CATALOG_PORT
@@ -985,7 +985,7 @@ spec:
             cpu: 100m
             memory: 512Mi
           limits:
-            cpu: '1'
+            cpu: '2'
             memory: 512Mi
         env:
         - name: POSTGRES_PASSWORD
