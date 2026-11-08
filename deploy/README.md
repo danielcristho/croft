@@ -11,7 +11,7 @@ Two paths are available:
 | Docker | none; the image builds its own | a quick install, or a host without Rust |
 | Native binary with systemd | Rust nightly, LLVM, `bpf-linker` | a long-running collector |
 
-On Kubernetes, the collector runs as a DaemonSet from `deploy/kubernetes/collector.yaml`.
+On Kubernetes, the collector runs as a DaemonSet, installed with the Helm chart in `deploy/helm/croft` or from `deploy/kubernetes/collector.yaml`.
 
 ## Directory structure
 
@@ -22,6 +22,8 @@ deploy/
 │   └── Dockerfile
 ├── systemd/
 │   └── croft-collector.service
+├── helm/
+│   └── croft/              the collector, and croft scale for the targets in values.yaml
 └── kubernetes/
     ├── collector.yaml      the collector as a DaemonSet
     └── scaler.yaml         croft scale, for the experiments

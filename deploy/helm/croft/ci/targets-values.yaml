@@ -1,0 +1,18 @@
+collector:
+  podMonitor:
+    enabled: true
+scaler:
+  targets:
+    - name: hotel-reservation
+      namespace: hotel-res
+      deployment: frontend
+      syscall: write
+      callsPerRequest: 11.4
+      cpuPerRequestMs: 1.6
+    - name: online-boutique
+      namespace: boutique
+      deployment: frontend
+      syscall: getpeername
+      callsPerRequest: 2.0
+      cpuPerRequestMs: 3.26
+      dryRun: true

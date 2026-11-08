@@ -1,0 +1,100 @@
+{{- if .Values.scaler.targets }}
+# One croft scale per target. It patches the Deployment's scale through a kubectl proxy sidecar.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Release.Name }}-scaler
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "croft.labels" . | nindent 4 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Release.Name }}-scaler
+  labels:
+    {{- include "croft.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get"]
+  - apiGroups: ["apps"]
+    resources: ["deployments/scale"]
+    verbs: ["get", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Release.Name }}-scaler
+  labels:
+    {{- include "croft.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ .Release.Name }}-scaler
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Release.Name }}-scaler
+    namespace: {{ .Release.Namespace }}
+{{- range .Values.scaler.targets }}
+{{- $required := "scaler.targets: each entry needs name, namespace, deployment, syscall, callsPerRequest and cpuPerRequestMs" }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: croft-scaler-{{ required $required .name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app: croft-scaler
+    target: {{ .name }}
+    {{- include "croft.labels" $ | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: croft-scaler
+      target: {{ .name }}
+  template:
+    metadata:
+      labels:
+        app: croft-scaler
+        target: {{ .name }}
+        {{- include "croft.labels" $ | nindent 8 }}
+    spec:
+      serviceAccountName: {{ $.Release.Name }}-scaler
+      containers:
+        - name: scaler
+          image: {{ include "croft.image" $ }}
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          args:
+            - scale
+            - --namespace={{ required $required .namespace }}
+            - --deployment={{ required $required .deployment }}
+            - --syscall={{ required $required .syscall }}
+            - --calls-per-request={{ required $required .callsPerRequest }}
+            - --cpu-per-request-ms={{ required $required .cpuPerRequestMs }}
+            - --target={{ .target | default 0.7 }}
+            - --max-replicas={{ .maxReplicas | default 10 }}
+            - --confirm-polls={{ .confirmPolls | default 2 }}
+            - --interval={{ .interval | default 2 }}
+            - --scale-down-window={{ .scaleDownWindow | default 300 }}
+            - --collectors-namespace={{ $.Release.Namespace }}
+            - --metrics-port={{ $.Values.collector.metricsPort }}
+            {{- if .dryRun }}
+            - --dry-run
+            {{- end }}
+          env:
+            - name: RUST_LOG
+              value: {{ $.Values.scaler.logLevel | quote }}
+          resources:
+            {{- toYaml $.Values.scaler.resources | nindent 12 }}
+        - name: proxy
+          image: {{ $.Values.scaler.proxyImage }}
+          args: ["proxy", "--port=8001", "--address=127.0.0.1"]
+          resources:
+            {{- toYaml $.Values.scaler.proxyResources | nindent 12 }}
+{{- end }}
+{{- end }}

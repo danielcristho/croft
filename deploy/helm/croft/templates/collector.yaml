@@ -1,0 +1,89 @@
+# croft scale finds the collectors by app=croft-collector, so that label stays.
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: croft-collector
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: croft-collector
+    {{- include "croft.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      app: croft-collector
+  template:
+    metadata:
+      labels:
+        app: croft-collector
+        {{- include "croft.labels" . | nindent 8 }}
+    spec:
+      hostPID: true
+      {{- with .Values.collector.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.collector.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: collector
+          image: {{ include "croft.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            privileged: true
+          env:
+            - name: RUST_LOG
+              value: {{ .Values.collector.logLevel | quote }}
+            - name: DATASET_PATH
+              value: /data/croft-dataset.jsonl
+            - name: WATCH_CGROUPS
+              value: {{ .Values.collector.watchCgroups | quote }}
+            - name: CROFT_METRICS_ADDR
+              value: "0.0.0.0:{{ .Values.collector.metricsPort }}"
+          ports:
+            - name: metrics
+              containerPort: {{ .Values.collector.metricsPort }}
+          resources:
+            {{- toYaml .Values.collector.resources | nindent 12 }}
+          volumeMounts:
+            - name: tracefs
+              mountPath: /sys/kernel/tracing
+              readOnly: true
+            - name: cgroup
+              mountPath: /sys/fs/cgroup
+              readOnly: true
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: tracefs
+          hostPath:
+            path: /sys/kernel/tracing
+        - name: cgroup
+          hostPath:
+            path: /sys/fs/cgroup
+        - name: data
+          hostPath:
+            path: {{ .Values.collector.hostDataPath }}
+            type: DirectoryOrCreate
+{{- if .Values.collector.podMonitor.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: croft-collector
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "croft.labels" . | nindent 4 }}
+    {{- with .Values.collector.podMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      app: croft-collector
+  podMetricsEndpoints:
+    - port: metrics
+      path: /metrics
+      interval: {{ .Values.collector.podMonitor.interval }}
+{{- end }}

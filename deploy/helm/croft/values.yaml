@@ -1,0 +1,57 @@
+image:
+  repository: ghcr.io/danielcristho/croft
+  # Empty uses the chart's appVersion.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+collector:
+  logLevel: info
+  # Cgroups whose processes are recorded even without a GPU.
+  watchCgroups: kubepods
+  metricsPort: 9464
+  hostDataPath: /var/lib/croft
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      memory: 512Mi
+  tolerations:
+    - operator: Exists
+  nodeSelector: {}
+  # Needs the Prometheus Operator CRDs.
+  podMonitor:
+    enabled: false
+    interval: 5s
+    labels: {}
+
+scaler:
+  logLevel: info
+  proxyImage: registry.k8s.io/kubectl:v1.36.4
+  resources:
+    requests:
+      cpu: 20m
+      memory: 16Mi
+    limits:
+      memory: 64Mi
+  proxyResources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      memory: 128Mi
+  # One croft scale per entry. Measure callsPerRequest and cpuPerRequestMs for the application first.
+  # Remove any HPA on the same Deployment: two autoscalers would fight.
+  targets: []
+  # - name: hotel-reservation
+  #   namespace: hotel-res
+  #   deployment: frontend
+  #   syscall: write
+  #   callsPerRequest: 11.4
+  #   cpuPerRequestMs: 1.6
+  #   target: 0.7
+  #   maxReplicas: 10
+  #   confirmPolls: 2
+  #   interval: 2
+  #   scaleDownWindow: 300
+  #   dryRun: false

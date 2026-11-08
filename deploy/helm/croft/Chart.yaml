@@ -1,0 +1,9 @@
+apiVersion: v2
+name: croft
+description: eBPF collector on every node, and croft scale for the Deployments listed in values
+type: application
+version: 0.1.0
+appVersion: "main"
+home: https://croft-cog.pages.dev
+sources:
+  - https://github.com/danielcristho/croft

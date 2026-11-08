@@ -7,9 +7,38 @@ sidebar:
 
 Every node has its own kernel, so the collector runs as a DaemonSet: one instance per node, each writing its own dataset to the node's `/var/lib/croft`.
 
+## Install with Helm
+
+CI publishes the image to `ghcr.io/danielcristho/croft` on every push to `main` (tag `main`) and on version tags. The chart installs the collector on every node:
+
+```sh
+helm install croft deploy/helm/croft -n croft --create-namespace
+kubectl -n croft get pods -o wide
+```
+
+To let croft scale a Deployment, add it to `scaler.targets` with its calibration, and remove the Deployment's HPA:
+
+```yaml
+# my-values.yaml
+scaler:
+  targets:
+    - name: hotel-reservation
+      namespace: hotel-res
+      deployment: frontend
+      syscall: write
+      callsPerRequest: 11.4
+      cpuPerRequestMs: 1.6
+```
+
+```sh
+helm upgrade croft deploy/helm/croft -n croft -f my-values.yaml
+```
+
+Each target gets its own `croft scale` Deployment. `dryRun: true` logs the decisions without changing replicas. `collector.podMonitor.enabled: true` adds a PodMonitor for the Prometheus Operator. `values.yaml` lists every option.
+
 ## Load the image
 
-The manifest uses `croft-collector:dev`, which no registry holds. Build it and load it into each node's containerd. On a k3s cluster set up by [the lab playbook](/guides/lab-cluster/):
+The manifests in `deploy/kubernetes/` use `croft-collector:dev`, which no registry holds. Build it and load it into each node's containerd. On a k3s cluster set up by [the lab playbook](/guides/lab-cluster/):
 
 ```sh
 docker build -f deploy/docker/Dockerfile -t croft-collector:dev .
