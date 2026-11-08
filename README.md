@@ -21,6 +21,10 @@ in the kernel first. A web server makes a steady number of syscalls per request,
 so the rate of one syscall gives the request rate, seen from inside the node.
 Multiplied by the CPU each request costs, it gives the replicas the load needs.
 
+<p align="center">
+  <img src="assets/scaling-flow.svg" width="760" alt="A burst of requests reaches a pod. The HPA reads its CPU every 15 seconds; croft reads its syscalls through eBPF every 2 seconds. Both set the number of replicas.">
+</p>
+
 Croft has two parts: a collector, which runs on every node and records what each
 process does, and `croft scale`, which sets the replica count of one Deployment
 from the collector's signals.
