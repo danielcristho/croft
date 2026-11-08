@@ -102,6 +102,19 @@ Both arms start at one replica and stop at ten.
 
 `hpa.yaml` sets no `behavior`, so the HPA uses the Kubernetes defaults.
 
+### Delay before a decision
+
+| Step | HPA | `croft scale` |
+|---|---|---|
+| Measurement | kubelet averages CPU over about 15 s | collector reads eBPF counters every 2 s |
+| Collection | metrics-server, `--metric-resolution=15s` | `croft scale` reads each collector's `/metrics` every 2 s, not through Prometheus |
+| Decision | controller loop, 15 s by default | after 2 polls that agree, at least 4 s |
+| Scale-up stabilization | 0 s by default | none |
+
+Checked on the cluster on 2026-11-08: metrics-server runs `--metric-resolution=15s`, and the frontend's samples covered 11 to 18 s windows and were 14 to 24 s old. The k3s server sets no HPA sync flag on its command line; `/etc/rancher/k3s/config.yaml` was not read, so the 15 s loop is the default, not a confirmed value. The HPA keeps these defaults because the comparison is with a stock HPA.
+
+The 2 s poll dates from the collector's first version and was not tuned. eBPF keeps the counts in the kernel, so a short poll costs a map read, not a scrape of every pod. The collector also writes its dataset every 2 s, so a shorter `croft scale` poll would read the same values again.
+
 `apps.json` holds the `croft scale` calibration:
 
 | Application | Syscall | Calls per request | CPU per request (ms) |
