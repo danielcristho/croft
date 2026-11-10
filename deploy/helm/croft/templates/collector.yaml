@@ -1,4 +1,3 @@
-# croft scale finds the collectors by app=croft-collector, so that label stays.
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:

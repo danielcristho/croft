@@ -1,5 +1,4 @@
 {{- if .Values.scaler.targets }}
-# One croft scale per target. It patches the Deployment's scale through a kubectl proxy sidecar.
 apiVersion: v1
 kind: ServiceAccount
 metadata:

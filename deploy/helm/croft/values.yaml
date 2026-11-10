@@ -40,18 +40,4 @@ scaler:
       memory: 32Mi
     limits:
       memory: 128Mi
-  # One croft scale per entry. Measure callsPerRequest and cpuPerRequestMs for the application first.
-  # Remove any HPA on the same Deployment: two autoscalers would fight.
   targets: []
-  # - name: hotel-reservation
-  #   namespace: hotel-res
-  #   deployment: frontend
-  #   syscall: write
-  #   callsPerRequest: 11.4
-  #   cpuPerRequestMs: 1.6
-  #   target: 0.7
-  #   maxReplicas: 10
-  #   confirmPolls: 2
-  #   interval: 2
-  #   scaleDownWindow: 300
-  #   dryRun: false
