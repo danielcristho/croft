@@ -323,3 +323,66 @@ sudo systemctl daemon-reload
 ```
 
 `/var/lib/croft` holds the dataset and is left in place.
+
+---
+
+# 11. Kubernetes with Helm
+
+The chart in `deploy/helm/croft` installs the collector on every node. The image is `ghcr.io/danielcristho/croft`, which CI publishes on every push to `main`.
+
+```sh
+helm install croft deploy/helm/croft -n croft --create-namespace
+kubectl -n croft get pods -o wide
+```
+
+## 11.1 Scale your own Deployment
+
+`scaler.targets` is empty by default, so the chart starts no `croft scale`. Add one entry per Deployment in your own values file:
+
+```yaml
+# my-values.yaml
+scaler:
+  targets:
+    - name: my-api            # names the croft scale Deployment
+      namespace: shop         # where the Deployment runs
+      deployment: api         # the Deployment to scale
+      syscall: write          # the syscall counted per request
+      callsPerRequest: 8.0    # calls of that syscall per request, on average
+      cpuPerRequestMs: 2.5    # CPU one request costs, on average
+      dryRun: true            # log decisions only; remove to scale
+```
+
+```sh
+helm upgrade --install croft deploy/helm/croft -n croft -f my-values.yaml
+kubectl -n croft logs deploy/croft-scaler-my-api -c scaler -f
+```
+
+Each entry starts its own `croft scale` Deployment. Remove the Deployment's HPA before turning `dryRun` off, or the two will fight over the replica count. An entry can also set `target` (default 0.7), `maxReplicas` (10), `confirmPolls` (2), `interval` (2 s) and `scaleDownWindow` (300 s). `values.yaml` lists the chart-wide options, such as `collector.podMonitor.enabled`.
+
+`ci/targets-values.yaml` is the input CI renders the chart with. It is not a list of supported workloads.
+
+## 11.2 Measure the three numbers
+
+`syscall`, `callsPerRequest` and `cpuPerRequestMs` differ per application and are averages, so they are rarely whole numbers. Measure them on one replica with no autoscaler:
+
+```text
+1. scale the Deployment to 1 replica and remove its HPA
+2. send constant load at a known rate R, for example 20 RPS, for 3 minutes
+3. repeat at two more rates, for example 50 and 100 RPS
+```
+
+At each rate, read the collector's signals for the pod's container, from Prometheus with `collector.podMonitor.enabled: true`:
+
+```promql
+avg_over_time(croft_container_syscall_rate{container_id="<id>"}[2m]) / R
+avg_over_time(croft_container_cpu_cores{container_id="<id>"}[2m]) * 1000 / R
+```
+
+The first gives calls per request for every syscall, the second the CPU milliseconds per request. `kubectl get pod <pod> -o jsonpath='{.status.containerStatuses[0].containerID}'` gives the container id after `containerd://`.
+
+Choose the syscall whose calls per request change least across the three rates, and take its mean as `callsPerRequest`. Take the CPU per request at the highest rate as `cpuPerRequestMs`, since a fixed idle cost inflates it at low rates.
+
+The experiment harness does the same for its three applications with `just samples calibrate <app>`; see [RUNNING.md section 8](../labs/research/experiment/RUNNING.md#8-calibrate-an-application).
+
+> **Note**
+> The numbers hold while the mix of requests stays the same. If clients start calling a path with more or fewer syscalls per request, croft misjudges the request rate. Calibrate again when the traffic mix changes.

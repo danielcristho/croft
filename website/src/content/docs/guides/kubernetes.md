@@ -16,25 +16,56 @@ helm install croft deploy/helm/croft -n croft --create-namespace
 kubectl -n croft get pods -o wide
 ```
 
-To let croft scale a Deployment, add it to `scaler.targets` with its calibration, and remove the Deployment's HPA:
+`scaler.targets` is empty by default, so the chart starts no `croft scale`. To let croft scale a Deployment, add one entry per Deployment in your own values file:
 
 ```yaml
 # my-values.yaml
 scaler:
   targets:
-    - name: hotel-reservation
-      namespace: hotel-res
-      deployment: frontend
-      syscall: write
-      callsPerRequest: 11.4
-      cpuPerRequestMs: 1.6
+    - name: my-api            # names the croft scale Deployment
+      namespace: shop         # where the Deployment runs
+      deployment: api         # the Deployment to scale
+      syscall: write          # the syscall counted per request
+      callsPerRequest: 8.0    # calls of that syscall per request, on average
+      cpuPerRequestMs: 2.5    # CPU one request costs, on average
+      dryRun: true            # log decisions only; remove to scale
 ```
 
 ```sh
-helm upgrade croft deploy/helm/croft -n croft -f my-values.yaml
+helm upgrade --install croft deploy/helm/croft -n croft -f my-values.yaml
+kubectl -n croft logs deploy/croft-scaler-my-api -c scaler -f
 ```
 
-Each target gets its own `croft scale` Deployment. `dryRun: true` logs the decisions without changing replicas. `collector.podMonitor.enabled: true` adds a PodMonitor for the Prometheus Operator. `values.yaml` lists every option.
+Each entry starts its own `croft scale` Deployment. Remove the Deployment's HPA before turning `dryRun` off, or the two will fight over the replica count. An entry can also set `target` (default 0.7), `maxReplicas` (10), `confirmPolls` (2), `interval` (2 s) and `scaleDownWindow` (300 s). `collector.podMonitor.enabled: true` adds a PodMonitor for the Prometheus Operator; `values.yaml` lists the other chart-wide options.
+
+`ci/targets-values.yaml` in the chart is the input CI renders it with, not a list of supported workloads.
+
+### Measure the three numbers
+
+`syscall`, `callsPerRequest` and `cpuPerRequestMs` differ per application. They are averages, so they are rarely whole numbers: a request may write 8 times or 9, and logs or health checks add calls that no request made.
+
+Measure them on one replica with no autoscaler. Send constant load at a known rate `R` for 3 minutes, at three rates such as 20, 50 and 100 RPS, and read the collector's signals for the pod's container from Prometheus:
+
+```promql
+avg_over_time(croft_container_syscall_rate{container_id="<id>"}[2m]) / R
+avg_over_time(croft_container_cpu_cores{container_id="<id>"}[2m]) * 1000 / R
+```
+
+The first gives calls per request for every syscall, the second the CPU milliseconds per request. The container id is the part after `containerd://` in `kubectl get pod <pod> -o jsonpath='{.status.containerStatuses[0].containerID}'`.
+
+Choose the syscall whose calls per request change least across the three rates, and take its mean as `callsPerRequest`. Take the CPU per request at the highest rate as `cpuPerRequestMs`, since a fixed idle cost inflates it at low rates.
+
+`croft scale` turns them into replicas. Hotel Reservation's frontend uses `write`, 11.4 calls and 1.6 ms per request; with 2,280 `write` calls a second, a 200m limit and a 70% target:
+
+```text
+requests/s = 2280 / 11.4                  = 200
+replicas   = ceil(200 x 1.6 ms / (200m x 0.7))
+           = ceil(0.32 / 0.14)            = 3
+```
+
+:::caution
+The numbers hold while the mix of requests stays the same. If clients start calling a path with more or fewer syscalls per request, croft misjudges the request rate. Calibrate again when the traffic mix changes.
+:::
 
 ## Load the image
 
