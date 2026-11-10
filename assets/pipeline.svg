@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1098 246" width="1098" height="246" role="img" aria-label="croft pipeline: eBPF in the kernel feeds the collector, which writes a dataset and serves /metrics; croft scale reads /metrics and sets the Deployment's replicas.">
+<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#4A4A4A"/></marker></defs>
+<style>text { fill: #1F1F1F; font-family: Inter, "Helvetica Neue", Arial, sans-serif; font-size: 18px; font-weight: 600; text-anchor: middle; dominant-baseline: central; }</style>
+<rect width="1098" height="246" fill="#FFFFFF"/>
+<rect x="24" y="24" width="170" height="64" rx="10" fill="#FFFFFF" stroke="#4A4A4A" stroke-width="2"/>
+<text x="109.0" y="56.0">eBPF in kernel</text>
+<rect x="244" y="24" width="170" height="64" rx="10" fill="#FFFFFF" stroke="#1BAF7A" stroke-width="2"/>
+<text x="329.0" y="56.0">collector</text>
+<rect x="464" y="24" width="170" height="64" rx="10" fill="#FFFFFF" stroke="#4A4A4A" stroke-width="2"/>
+<text x="549.0" y="56.0">/metrics</text>
+<rect x="684" y="24" width="170" height="64" rx="10" fill="#FFFFFF" stroke="#1BAF7A" stroke-width="2"/>
+<text x="769.0" y="56.0">croft scale</text>
+<rect x="904" y="24" width="170" height="64" rx="10" fill="#FFFFFF" stroke="#4A4A4A" stroke-width="2"/>
+<text x="989.0" y="56.0">replicas</text>
+<polyline points="194,56.0 242,56.0" fill="none" stroke="#4A4A4A" stroke-width="2" marker-end="url(#arrow)"/>
+<polyline points="414,56.0 462,56.0" fill="none" stroke="#4A4A4A" stroke-width="2" marker-end="url(#arrow)"/>
+<polyline points="634,56.0 682,56.0" fill="none" stroke="#4A4A4A" stroke-width="2" marker-end="url(#arrow)"/>
+<polyline points="854,56.0 902,56.0" fill="none" stroke="#4A4A4A" stroke-width="2" marker-end="url(#arrow)"/>
+<rect x="244" y="158" width="170" height="64" rx="10" fill="#FFFFFF" stroke="#4A4A4A" stroke-width="2"/>
+<text x="329.0" y="190.0">dataset</text>
+<polyline points="329.0,88 329.0,156" fill="none" stroke="#4A4A4A" stroke-width="2" marker-end="url(#arrow)"/>
+</svg>

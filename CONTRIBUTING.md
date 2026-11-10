@@ -20,17 +20,11 @@ croft reads what processes do in the kernel and decides when to scale. The
 scaler is built for Kubernetes and not yet validated against the HPA; Docker
 Swarm and Nomad are not built.
 
-```text
-kernel tracepoints (eBPF)
-       |
-       v
-collector ──> dataset (JSON Lines, one row per process per 2 s poll)
-       |
-       └────> /metrics (per container, latest poll)
-                  |
-                  v
-          croft scale ──> Kubernetes Deployment replicas
-```
+<p align="center">
+  <img src="assets/pipeline.svg" width="760" alt="croft pipeline: eBPF in the kernel feeds the collector, which writes a dataset and serves /metrics; croft scale reads /metrics and sets the Deployment's replicas.">
+</p>
+
+The collector polls the eBPF maps every 2 s. It appends one row per process to the dataset, in JSON Lines, and serves the latest poll per container on `/metrics`. `croft scale` reads `/metrics` and sets the Deployment's replicas.
 
 Each stage stays replaceable: a stage never depends on one to its right.
 
