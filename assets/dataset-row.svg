@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 958 246" width="958" height="246" role="img" aria-label="How a dataset row is produced: kernel tracepoints update eBPF maps; every 2 seconds the collector reads the maps, adds /proc and cgroup files, and writes one dataset row per process.">
+<defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#4A4A4A"/></marker></defs>
+<style>text { fill: #1F1F1F; font-family: Inter, "Helvetica Neue", Arial, sans-serif; font-size: 18px; font-weight: 600; text-anchor: middle; dominant-baseline: central; }</style>
+<rect width="958" height="246" fill="#FFFFFF"/>
+<rect x="24" y="24" width="190" height="64" rx="10" fill="#FFFFFF" stroke="#4A4A4A" stroke-width="2"/>
+<text x="119.0" y="56.0">Kernel tracepoints</text>
+<rect x="264" y="24" width="190" height="64" rx="10" fill="#FFFFFF" stroke="#4A4A4A" stroke-width="2"/>
+<text x="359.0" y="56.0">eBPF maps</text>
+<rect x="504" y="24" width="190" height="64" rx="10" fill="#FFFFFF" stroke="#1BAF7A" stroke-width="2"/>
+<text x="599.0" y="56.0">Poll every 2 s</text>
+<rect x="744" y="24" width="190" height="64" rx="10" fill="#FFFFFF" stroke="#4A4A4A" stroke-width="2"/>
+<text x="839.0" y="56.0">Dataset row</text>
+<polyline points="214,56.0 262,56.0" fill="none" stroke="#4A4A4A" stroke-width="2" marker-end="url(#arrow)"/>
+<polyline points="454,56.0 502,56.0" fill="none" stroke="#4A4A4A" stroke-width="2" marker-end="url(#arrow)"/>
+<polyline points="694,56.0 742,56.0" fill="none" stroke="#4A4A4A" stroke-width="2" marker-end="url(#arrow)"/>
+<rect x="504" y="158" width="190" height="64" rx="10" fill="#FFFFFF" stroke="#4A4A4A" stroke-width="2"/>
+<text x="599.0" y="190.0">/proc and cgroup</text>
+<polyline points="599.0,158 599.0,90" fill="none" stroke="#4A4A4A" stroke-width="2" marker-end="url(#arrow)"/>
+</svg>

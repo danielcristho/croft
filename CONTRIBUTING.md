@@ -59,20 +59,18 @@ croft/
 
 ## How a dataset row is produced
 
-```text
-sys_enter tracepoint ──> SYSCALL_BY_TYPE map (cumulative count per process and syscall)
-GPU tracepoints ──> GPU_FDS, GPU_ACTIVITY maps (GPU device fds, ioctls sent through them)
-                                  |
-              every 2 s, userspace reads the maps and turns
-              the counts into per-second rates
-                                  |
-           + /proc (identity, CPU, memory, I/O, network per process)
-           + cgroup v2 (CPU, throttling, memory, PSI per container)
-                                  |
-                                  v
-            one JSON line per process in /var/lib/croft/croft-dataset.jsonl,
-            rotated hourly into zstd segments beside it
-```
+<p align="center">
+  <img src="assets/dataset-row.svg" width="760" alt="How a dataset row is produced: kernel tracepoints update eBPF maps; every 2 seconds the collector reads the maps, adds /proc and cgroup files, and writes one dataset row per process.">
+</p>
+
+| Step | What happens |
+|---|---|
+| Kernel tracepoints | `sys_enter` counts calls per process and syscall in `SYSCALL_BY_TYPE`; GPU tracepoints fill `GPU_FDS` and `GPU_ACTIVITY` with GPU device fds and the ioctls sent through them; `sched` tracepoints add run queue wait per process |
+| Poll every 2 s | userspace reads the maps and turns the counts into per-second rates |
+| `/proc` and cgroup | `/proc` adds identity, framework, CPU, memory, I/O and network per process; cgroup v2 adds CPU, throttling, memory and PSI per container |
+| Dataset row | one JSON line per process in `/var/lib/croft/croft-dataset.jsonl`, rotated hourly into zstd segments beside it |
+
+The README's [What it reads](README.md#what-it-reads) table lists every tracepoint and file the collector reads.
 
 - `collector-ebpf/src/` holds the programs attached to the tracepoints
   (`syscalls.rs`, `gpu.rs`, and `exit.rs`, which clears a process's state when it
