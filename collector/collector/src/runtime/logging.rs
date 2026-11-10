@@ -5,7 +5,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use log::Level;
+use log::{Level, LevelFilter};
 
 use crate::runtime::ansi::{
     BADGE_DEBUG, BADGE_ERROR, BADGE_INFO, BADGE_TRACE, BADGE_WARN, BOLD, BOLD_BLUE, BOLD_GREEN,
@@ -90,7 +90,10 @@ fn local_time() -> String {
 // init sets up the log formatter and initializes the logger.
 pub fn init() {
     let color = std::env::var_os(NO_COLOR_ENV).is_none();
-    env_logger::Builder::from_default_env()
+    // RUST_LOG overrides the info default.
+    env_logger::Builder::new()
+        .filter_level(LevelFilter::Info)
+        .parse_default_env()
         .format(move |buf, record| {
             let level = record.level();
             let target = module(record.target());

@@ -17,7 +17,7 @@ Every option of `croft run` has an environment variable, so the same image is co
 | `CROFT_ROTATE_BYTES` | `1073741824` | or once it reaches this size |
 | `CROFT_RETAIN_DAYS` | `30` | delete segments older than this |
 | `CROFT_RETAIN_BYTES` | `10737418240` | delete the oldest segments while all of them exceed this |
-| `RUST_LOG` | `info` | log level; `debug` also logs `gpu-held` rows |
+| `RUST_LOG` | `info` | log level, for every command; `debug` also logs `gpu-held` rows and each `croft scale` poll |
 
 `0` turns a rotation or retention limit off.
 
