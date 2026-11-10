@@ -95,6 +95,8 @@ Every poll it reads the collectors' `/metrics`, turns the syscall rate of the De
 | `--confirm-polls` | `2` polls asking for more before scaling |
 | `--interval` | `2` s |
 | `--api` | `http://127.0.0.1:8001`, through `kubectl proxy` |
-| `--dry-run` | log decisions without changing replicas |
+| `--dry-run` | log decisions without changing replicas; a decision repeated while the replicas stay put is logged once, until the need matches the replicas again |
 
 `deploy/kubernetes/scaler.yaml` runs it next to a `kubectl proxy` sidecar, one per Deployment.
+
+Run by hand, it needs `kubectl proxy --port=8001` in another terminal; without it every poll logs `Connection refused`. `RUST_LOG=debug` logs the rate and need of every poll.

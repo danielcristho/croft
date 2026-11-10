@@ -69,6 +69,27 @@ impl Confirm {
     }
 }
 
+// Repeats holds back a decision equal to the last one, which a dry run makes on every confirm window.
+#[derive(Default)]
+pub struct Repeats {
+    last: Option<(u32, u32)>,
+}
+
+impl Repeats {
+    pub fn is_new(&mut self, from: u32, to: u32) -> bool {
+        let new = self.last != Some((from, to));
+        self.last = Some((from, to));
+        new
+    }
+
+    // settle forgets the last decision once the need matches the replicas, so the next one shows again.
+    pub fn settle(&mut self, needed: u32, current: u32) {
+        if needed == current {
+            self.last = None;
+        }
+    }
+}
+
 // ScaleDown follows the HPA's stabilization: it lowers replicas to the highest need seen over a full window.
 pub struct ScaleDown {
     polls: usize,
@@ -114,6 +135,18 @@ mod tests {
     use std::collections::BTreeMap;
 
     use super::*;
+
+    #[test]
+    fn repeats_shows_a_decision_once_until_the_need_settles() {
+        let mut repeats = Repeats::default();
+        assert!(repeats.is_new(1, 2));
+        assert!(!repeats.is_new(1, 2));
+        assert!(repeats.is_new(1, 3));
+        repeats.settle(2, 1);
+        assert!(!repeats.is_new(1, 3));
+        repeats.settle(1, 1);
+        assert!(repeats.is_new(1, 3));
+    }
 
     fn calibration() -> Calibration {
         Calibration {

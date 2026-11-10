@@ -12,7 +12,7 @@ use serde_json::{Value, json};
 
 use crate::{
     cli::ScaleArgs,
-    decision::scaler::{self, Calibration, Confirm, ScaleDown},
+    decision::scaler::{self, Calibration, Confirm, Repeats, ScaleDown},
     pipeline::metrics,
     runtime::http,
 };
@@ -34,6 +34,7 @@ pub fn execute(args: &ScaleArgs) -> anyhow::Result<()> {
     let interval = Duration::from_secs(args.interval);
     let mut scale_down =
         ScaleDown::new(args.scale_down_window.div_ceil(args.interval.max(1)) as usize);
+    let mut repeats = Repeats::default();
     info!(
         "scaling {}/{} from {} per request ({} ms CPU, {} calls), target {}, confirm {} polls, scale down after {} s{}",
         args.namespace,
@@ -48,7 +49,13 @@ pub fn execute(args: &ScaleArgs) -> anyhow::Result<()> {
     );
     loop {
         let started = Instant::now();
-        if let Err(e) = poll(args, &calibration, &mut confirm, &mut scale_down) {
+        if let Err(e) = poll(
+            args,
+            &calibration,
+            &mut confirm,
+            &mut scale_down,
+            &mut repeats,
+        ) {
             warn!("scale poll: {e:#}");
         }
         thread::sleep(interval.saturating_sub(started.elapsed()));
@@ -60,6 +67,7 @@ fn poll(
     calibration: &Calibration,
     confirm: &mut Confirm,
     scale_down: &mut ScaleDown,
+    repeats: &mut Repeats,
 ) -> anyhow::Result<()> {
     let target = target(args)?;
     let addresses = collector_addresses(args)?;
@@ -86,6 +94,7 @@ fn poll(
         "rate={rate:.1}/s needed={needed} replicas={}",
         target.replicas
     );
+    repeats.settle(needed, target.replicas);
     let up = confirm.step(needed, target.replicas);
     let down = scale_down.step(needed, target.replicas);
     let (direction, replicas) = match (up, down) {
@@ -93,6 +102,14 @@ fn poll(
         (None, Some(replicas)) => ("down", replicas),
         (None, None) => return Ok(()),
     };
+    // A dry run leaves the replicas as they were, so the same decision comes back every confirm window.
+    if args.dry_run && !repeats.is_new(target.replicas, replicas) {
+        debug!(
+            "scale {direction} from={} to={replicas} rate={rate:.1}/s, repeated",
+            target.replicas
+        );
+        return Ok(());
+    }
     info!(
         "scale {direction} from={} to={replicas} rate={rate:.1}/s",
         target.replicas
