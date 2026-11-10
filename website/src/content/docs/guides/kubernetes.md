@@ -40,6 +40,41 @@ Each entry starts its own `croft scale` Deployment. Remove the Deployment's HPA 
 
 `ci/targets-values.yaml` in the chart is the input CI renders it with, not a list of supported workloads.
 
+### What the chart creates
+
+The collector DaemonSet keeps the label `app: croft-collector`. `croft scale` finds the collectors through that label, so renaming it breaks scaling:
+
+```yaml
+# templates/collector.yaml
+metadata:
+  name: croft-collector
+  labels:
+    app: croft-collector
+```
+
+```text
+--collectors-selector    app=croft-collector    croft scale's default
+```
+
+Each target runs `croft scale` beside a `kubectl proxy` sidecar. `croft scale` reads pods and patches the Deployment's scale through the proxy on `127.0.0.1:8001`, so it speaks plain HTTP and holds no Kubernetes credentials itself:
+
+```yaml
+# templates/scaler.yaml, per target
+containers:
+  - name: scaler
+  - name: proxy
+    image: registry.k8s.io/kubectl:v1.36.4
+    args: ["proxy", "--port=8001", "--address=127.0.0.1"]
+```
+
+The proxy acts with the release's `<release>-scaler` ServiceAccount, bound to a ClusterRole that allows only:
+
+| Resource | Verbs |
+|---|---|
+| `pods` | `get`, `list` |
+| `deployments` | `get` |
+| `deployments/scale` | `get`, `patch` |
+
 ### Measure the three numbers
 
 `syscall`, `callsPerRequest` and `cpuPerRequestMs` differ per application. They are averages, so they are rarely whole numbers: a request may write 8 times or 9, and logs or health checks add calls that no request made.
