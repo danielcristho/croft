@@ -145,8 +145,8 @@ croft --version
 ```
 
 Replace `latest/download` with `download/vX.Y.Z` for one release. Without root,
-install it to `~/.local/bin` instead. The binary is built on Debian 12; on a
-host with an older glibc, use the Docker image.
+install it to `~/.local/bin` instead. The binary needs glibc 2.34 or newer
+(Ubuntu 22.04, Debian 12, RHEL 9); on an older host, use the Docker image.
 
 ### One host with Docker
 
