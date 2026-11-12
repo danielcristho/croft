@@ -272,7 +272,7 @@ checksum = "1c133bc6a41be0d194c306b5506d15e6feeea7b1d6604bd3f8310dfb2ca96486"
 
 [[package]]
 name = "collector"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "aya",
@@ -293,14 +293,14 @@ dependencies = [
 
 [[package]]
 name = "collector-common"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "aya",
 ]
 
 [[package]]
 name = "collector-ebpf"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "aya-ebpf",
  "aya-log-ebpf",
