@@ -106,7 +106,7 @@ The `pre-commit` hook runs rustfmt, clippy and the tests when a staged change to
 
 Release Please reads the Conventional Commits on `main` and keeps a release pull request open: `feat` raises the minor version, `fix` the patch, while the version is below 1.0. The pull request updates `CHANGELOG.md`, the workspace version in `collector/Cargo.toml`, `Cargo.lock` and the chart `version` in `deploy/helm/croft/Chart.yaml`.
 
-Merging it tags `vX.Y.Z`, publishes a GitHub release and pushes `ghcr.io/danielcristho/croft:X.Y.Z`. The chart's `appVersion` stays `main` until the first release image exists.
+Merging it tags `vX.Y.Z`, publishes a GitHub release, pushes the image `ghcr.io/danielcristho/croft:X.Y.Z` and the chart `oci://ghcr.io/danielcristho/charts/croft` at `X.Y.Z`. The chart in the repository keeps `appVersion: main`; the release sets it to `X.Y.Z` when it packages the chart.
 
 The current version lives in `.release-please-manifest.json`. To release a chosen version, such as 1.0.0, set `"release-as": "1.0.0"` in `release-please-config.json` before merging, and remove it afterwards.
 

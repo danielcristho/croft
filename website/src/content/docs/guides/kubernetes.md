@@ -9,12 +9,14 @@ Every node has its own kernel, so the collector runs as a DaemonSet: one instanc
 
 ## Install with Helm
 
-CI publishes the image to `ghcr.io/danielcristho/croft` on every push to `main` (tag `main`) and on version tags. The chart installs the collector on every node:
+Each release publishes the chart to `oci://ghcr.io/danielcristho/charts/croft` and the image to `ghcr.io/danielcristho/croft`, with the same version. The chart installs the collector on every node:
 
 ```sh
-helm install croft deploy/helm/croft -n croft --create-namespace
+helm install croft oci://ghcr.io/danielcristho/charts/croft -n croft --create-namespace
 kubectl -n croft get pods -o wide
 ```
+
+Add `--version X.Y.Z` to pin a release. From a clone, `deploy/helm/croft` installs the chart of `main`, which pulls the image CI pushes on every commit to `main`.
 
 `scaler.targets` is empty by default, so the chart starts no `croft scale`. To let croft scale a Deployment, add one entry per Deployment in your own values file:
 
@@ -32,7 +34,7 @@ scaler:
 ```
 
 ```sh
-helm upgrade --install croft deploy/helm/croft -n croft -f my-values.yaml
+helm upgrade --install croft oci://ghcr.io/danielcristho/charts/croft -n croft -f my-values.yaml
 kubectl -n croft logs deploy/croft-scaler-my-api -c scaler -f
 ```
 

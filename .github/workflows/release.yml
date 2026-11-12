@@ -1,5 +1,5 @@
 # Release Please keeps a release pull request open from the Conventional Commits on main; merging it tags vX.Y.Z,
-# writes CHANGELOG.md and publishes the image. Tags pushed with GITHUB_TOKEN do not start ci.yml, so this
+# writes CHANGELOG.md and publishes the image, the Helm chart and the croft binary. Tags pushed with GITHUB_TOKEN do not start ci.yml, so this
 # workflow pushes the release image itself.
 name: release
 
@@ -75,3 +75,49 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
+
+  # The chart's appVersion is set to the release here, so a chart from GHCR pulls the image of the same release.
+  chart:
+    needs: [release-please, image]
+    if: needs.release-please.outputs.release_created
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+      - uses: azure/setup-helm@v4
+      - env:
+          TAG: ${{ needs.release-please.outputs.tag_name }}
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version="${TAG#v}"
+          echo "$TOKEN" | helm registry login ghcr.io -u "${{ github.actor }}" --password-stdin
+          helm package deploy/helm/croft --version "$version" --app-version "$version"
+          helm push "croft-$version.tgz" "oci://ghcr.io/${{ github.repository_owner }}/charts"
+
+  # The binary comes out of the release image, which already holds the eBPF program; building it again needs bpf-linker.
+  binary:
+    needs: [release-please, image]
+    if: needs.release-please.outputs.release_created
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: read
+    steps:
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - env:
+          TAG: ${{ needs.release-please.outputs.tag_name }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          image="ghcr.io/${{ github.repository }}:${TAG#v}"
+          docker create --name croft "$image"
+          docker cp croft:/usr/local/bin/croft croft-linux-amd64
+          sha256sum croft-linux-amd64 | cut -d' ' -f1 > croft-linux-amd64.sha256
+          gh release upload "$TAG" croft-linux-amd64 croft-linux-amd64.sha256 --repo "${{ github.repository }}"

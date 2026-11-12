@@ -7,7 +7,7 @@
 [![CI](https://github.com/danielcristho/croft/actions/workflows/ci.yml/badge.svg)](https://github.com/danielcristho/croft/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
-[Getting started](#getting-started) · [Deployment](deploy/README.md) · [Experiments](labs/research/experiment/README.md) · [Roadmap](ROADMAP.md) · [Contributing](CONTRIBUTING.md)
+[Docs](https://croft-cog.pages.dev) · [Getting started](#getting-started) · [Deployment](deploy/README.md) · [Experiments](labs/research/experiment/README.md) · [Roadmap](ROADMAP.md) · [Contributing](CONTRIBUTING.md)
 
 </div>
 
@@ -33,10 +33,30 @@ from the collector's signals.
   <img src="assets/architecture.svg" width="860" alt="croft architecture: inside the Linux kernel, eBPF programs and kernel files record syscall rates, bytes moved, CPU wait, connections, socket I/O, GPU use, CPU pressure and processes for your app's pods. The croft collector reads them every 2 seconds and writes a dataset, serves Prometheus and feeds croft scale, which sets the number of pods.">
 </p>
 
+## What the lab shows so far
+
+Measured on a three-node k3s cluster against the HPA at a 70% CPU target
+([full results](https://croft-cog.pages.dev/research/results/)):
+
+| Load | croft's request rate reacts in | The HPA reacts in |
+|---|---|---|
+| Step from 2 to 4 users | about 1 s | 19–34 s |
+| Open-loop burst, 5 → 75 RPS, default probes | 0–2 s | never: the overloaded pod failed its probes and the metrics API returned nothing |
+
 > [!IMPORTANT]
-> Croft is experimental and runs in a lab cluster, not in production. The
-> comparison with the HPA is still running, so this project does not yet claim an
-> improvement. See [Experiments](#experiments).
+> Croft is experimental and runs in a lab cluster, not in production. It reacts
+> earlier than the HPA; whether that keeps latency within the SLO is still being
+> measured. See [Limitations](#limitations).
+
+## How it compares
+
+| | HPA | KEDA | croft |
+|---|---|---|---|
+| Signal | CPU or memory use from metrics-server; other metrics through an adapter | an external metric: a queue, Prometheus, a cloud service | syscall rate per container, from eBPF |
+| Read every | 15 s | 30 s by default | 2 s |
+| Needs from the app | a CPU request | an exporter or a queue to read | a calibration: syscalls and CPU per request |
+| Scale to zero | no | yes | no |
+| Runs | in the control plane | as an operator, on top of the HPA | as a DaemonSet with root, plus one `croft scale` per Deployment |
 
 ## Features
 
@@ -93,6 +113,43 @@ The dataset's row format is in [`agent/signals.md`](agent/signals.md).
 
 ## Getting started
 
+### Kubernetes
+
+The Helm chart runs the collector on every node:
+
+```sh
+helm install croft oci://ghcr.io/danielcristho/charts/croft -n croft --create-namespace
+kubectl -n croft get pods -o wide
+```
+
+Each release publishes the chart and the image with the same version; add
+`--version X.Y.Z` to pin one. From a clone, `deploy/helm/croft` installs the
+chart of `main`.
+
+To scale a Deployment, add it under `scaler.targets` with `dryRun: true`, watch
+the decisions in the log, then turn `dryRun` off and remove the Deployment's HPA.
+The [deployment guide](deploy/README.md#111-scale-your-own-deployment) shows the
+values.
+
+### The CLI
+
+`croft` runs `scale`, `collect`, `top` and the other commands from your own
+machine. Each release ships it for Linux x86-64:
+
+```sh
+curl -LO https://github.com/danielcristho/croft/releases/latest/download/croft-linux-amd64
+curl -LO https://github.com/danielcristho/croft/releases/latest/download/croft-linux-amd64.sha256
+echo "$(cat croft-linux-amd64.sha256)  croft-linux-amd64" | sha256sum --check
+sudo install -m 0755 croft-linux-amd64 /usr/local/bin/croft
+croft --version
+```
+
+Replace `latest/download` with `download/vX.Y.Z` for one release. Without root,
+install it to `~/.local/bin` instead. The binary is built on Debian 12; on a
+host with an older glibc, use the Docker image.
+
+### One host with Docker
+
 Build the image and start the collector on one host:
 
 ```sh
@@ -122,6 +179,19 @@ croft scale \
 [`deploy/kubernetes/scaler.yaml`](deploy/kubernetes/scaler.yaml) runs it in a
 cluster. [`RUNNING.md`](labs/research/experiment/RUNNING.md) shows how to measure
 the two numbers.
+
+## Limitations
+
+- **Calibration per application.** `croft scale` needs the syscalls and the CPU
+  one request costs, measured for each application.
+- **It counts answered requests.** `sendto` rises with requests a pod answers, so
+  a saturated pod shows its capacity, not the offered load. The queue of
+  connections waiting to be accepted would show it (issue #8).
+- **Root on every node.** The collector loads eBPF programs, so it runs as root or
+  in a privileged container. [Limited reads](#limited-reads) lists what it reads.
+- **One container per pod.** `croft scale` sizes replicas from the CPU request of
+  the pod's first container.
+- **No scale to zero.** It keeps at least one replica.
 
 ## Commands
 

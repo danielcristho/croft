@@ -4,12 +4,13 @@ This folder provides the ways to run the **croft collector** on a machine it obs
 
 The collector runs on each machine, as root, on Linux only. It loads eBPF programs, tracks every process holding a GPU device, and writes one dataset row per process per poll.
 
-Two paths are available:
+Three paths are available:
 
 | Path | Toolchain on the host | Typical use |
 |---|---|---|
 | Docker | none; the image builds its own | a quick install, or a host without Rust |
 | Native binary with systemd | Rust nightly, LLVM, `bpf-linker` | a long-running collector |
+| Release binary | none; download it, as in the [README](../README.md#the-cli) | the CLI on your machine, or the systemd unit without building |
 
 On Kubernetes, the collector runs as a DaemonSet, installed with the Helm chart in `deploy/helm/croft` or from `deploy/kubernetes/collector.yaml`.
 
@@ -331,9 +332,11 @@ sudo systemctl daemon-reload
 The chart in `deploy/helm/croft` installs the collector on every node. The image is `ghcr.io/danielcristho/croft`, which CI publishes on every push to `main`.
 
 ```sh
-helm install croft deploy/helm/croft -n croft --create-namespace
+helm install croft oci://ghcr.io/danielcristho/charts/croft -n croft --create-namespace
 kubectl -n croft get pods -o wide
 ```
+
+The chart from GHCR pulls the image of the same release. From a clone, `deploy/helm/croft` installs the chart of `main`, with the `main` image.
 
 ## 11.1 Scale your own Deployment
 
@@ -353,7 +356,7 @@ scaler:
 ```
 
 ```sh
-helm upgrade --install croft deploy/helm/croft -n croft -f my-values.yaml
+helm upgrade --install croft oci://ghcr.io/danielcristho/charts/croft -n croft -f my-values.yaml
 kubectl -n croft logs deploy/croft-scaler-my-api -c scaler -f
 ```
 
