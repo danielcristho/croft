@@ -171,7 +171,7 @@ uv run run.py --help
 ```
 
 The notebooks in `research/` also run in a JupyterLab container: see
-[`research/README.md`](research/README.md).
+`research/README.md`. `research/` is not in the repository; it holds local analysis only.
 
 ## Testing changes
 

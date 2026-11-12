@@ -93,6 +93,23 @@ The `commit-msg` hook checks the first line against [Conventional Commits](https
 
 The `pre-commit` hook runs rustfmt, clippy and the tests when a staged change touches `collector/`.
 
+## Bots
+
+| Workflow | Does |
+|---|---|
+| Dependabot | weekly updates for Cargo, GitHub Actions, npm (`website/`), uv (`labs/research/experiment`) and Docker; minor and patch bumps come as one pull request per ecosystem, aya as its own |
+| `pr-title` | checks the pull request title against the commit rule above, since a squash merge turns it into the commit on `main` |
+| `links` | checks the Markdown links on pull requests that touch Markdown, and weekly; a broken link there opens a `[DOCS] broken links` issue |
+| `release` | Release Please, below |
+
+## Releases
+
+Release Please reads the Conventional Commits on `main` and keeps a release pull request open: `feat` raises the minor version, `fix` the patch, while the version is below 1.0. The pull request updates `CHANGELOG.md`, the workspace version in `collector/Cargo.toml`, `Cargo.lock` and the chart `version` in `deploy/helm/croft/Chart.yaml`.
+
+Merging it tags `vX.Y.Z`, publishes a GitHub release and pushes `ghcr.io/danielcristho/croft:X.Y.Z`. The chart's `appVersion` stays `main` until the first release image exists.
+
+The current version lives in `.release-please-manifest.json`. To release a chosen version, such as 1.0.0, set `"release-as": "1.0.0"` in `release-please-config.json` before merging, and remove it afterwards.
+
 ## This site
 
 ```sh

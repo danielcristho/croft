@@ -1,0 +1,48 @@
+# Checks links in the docs: on pull requests that touch Markdown, and weekly, where a broken link opens an issue.
+name: links
+
+on:
+  pull_request:
+    paths: ["**.md", "**.mdx", ".github/workflows/links.yml"]
+  schedule:
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lychee:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+      # Website pages link each other as /guides/...; the built site resolves those and the bundled images.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+      - run: npm ci && npm run build
+        working-directory: website
+      - id: lychee
+        uses: lycheeverse/lychee-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          args: >-
+            --no-progress
+            --root-dir ${{ github.workspace }}/website/dist
+            --exclude-path node_modules
+            --exclude-path .venv
+            --exclude '^https?://(localhost|127\.0\.0\.1|ADDR)'
+            './*.md' 'docs/**/*.md' 'agent/*.md' 'deploy/**/*.md' 'labs/**/*.md' 'website/dist/**/*.html'
+          fail: ${{ github.event_name == 'pull_request' }}
+      - if: github.event_name != 'pull_request' && steps.lychee.outputs.exit_code != 0
+        uses: peter-evans/create-issue-from-file@v5
+        with:
+          title: "[DOCS] broken links"
+          content-filepath: ./lychee/out.md
+          labels: documentation

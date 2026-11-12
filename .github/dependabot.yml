@@ -1,10 +1,38 @@
+# Weekly updates, one pull request per ecosystem for minor and patch bumps. Major bumps and aya stay separate.
 version: 2
 updates:
   - package-ecosystem: cargo
     directory: /collector
     schedule:
       interval: weekly
+    groups:
+      # aya, aya-log and aya-build change their API together, even in minor releases.
+      aya:
+        patterns: ["aya*"]
+      cargo:
+        update-types: [minor, patch]
   - package-ecosystem: github-actions
     directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+  - package-ecosystem: npm
+    directory: /website
+    schedule:
+      interval: weekly
+    groups:
+      website:
+        update-types: [minor, patch]
+  - package-ecosystem: uv
+    directory: /labs/research/experiment
+    schedule:
+      interval: weekly
+    groups:
+      harness:
+        update-types: [minor, patch]
+  - package-ecosystem: docker
+    directory: /deploy/docker
     schedule:
       interval: weekly
