@@ -145,6 +145,10 @@ interactions-app series app node lo hi:
 interactions-check series="si":
     @python3 -m experiment.interactions summary {{ series }}
 
+# Load map (#42) of the burst runs whose id starts with prefix: services by throttling and CPU, and the busiest edges.
+loadmap prefix="lm-":
+    @python3 -m experiment.loadmap summary {{ prefix }}
+
 # Measure croft scale's calibration on one pinned pod at constant loads (about 5 minutes).
 calibrate app levels="20 50 100" seconds="75":
     uv run run.py calibrate-scaler --app {{ app }} --node {{ node }} --levels {{ levels }} --seconds {{ seconds }}

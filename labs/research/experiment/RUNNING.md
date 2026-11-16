@@ -670,6 +670,25 @@ Accept a run as in [Accept or reject a run](#14-accept-or-reject-a-run), and als
 - No edge of `linkerd viz edges` is missing from `edges.csv` for the whole window.
 - Failures inside the mesh show as a `success_rate` below 1; they are data, not a reason to reject the run.
 
+## Load map
+
+The load map (#42) asks which backend takes a burst once the frontend does not hold it back. The frontend is fixed at the peak count the HPA reached in the `si` bursts, and every backend at its manifest's one pod. The load is the application's one path, as in the comparison series:
+
+```sh
+for i in 1 2 3; do
+  uv run run.py web --app <app> --node <node> --prefix lm-<app>-$i --profile burst --scale <lo> --replicas <N> --probes relaxed --mesh || break
+done
+just samples loadmap lm-<app>
+```
+
+| Application | `--replicas` | `--scale` |
+|---|---:|---:|
+| `hotel-reservation` | 7 | 1.33 |
+| `online-boutique` | 6 | 0.80 |
+| `otel-demo` | after #89 | after #89 |
+
+`just samples loadmap <prefix>` prints, per application and scale, every service's peak throttled share, peak and base CPU, syscall rise (burst over base, from `signals.csv`) and restarts, then the busiest edges with their p95 before and during the burst. Base is the minute before the burst. Support components are left out. The order, throttling first and then CPU, was chosen before the load-map runs; it is a heuristic. A backend restart is a result here, not a reason to reject the run.
+
 ---
 
 # 19. Troubleshooting
