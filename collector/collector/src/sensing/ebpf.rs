@@ -91,8 +91,11 @@ fn bridge_ebpf_logger(ebpf: &mut Ebpf) -> anyhow::Result<()> {
             return Ok(());
         }
     };
-    let mut logger =
-        tokio::io::unix::AsyncFd::with_interest(logger, tokio::io::Interest::READABLE)?;
+    // SAFETY: the logger owns its ring buffer fd, which stays open while the AsyncFd owns the logger.
+    let mut logger = unsafe {
+        tokio::io::unix::AsyncFd::register_with_interest(logger, tokio::io::Interest::READABLE)
+    }
+    .map_err(|e| e.into_parts().1)?;
     tokio::task::spawn(async move {
         while let Ok(mut guard) = logger.readable_mut().await {
             guard.get_inner_mut().flush();
