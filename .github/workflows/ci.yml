@@ -22,7 +22,7 @@ jobs:
       # The image job builds the eBPF program; bpf-linker takes minutes to install.
       AYA_BUILD_SKIP: "1"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: rustup toolchain install nightly --profile minimal --component rustfmt
       - run: rustup component add clippy
       - run: cargo +nightly fmt --manifest-path collector/Cargo.toml --all -- --check
@@ -35,10 +35,10 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
       - id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
@@ -46,7 +46,7 @@ jobs:
             type=semver,pattern={{version}}
             type=sha
       # The cache holds the toolchain layers, so the push below reuses this build.
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v7
         with:
           context: .
           file: deploy/docker/Dockerfile
@@ -56,13 +56,13 @@ jobs:
           cache-to: type=gha,mode=max
       - run: docker run --rm croft-collector:ci --version
       - if: github.event_name == 'push'
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - if: github.event_name == 'push'
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: deploy/docker/Dockerfile
@@ -74,8 +74,8 @@ jobs:
   chart:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: azure/setup-helm@v4
+      - uses: actions/checkout@v7
+      - uses: azure/setup-helm@v5
       - run: helm lint deploy/helm/croft
       - run: helm lint deploy/helm/croft -f deploy/helm/croft/ci/targets-values.yaml
       - run: helm template croft deploy/helm/croft -n croft -f deploy/helm/croft/ci/targets-values.yaml
@@ -86,7 +86,7 @@ jobs:
       run:
         working-directory: labs/research/experiment
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
       - run: uv sync --locked
       - run: uv run python -m unittest tests.test_calibrate_scaler tests.test_compare tests.test_kube tests.test_scaler
