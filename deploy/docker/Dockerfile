@@ -13,9 +13,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 RUN rustup toolchain install nightly --component rust-src && rustup default nightly
 
-RUN curl -fsSL https://apt.llvm.org/llvm.sh -o /tmp/llvm.sh \
-    && chmod +x /tmp/llvm.sh \
-    && /tmp/llvm.sh ${LLVM_VERSION}
+# llvm.sh no longer accepts Debian 12, but apt.llvm.org still builds LLVM for it; add the repository it would add.
+# The packages are the ones llvm.sh installs, recommends included, so bpf-linker finds the same LLVM.
+RUN curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key -o /etc/apt/trusted.gpg.d/apt.llvm.org.asc \
+    && echo "deb http://apt.llvm.org/bookworm/ llvm-toolchain-bookworm-${LLVM_VERSION} main" > /etc/apt/sources.list.d/llvm.list \
+    && apt-get update \
+    && apt-get install -y clang-${LLVM_VERSION} lldb-${LLVM_VERSION} lld-${LLVM_VERSION} clangd-${LLVM_VERSION} \
+    && rm -rf /var/lib/apt/lists/*
 
 ENV PATH="/usr/lib/llvm-${LLVM_VERSION}/bin:${PATH}"
 ENV LLVM_SYS_231_PREFIX="/usr/lib/llvm-${LLVM_VERSION}"

@@ -10,6 +10,8 @@ permissions:
 
 jobs:
   title:
+    # Dependabot writes its own titles, often past 72 characters; its squash subject is set at merge.
+    if: github.event.pull_request.user.login != 'dependabot[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: amannn/action-semantic-pull-request@v6
