@@ -32,7 +32,7 @@ serde = { version = "1", default-features = false }
 serde_json = { version = "1", default-features = false }
 tokio = { version = "1.40.0", default-features = false }
 which = { version = "6.0.0", default-features = false }
-zstd = { version = "0.13", default-features = false }
+zstd = { version = "0.14", default-features = false }
 
 [profile.release.package.collector-ebpf]
 debug = 2
