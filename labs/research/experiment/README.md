@@ -166,6 +166,7 @@ A new application is a new entry, not new code. `--app` picks one.
 | `host`, `path`, `health` | the ingress host, the request path the load hits, and the readiness check |
 | `scaler` | the calibration croft needs: `syscall`, `calls_per_request`, `cpu_per_request_ms` |
 | `scale` | the `--profile` scale a burst runs at by default |
+| `services` | every Deployment of the namespace with its `role` (`gateway`, `business`, `cache`, `database`, `support`) and `language`; `support` marks components that serve no request, such as `consul`, `jaeger`, `flagd` and `otel-collector` |
 
 Three applications are defined:
 
@@ -208,10 +209,10 @@ data/
         ├── workload.csv         open-loop runs: target and achieved RPS, latency, per second
         ├── locust_*.csv         Locust runs: stats, history, failures, exceptions
         ├── prometheus.csv       cpu_cores, cpu_throttled_fraction, memory_bytes, network, restarts, replicas
+        ├── services.csv         role, language, CPU, throttled share, memory, restarts and replicas of every Deployment
         ├── signals.csv          collector series of every service, per 5 s: syscalls, bytes, socket I/O, connects, CPU
         ├── timeline.json        HPA rescales, replica set changes from any scaler, pod created and Ready times
         ├── edges.csv            --mesh: request rate, success rate, p50 and p95 per caller and callee, every 5 s
-        ├── services.csv         --mesh: CPU, throttled share, memory, restarts and replicas of every Deployment
         └── scaler.log           --scaler croft: croft's estimate every poll and its decisions
 ```
 
@@ -301,7 +302,7 @@ deploys `deploy/kubernetes/scaler.yaml` for the application before the warm-up, 
 
 **`--mesh`**
 
-annotates the application's namespace with `linkerd.io/inject: enabled` and restarts the application through `just restart` when a running pod's proxy disagrees; a run without it removes the annotation and the proxies the same way. Each run then writes `edges.csv` from the proxies' `response_total` and `response_latency_ms`, with `ingress` as the caller of the frontend, and `services.csv` for every Deployment, and records `"mesh": "linkerd"` in `runs.jsonl`.
+annotates the application's namespace with `linkerd.io/inject: enabled` and restarts the application through `just restart` when a running pod's proxy disagrees; a run without it removes the annotation and the proxies the same way. Each run then writes `edges.csv` from the proxies' `response_total` and `response_latency_ms`, with `ingress` as the caller of the frontend, and records `"mesh": "linkerd"` in `runs.jsonl`.
 
 The frontend HPAs target the application container (`ContainerResource`), and `cpu_cores` and `cpu_throttled_fraction` leave the `linkerd-proxy` container out, so 70% stays 70% of the application's own CPU. The network columns are counted per pod and include the proxy's traffic.
 

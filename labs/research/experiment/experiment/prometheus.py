@@ -7,6 +7,9 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
+from . import kube
+from .apps import App
+
 # Consts
 PROMETHEUS = os.environ.get("PROM_HOST", "http://prometheus.127.0.0.1.sslip.io:30080")
 STEP_S = 5
@@ -23,6 +26,7 @@ SIGNALS = {
     "cpu_cores": ("croft_container_cpu_cores", (), False),
     "runqueue_wait": ("croft_container_runqueue_wait", (), False),
 }
+SERVICE_COLUMNS = ["cpu_cores", "cpu_throttled_fraction", "memory_bytes", "restarts", "replicas", "ready_replicas"]
 
 
 def queries(namespace: str, deployment: str) -> dict[str, str]:
@@ -100,3 +104,19 @@ def export_signals(path: Path, namespace: str, start_s: int, end_s: int) -> None
         writer = csv.writer(out)
         writer.writerow(["unix_s", "service", "signal", "key", "value"])
         writer.writerows(sorted(rows))
+
+
+# export_services records every deployment of the namespace with its role and language from apps.json, so a bottleneck
+# moving off the frontend shows. A deployment apps.json does not list gets empty labels.
+def export_services(path: Path, app: App, start_s: int, end_s: int) -> None:
+    deployments = sorted(item["metadata"]["name"] for item in kube.get("deployments", app.namespace)["items"])
+    with path.open("w", newline="") as out:
+        writer = csv.writer(out)
+        writer.writerow(["unix_s", "service", "role", "language", *SERVICE_COLUMNS])
+        for deployment in deployments:
+            service = app.services.get(deployment)
+            labels = (service.role, service.language) if service else ("", "")
+            found = queries(app.namespace, deployment)
+            columns = {name: series(found[name], start_s, end_s) for name in SERVICE_COLUMNS}
+            for timestamp in sorted(set().union(*columns.values())):
+                writer.writerow([timestamp, deployment, *labels, *(columns[name].get(timestamp, "") for name in SERVICE_COLUMNS)])

@@ -1,4 +1,4 @@
-"""The call graph of a Linkerd-meshed namespace for a run's window: rate, success and latency per edge, resources per service."""
+"""The call graph of a Linkerd-meshed namespace for a run's window: rate, success and latency per edge."""
 
 import csv
 import subprocess
@@ -15,7 +15,6 @@ WINDOW = "30s"
 # Ingress-nginx is not meshed, so the frontend's inbound traffic has no source deployment; it is named after its origin.
 INGRESS = "ingress"
 EDGE_COLUMNS = ["rps", "success_rate", "p50_ms", "p95_ms"]
-SERVICE_COLUMNS = ["cpu_cores", "cpu_throttled_fraction", "memory_bytes", "restarts", "replicas", "ready_replicas"]
 
 
 # has_proxy looks in initContainers too, where Linkerd puts the proxy as a native sidecar.
@@ -77,15 +76,3 @@ def write_edges(path: Path, found: dict[tuple[str, str], dict[str, dict[int, flo
 def export_edges(path: Path, namespace: str, entry: str, start_s: int, end_s: int) -> None:
     write_edges(path, edges(namespace, entry, start_s, end_s))
 
-
-# export_services records every deployment of the namespace, so a bottleneck moving off the frontend shows.
-def export_services(path: Path, namespace: str, start_s: int, end_s: int) -> None:
-    deployments = sorted(item["metadata"]["name"] for item in kube.get("deployments", namespace)["items"])
-    with path.open("w", newline="") as out:
-        writer = csv.writer(out)
-        writer.writerow(["unix_s", "service", *SERVICE_COLUMNS])
-        for deployment in deployments:
-            queries = prometheus.queries(namespace, deployment)
-            columns = {name: prometheus.series(queries[name], start_s, end_s) for name in SERVICE_COLUMNS}
-            for timestamp in sorted(set().union(*columns.values())):
-                writer.writerow([timestamp, deployment, *(columns[name].get(timestamp, "") for name in SERVICE_COLUMNS)])

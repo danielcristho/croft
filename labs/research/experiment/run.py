@@ -34,7 +34,7 @@ def main() -> None:
     web_args.add_argument("--probes", choices=sorted(web.PROBES), default="default", help="relaxed: no liveness restart, slower readiness; none: no probes, the HPA best case")
     web_args.add_argument("--scaler", choices=["none", "croft"], default="none", help="croft: croft scale replaces the HPA; needs --profile")
     web_args.add_argument("--concurrent", action="store_true", help="share the cluster with runs of other apps; the run records it")
-    web_args.add_argument("--mesh", action="store_true", help="Linkerd on the app's namespace; records the call graph in edges.csv and services.csv")
+    web_args.add_argument("--mesh", action="store_true", help="Linkerd on the app's namespace; records the call graph in edges.csv")
     web_args.add_argument("--warmup", type=int, help="seconds; default 60, or 30 with --profile.")
     web_args.add_argument("--seconds", type=int, default=300)
     web_args.add_argument("--cooldown", type=int, help="seconds; default 30, or 15 with --profile.")

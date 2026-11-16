@@ -368,6 +368,8 @@ uv run run.py web --app hotel-reservation --prefix hr-ramp --profile ramp --scal
 
 Read the RPS at which p95 leaves its floor.
 
+`--replicas N` runs no autoscaler: the frontend stays at N pods and every other Deployment at its manifest's count. Use it to see which services take a burst.
+
 ---
 
 # 12. Run a first burst
@@ -412,6 +414,8 @@ A run writes:
 data/web/<prefix>-<profile>/
 ├── workload.csv       target and achieved RPS, successes, failures, mean and p95 latency, per second
 ├── prometheus.csv     CPU, throttled share, memory, network, restarts and replicas, every 5 s
+├── services.csv       the same for every Deployment, with its role and language from apps.json
+├── signals.csv        collector series of every service: syscalls, bytes, socket I/O, connects, CPU
 ├── timeline.json      HPA rescales, replica set changes, pod created and Ready times
 └── scaler.log         croft arm only: croft's estimate every poll and its decisions
 ```

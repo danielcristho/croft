@@ -12,7 +12,28 @@
       "calls_per_request": 11.4,
       "cpu_per_request_ms": 1.6
     },
-    "scale": 2
+    "scale": 2,
+    "services": {
+      "frontend": {"role": "gateway", "language": "go"},
+      "search": {"role": "business", "language": "go"},
+      "geo": {"role": "business", "language": "go"},
+      "profile": {"role": "business", "language": "go"},
+      "rate": {"role": "business", "language": "go"},
+      "recommendation": {"role": "business", "language": "go"},
+      "user": {"role": "business", "language": "go"},
+      "reservation": {"role": "business", "language": "go"},
+      "mongodb-geo": {"role": "database", "language": "cpp"},
+      "mongodb-profile": {"role": "database", "language": "cpp"},
+      "mongodb-rate": {"role": "database", "language": "cpp"},
+      "mongodb-recommendation": {"role": "database", "language": "cpp"},
+      "mongodb-reservation": {"role": "database", "language": "cpp"},
+      "mongodb-user": {"role": "database", "language": "cpp"},
+      "memcached-profile": {"role": "cache", "language": "c"},
+      "memcached-rate": {"role": "cache", "language": "c"},
+      "memcached-reserve": {"role": "cache", "language": "c"},
+      "consul": {"role": "support", "language": "go"},
+      "jaeger": {"role": "support", "language": "go"}
+    }
   },
   "online-boutique": {
     "namespace": "boutique",
@@ -27,7 +48,20 @@
       "calls_per_request": 2.0,
       "cpu_per_request_ms": 3.26
     },
-    "scale": 1
+    "scale": 1,
+    "services": {
+      "frontend": {"role": "gateway", "language": "go"},
+      "adservice": {"role": "business", "language": "java"},
+      "cartservice": {"role": "business", "language": "csharp"},
+      "checkoutservice": {"role": "business", "language": "go"},
+      "currencyservice": {"role": "business", "language": "nodejs"},
+      "emailservice": {"role": "business", "language": "python"},
+      "paymentservice": {"role": "business", "language": "nodejs"},
+      "productcatalogservice": {"role": "business", "language": "go"},
+      "recommendationservice": {"role": "business", "language": "python"},
+      "shippingservice": {"role": "business", "language": "go"},
+      "redis-cart": {"role": "cache", "language": "c"}
+    }
   },
   "otel-demo": {
     "namespace": "otel-demo",
@@ -42,6 +76,23 @@
       "calls_per_request": 5.32,
       "cpu_per_request_ms": 5.64
     },
-    "scale": 1
+    "scale": 1,
+    "services": {
+      "frontend": {"role": "gateway", "language": "nodejs"},
+      "recommendation": {"role": "business", "language": "python"},
+      "product-catalog": {"role": "business", "language": "go"},
+      "currency": {"role": "business", "language": "cpp"},
+      "cart": {"role": "business", "language": "csharp"},
+      "checkout": {"role": "business", "language": "go"},
+      "ad": {"role": "business", "language": "java"},
+      "email": {"role": "business", "language": "ruby"},
+      "payment": {"role": "business", "language": "nodejs"},
+      "quote": {"role": "business", "language": "php"},
+      "shipping": {"role": "business", "language": "rust"},
+      "astronomy-db": {"role": "database", "language": "c"},
+      "valkey-cart": {"role": "cache", "language": "c"},
+      "flagd": {"role": "support", "language": "go"},
+      "otel-collector": {"role": "support", "language": "go"}
+    }
   }
 }
