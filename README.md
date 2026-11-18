@@ -2,7 +2,7 @@
 
 # Croft
 
-**Autoscaling that reacts to what processes do in the kernel**
+**Kubernetes autoscaling that reacts to eBPF kernel signals**
 
 [![CI](https://github.com/danielcristho/croft/actions/workflows/ci.yml/badge.svg)](https://github.com/danielcristho/croft/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
