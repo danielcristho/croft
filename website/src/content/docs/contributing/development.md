@@ -18,6 +18,8 @@ Start with an issue labelled `good first issue`: these say what should change an
 | harness and notebooks | Python 3.12+, [uv](https://astral.sh/uv) |
 | this site | Node.js 22.22 or later |
 
+The collector is Rust on both sides of the kernel boundary, built with [Aya](https://aya-rs.dev): the eBPF programs use `aya-ebpf` and `aya-log-ebpf`, userspace loads them with `aya`, and `aya-build` compiles the eBPF crate from `build.rs`. No C or libbpf is involved.
+
 ```sh
 git clone git@github.com:<your-account>/croft.git
 cd croft
@@ -33,12 +35,12 @@ croft/
 │   │   ├── frameworks.json    framework catalog, built in and replaceable
 │   │   └── src/
 │   │       ├── command/       one file per croft subcommand
-│   │       ├── sensing/       eBPF loading, maps, syscall names and rates
+│   │       ├── sensing/       eBPF loading (aya), maps, syscall names and rates
 │   │       ├── inspect/       /proc and cgroup readers, workload and framework
 │   │       ├── pipeline/      poll reporter, dataset rows, segments, /metrics
 │   │       ├── decision/      replicas a workload needs
 │   │       └── runtime/       logging, signals, terminal, HTTP
-│   ├── collector-ebpf/        eBPF programs (nightly Rust, bpf-linker)
+│   ├── collector-ebpf/        eBPF programs (aya-ebpf, nightly Rust, bpf-linker)
 │   └── collector-common/      types shared by both sides
 ├── deploy/                    Docker, Kubernetes and systemd deployment
 ├── labs/
