@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/danielcristho/croft/compare/v0.3.0...v0.3.1) (2026-11-18)
+
+
+### Bug Fixes
+
+* **labs:** leave containers without an id out of the signal join ([#42](https://github.com/danielcristho/croft/issues/42)) ([f8d7079](https://github.com/danielcristho/croft/commit/f8d7079ffc4a646d6b9058bcf9c0f96ce2175210))
+
 ## [0.3.0](https://github.com/danielcristho/croft/compare/v0.2.0...v0.3.0) (2026-11-18)
 
 
