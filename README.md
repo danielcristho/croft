@@ -2,12 +2,12 @@
 
 # Croft
 
-**Autoscaling that reacts to what processes do in the kernel**
+**Kubernetes autoscaling that reacts to eBPF kernel signals**
 
 [![CI](https://github.com/danielcristho/croft/actions/workflows/ci.yml/badge.svg)](https://github.com/danielcristho/croft/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
-[Docs](https://croft-cog.pages.dev) · [Getting started](#getting-started) · [Deployment](deploy/README.md) · [Experiments](labs/research/experiment/README.md) · [Roadmap](ROADMAP.md) · [Contributing](CONTRIBUTING.md)
+[Docs](https://croft-docs.pages.dev) · [Getting started](#getting-started) · [Deployment](deploy/README.md) · [Experiments](labs/research/experiment/README.md) · [Roadmap](ROADMAP.md) · [Contributing](CONTRIBUTING.md)
 
 </div>
 
@@ -36,7 +36,7 @@ from the collector's signals.
 ## What the lab shows so far
 
 Measured on a three-node k3s cluster against the HPA at a 70% CPU target
-([full results](https://croft-cog.pages.dev/research/results/)):
+([full results](https://croft-docs.pages.dev/research/results/)):
 
 | Load | croft's request rate reacts in | The HPA reacts in |
 |---|---|---|

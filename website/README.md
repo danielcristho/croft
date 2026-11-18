@@ -1,6 +1,6 @@
 # Croft documentation site
 
-[Starlight](https://starlight.astro.build) site, deployed by [Cloudflare Pages](https://croft-cog.pages.dev).
+[Starlight](https://starlight.astro.build) site, deployed by [Cloudflare Pages](https://croft-docs.pages.dev).
 
 ```sh
 npm install

@@ -4,6 +4,6 @@ description: eBPF collector on every node, and croft scale for the Deployments l
 type: application
 version: 0.3.0 # x-release-please-version
 appVersion: "main"
-home: https://croft-cog.pages.dev
+home: https://croft-docs.pages.dev
 sources:
   - https://github.com/danielcristho/croft

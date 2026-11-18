@@ -560,7 +560,7 @@ The full study is 3 applications × 2 arms × 3 repetitions: 18 runs, about 5 ho
 
 Compare the arms within one application. Absolute latencies differ between the applications by design.
 
-A saturated pod's syscalls show what the pod manages to answer, not the offered load ([#8](https://github.com/danielcristho/croft/issues/8)).
+A saturated pod's syscalls show what the pod manages to answer, not the offered load.
 
 ---
 

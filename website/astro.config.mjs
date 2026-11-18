@@ -3,13 +3,13 @@ import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 
 export default defineConfig({
-	site: 'https://croft-cog.pages.dev',
+	site: 'https://croft-docs.pages.dev',
 	// Diagrams live in the repository's assets/, shared with the README.
 	vite: { server: { fs: { allow: ['..'] } } },
 	integrations: [
 		starlight({
 			title: 'Croft',
-			description: 'Autoscaling that reacts to what processes do in the kernel.',
+			description: 'Kubernetes autoscaling that reacts to eBPF kernel signals.',
 			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/danielcristho/croft' }],
 			editLink: { baseUrl: 'https://github.com/danielcristho/croft/edit/main/website/' },
 			customCss: ['./src/styles/custom.css'],
