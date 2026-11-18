@@ -32,7 +32,7 @@ A web server answers each request with about two `sendto` calls, so their rate i
 
 ![croft pipeline: eBPF in the kernel feeds the collector, which writes a dataset and serves /metrics; croft scale reads /metrics and sets the Deployment's replicas.](../../../../../assets/pipeline.svg)
 
-The collector polls the eBPF maps every 2 s. It appends one row per process to the dataset, in JSON Lines, and serves the latest poll per container on `/metrics`. `croft scale` reads `/metrics` and sets the Deployment's replicas.
+The collector, written in Rust with [Aya](https://aya-rs.dev), polls the eBPF maps every 2 s. It appends one row per process to the dataset, in JSON Lines, and serves the latest poll per container on `/metrics`. `croft scale` reads `/metrics` and sets the Deployment's replicas.
 
 Each stage stays replaceable: a stage never depends on one to its right.
 

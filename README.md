@@ -12,8 +12,8 @@
 
 </div>
 
-Croft is a Kubernetes autoscaler for web services, built on eBPF. It watches what
-each pod asks of the kernel, turns that into a request rate, and adds replicas
+Croft is a Kubernetes autoscaler for web services, built on eBPF and written in
+Rust with [Aya](https://aya-rs.dev). It watches what each pod asks of the kernel, turns that into a request rate, and adds replicas
 without waiting for average CPU to climb.
 
 The Horizontal Pod Autoscaler (HPA) scales on CPU utilization, which rises after
@@ -232,6 +232,10 @@ just lint     # fmt --check and clippy
 just fmt      # apply formatting
 ```
 
+The collector is Rust on both sides of the kernel boundary: the eBPF programs use
+`aya-ebpf`, and userspace loads them and reads their maps with `aya`. No C or
+libbpf is involved.
+
 The eBPF crate needs nightly Rust and `bpf-linker` built against a matching LLVM;
 the [Dockerfile](deploy/docker/Dockerfile) shows the setup. Userspace-only work
 does not need it.
@@ -250,3 +254,6 @@ Enable the commit hooks once per clone: `git config core.hooksPath .githooks`.
 
 Apache 2.0. See [LICENSE](LICENSE). The eBPF program is declared `Dual MIT/GPL`,
 which the kernel requires for the helpers it calls.
+
+The collector workspace started from [aya-template](https://github.com/aya-rs/aya-template)
+(MIT); [collector/README.md](collector/README.md) keeps its notice.
