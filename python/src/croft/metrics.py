@@ -131,6 +131,7 @@ def wide(frame: pd.DataFrame, by: str | list[str] = "pod") -> pd.DataFrame:
     table.attrs = dict(frame.attrs)
     return table
 
+
 def _unescape(value: str) -> str:
     return ESCAPE.sub(lambda m: ESCAPES.get(m.group(1), m.group(0)), value)
 

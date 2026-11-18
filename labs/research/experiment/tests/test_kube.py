@@ -1,4 +1,5 @@
-"""kube.nodes_without: a full image list cannot prove an image miissing. Kubectl carry their stderr."""
+"""kube.nodes_without: a full image list cannot prove an image missing; kubectl failures carry their stderr."""
+
 import subprocess
 import unittest
 from unittest import mock
@@ -30,6 +31,7 @@ class NodesWithoutTest(unittest.TestCase):
         nodes = [node("a", [IMAGE]), node("b", ["other:1"], ready=False), node("c", ["docker.io/" + IMAGE])]
         self.assertEqual(kube.nodes_without(IMAGE, nodes), ([], []))
 
+
 class KubectlTest(unittest.TestCase):
     def test_a_failed_call_shows_its_stderr(self) -> None:
         stderr = "error: no configuration has been provided\n"
@@ -44,6 +46,7 @@ class KubectlTest(unittest.TestCase):
         done = subprocess.CompletedProcess(["kubectl", "version"], 0, "v1.34\n", "")
         with mock.patch.object(kube.subprocess, "run", return_value=done):
             self.assertEqual(kube.kubectl("version"), "v1.34\n")
+
 
 if __name__ == "__main__":
     unittest.main()

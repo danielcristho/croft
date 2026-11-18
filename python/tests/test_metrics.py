@@ -95,6 +95,7 @@ class TimeTest(unittest.TestCase):
         # self.assertEqual(sample[1]["container_id"], "a\nb")
         self.assertEqual(sample[1], {"container_id": "a\\nb", "note": 'x"y\nz'})
 
+
 EXPOSITION = b"""# TYPE croft_poll_unix_ms gauge
 croft_poll_unix_ms 1794960000000
 # TYPE croft_container_syscall_rate gauge
@@ -102,6 +103,7 @@ croft_container_syscall_rate{container_id="0af6",syscall="sendto"} 12.5
 croft_container_connects_total{container_id="0af6",address="10.0.0.1",port="80"} 3
 other_metric 1
 """
+
 
 class Exposition(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -111,6 +113,7 @@ class Exposition(BaseHTTPRequestHandler):
 
     def log_message(self, *args):
         pass
+
 
 class LiveTest(unittest.TestCase):
     def test_reads_the_newest_poll(self):
