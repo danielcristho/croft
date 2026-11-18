@@ -1,6 +1,4 @@
-# Release Please keeps a release pull request open from the Conventional Commits on main; merging it tags vX.Y.Z,
-# writes CHANGELOG.md and publishes the image, the Helm chart and the croft binary. Tags pushed with GITHUB_TOKEN do not start ci.yml, so this
-# workflow pushes the release image itself.
+# this release please workflow pushes the release image itself.
 name: release
 
 on:
@@ -77,7 +75,6 @@ jobs:
           cache-from: type=gha
 
   # The chart's appVersion is set to the release here, so a chart from GHCR pulls the image of the same release.
-  # The artifacthub.io tag holds deploy/helm/artifacthub-repo.yml, which Artifact Hub reads to verify the publisher.
   chart:
     needs: [release-please, image]
     if: needs.release-please.outputs.release_created
