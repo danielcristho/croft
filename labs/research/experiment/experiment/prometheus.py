@@ -86,7 +86,8 @@ def export(path: Path, namespace: str, deployment: str, start_s: int, end_s: int
 # and the linkerd-proxy sidecar stays out, as in queries.
 def signal_query(namespace: str, metric: str, labels: tuple[str, ...], counter: bool) -> str:
     source = f"rate({metric}[{SIGNAL_WINDOW}])" if counter else metric
-    pods = f'kube_pod_container_info{{namespace="{namespace}",container!="linkerd-proxy"}}'
+    # A container not yet started or already gone has an empty container_id; two of them break the join.
+    pods = f'kube_pod_container_info{{namespace="{namespace}",container!="linkerd-proxy",container_id!=""}}'
     ids = f'label_replace({pods}, "container_id", "$1", "container_id", ".*://(.+)")'
     joined = f"{source} * on (container_id) group_left (pod) {ids}"
     by = ", ".join(("service", *labels))
