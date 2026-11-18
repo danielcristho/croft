@@ -59,8 +59,10 @@ representative at an online or offline event.
 ## Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported to the community leaders responsible for enforcement at
-pepuhodaniel93.learn@gmail.com.
+reported privately to the community leaders responsible for enforcement, the
+maintainers in [MAINTAINERS.md](MAINTAINERS.md): through a private report in the
+repository's **Security** tab (**Report a vulnerability**, marked as a Code of
+Conduct report), or by email to the address on a maintainer's GitHub profile.
 All complaints will be reviewed and investigated promptly and fairly.
 
 All community leaders are obligated to respect the privacy and security of the
