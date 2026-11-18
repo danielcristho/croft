@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.3.0](https://github.com/danielcristho/croft/compare/v0.2.0...v0.3.0) (2026-11-18)
+
+
+### Features
+
+* **labs:** load map of the services that take a burst ([#110](https://github.com/danielcristho/croft/issues/110)) ([9402ad2](https://github.com/danielcristho/croft/commit/9402ad26b33a93b4fa9e3ec7a2d20d0156f415e7))
+* **labs:** record every service per run with its role and language ([#108](https://github.com/danielcristho/croft/issues/108)) ([e3f8755](https://github.com/danielcristho/croft/commit/e3f8755c0e8197b43c1e7c1b9b03523d9f9894e4))
+* **labs:** weighted endpoint mix and load config in every run record ([#109](https://github.com/danielcristho/croft/issues/109)) ([07db7a2](https://github.com/danielcristho/croft/commit/07db7a29bfdc9106421540ceaef5f7e67d182c6d))
+* **research:** croft python package for prometheus and dataset signals ([#113](https://github.com/danielcristho/croft/issues/113)) ([1d32596](https://github.com/danielcristho/croft/commit/1d325967f3f52f02f31d6a6466270be8e6bb8aee))
+
+
+### Bug Fixes
+
+* apache-2.0 license metadata, license and dco checks in ci ([#114](https://github.com/danielcristho/croft/issues/114)) ([e250cb0](https://github.com/danielcristho/croft/commit/e250cb0d1f40d8ce2b208bbfa97b94e1c031c521))
+
 ## [0.2.0](https://github.com/danielcristho/croft/compare/v0.1.0...v0.2.0) (2026-11-12)
 
 
