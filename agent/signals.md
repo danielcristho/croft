@@ -50,7 +50,7 @@ missing signal is the queue of connections waiting to be accepted.
 
 ## Notebooks
 
-`research/` holds the notebooks, `croftdata.py` (reads per-node datasets) and a
+`research/` holds the notebooks, which read datasets through `croft.dataset` from `python/`, and a
 JupyterLab container (`docker compose up -d`, port 8890, token in `.env`).
 
 | Notebook | Question |

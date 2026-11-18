@@ -8,7 +8,7 @@ Deployments. The project compares
 eBPF-based autoscaling with the HPA on Kubernetes microservices.
 
 - Rust (edition 2024) for the collector, the eBPF program and the `croft` CLI.
-- Python 3.12+ and `uv` for the experiment harness.
+- Python 3.12+ and `uv` for the experiment harness and the `croft` package in `python/`.
 - Jupyter notebooks for the analysis, in the gitignored `research/`.
 - `just` as the task runner.
 - k3s for the lab cluster, set up with Ansible.
@@ -35,6 +35,7 @@ labs/research/experiment/      experiment harness
   workloads/                   application and monitoring manifests
   assets/                      diagrams and charts for reports
   data/                        run output, gitignored
+python/                        croft package for notebooks: metrics, dataset, plot
 research/                      notebooks and local analysis, gitignored
 docs/                          local design notes, gitignored
 website/                       documentation site
@@ -77,6 +78,7 @@ before starting experiment work.
 
 ```
 CROFT_METRICS_ADDR    address of the collector's /metrics; croft scale needs it
+CROFT_PROMETHEUS      Prometheus URL for the croft Python package
 CROFT_ROTATE_BYTES    dataset rotation by size
 CROFT_ROTATE_SECS     dataset rotation by age
 CROFT_RETAIN_BYTES    dataset retention by size

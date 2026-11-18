@@ -1,0 +1,18 @@
+[project]
+name = "croft"
+version = "0.1.0"
+description = "croft signals for notebooks: Prometheus metrics and collector datasets as pandas frames"
+readme = "README.md"
+license = "MIT OR Apache-2.0"
+requires-python = ">=3.12"
+dependencies = ["pandas>=2.2", "zstandard>=0.25"]
+
+[project.optional-dependencies]
+plot = ["matplotlib>=3.9"]
+
+[build-system]
+requires = ["uv_build>=0.11,<0.12"]
+build-backend = "uv_build"
+
+[tool.ruff]
+line-length = 120

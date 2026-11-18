@@ -52,7 +52,7 @@ needs it.
 One source of truth per piece of knowledge:
 
 - constants and thresholds defined once (`POLL_MS`, `SLO_P95_MS`, `HPA_TARGET`);
-- shared readers reused: `research/croftdata.py` for datasets, the harness's
+- shared readers reused: `croft.dataset` (in `python/`) for datasets and `croft.metrics` for Prometheus signals, the harness's
   `kube`, `prometheus` and `records` modules;
 - variants kept in one table: load shapes in `PROFILES`, probe settings in
   `PROBES`.

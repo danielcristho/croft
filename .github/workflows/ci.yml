@@ -1,4 +1,4 @@
-# Checks every pull request and main: the collector, its eBPF program, the Helm chart and the experiment harness.
+# Checks every pull request and main: the collector, its eBPF program, the Helm chart, the experiment harness and the Python package.
 # Pushes to main and version tags also publish the image to GHCR.
 name: ci
 
@@ -90,4 +90,15 @@ jobs:
       - uses: astral-sh/setup-uv@v7
       - run: uv sync --locked
       # Every module in tests/, so a new test file runs without a CI change.
+      - run: uv run python -m unittest discover -s tests
+
+  python:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: python
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+      - run: uv sync --locked --all-extras
       - run: uv run python -m unittest discover -s tests
