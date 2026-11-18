@@ -178,6 +178,9 @@ def run_level(app: App, name: str, users: int, warmup: int, seconds: int, replic
         "run_id": name,
         "app": app.name,
         "users": users,
+        "host": app.host,
+        "endpoints": [asdict(endpoint) for endpoint in app.endpoints()],
+        "mix": False,
         "steps": steps,
         "shape": shape if steps else None,
         "replicas": replicas,
@@ -209,8 +212,10 @@ def run(app: App, prefix: str, levels: list[int], warmup: int, seconds: int, coo
         time.sleep(cooldown)
 
 
-def run_profile(app: App, prefix: str, name: str, scale: float, warmup: int, cooldown: int, replicas: int | None, node: str | None = None, probes: str = "default", arm: str = "none", mesh: bool = False, concurrent: bool = False) -> None:
-    """One open-loop run of a cloud2023 load profile against the app's request path; croft scale replaces the HPA when asked."""
+def run_profile(app: App, prefix: str, name: str, scale: float, warmup: int, cooldown: int, replicas: int | None, node: str | None = None, probes: str = "default", arm: str = "none", mesh: bool = False, concurrent: bool = False, mix: bool = False) -> None:
+    """One open-loop run of a cloud2023 load profile against the app's request path, or its endpoint mix; croft scale
+    replaces the HPA when asked."""
+    endpoints = app.endpoints(mix)
     with_scaler = arm == "croft"
     if with_scaler:
         scaler.check(app)
@@ -224,10 +229,11 @@ def run_profile(app: App, prefix: str, name: str, scale: float, warmup: int, coo
         if with_scaler:
             scaler.start(app)
         if warmup:
-            rps.run(app.url, Profile("constant", warmup, rps=WARMUP_RPS), None)
+            rps.run(app.host, endpoints, Profile("constant", warmup, rps=WARMUP_RPS), None, run=run_id, users=app.users(mix))
         containers = kube.containers(app.namespace, "-l", app.selector)
         start_ms = records.now_ms()
-        rps.run(app.url, profile, directory / "workload.csv")
+        rps.run(app.host, endpoints, profile, directory / "workload.csv", directory / "endpoints.csv", run=run_id,
+                users=app.users(mix))
         end_ms = records.now_ms()
     finally:
         # A failed run keeps the scaler's log too: it shows what croft decided before the failure.
@@ -243,6 +249,10 @@ def run_profile(app: App, prefix: str, name: str, scale: float, warmup: int, coo
         "run_id": run_id,
         "app": app.name,
         "load": "open-loop",
+        "host": app.host,
+        "endpoints": [asdict(endpoint) for endpoint in endpoints],
+        "mix": mix,
+        "users": app.users(mix),
         "generator": rps.GENERATOR,
         "profile": asdict(profile),
         "scale": scale,

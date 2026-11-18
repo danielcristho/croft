@@ -90,7 +90,9 @@ def summarize(levels: dict[int, dict]) -> dict:
     }
 
 
-def run(app: App, levels: list[int], seconds: int, node: str | None) -> None:
+def run(app: App, levels: list[int], seconds: int, node: str | None, mix: bool = False) -> None:
+    endpoints = app.endpoints(mix)
+    name = f"{app.name}-mix" if mix else app.name
     web.deploy(app, 1, node)
     time.sleep(SETTLE_S)
     pods = [p for p in kube.get("pods", app.namespace, "-l", app.selector)["items"]
@@ -104,8 +106,8 @@ def run(app: App, levels: list[int], seconds: int, node: str | None) -> None:
 
     results = {}
     for level in levels:
-        csv_path = OUT / f"{app.name}-{level}rps.csv"
-        load = threading.Thread(target=rps.run, args=(app.url, Profile("constant", seconds, rps=level), csv_path))
+        csv_path = OUT / f"{name}-{level}rps.csv"
+        load = threading.Thread(target=rps.run, args=(app.host, endpoints, Profile("constant", seconds, rps=level), csv_path))
         load.start()
         time.sleep(SETTLE_S)
         samples, busiest = [], {}
@@ -126,9 +128,9 @@ def run(app: App, levels: list[int], seconds: int, node: str | None) -> None:
 
     summary = summarize(results)
     capacity = TARGET * limit * 1000 / summary["cpu_per_request_ms"]
-    path = OUT / f"{app.name}.json"
+    path = OUT / f"{name}.json"
     path.write_text(json.dumps({"app": app.name, "node": pod["spec"]["nodeName"], "limit_cores": limit,
-                                "levels": results, "summary": summary}, indent=1))
+                                "mix": mix, "levels": results, "summary": summary}, indent=1))
     print("syscalls per request, least spread first:", summary["spread"])
-    print("apps.json scaler:", json.dumps({k: summary[k] for k in ("syscall", "calls_per_request", "cpu_per_request_ms")}))
+    print(f"apps.json {'mix.scaler' if mix else 'scaler'}:", json.dumps({k: summary[k] for k in ("syscall", "calls_per_request", "cpu_per_request_ms")}))
     print(f"one pod at {TARGET:.0%} of {limit:g} core holds about {capacity:.0f} RPS; details in {path}")

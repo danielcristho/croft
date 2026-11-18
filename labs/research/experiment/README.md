@@ -140,12 +140,14 @@ Web suite, open loop:
 ```sh
 uv run run.py web --prefix cd --profile ramp --scale 0.3                    # a ramp at 30% of its rates
 uv run run.py web --prefix duo --profile burst --scaler croft               # croft scale instead of the HPA
+uv run run.py web --app online-boutique --prefix mix --profile burst --mix  # the app's endpoint mix instead of its path
 ```
 
 Calibration and scoring:
 
 ```sh
 uv run run.py calibrate-scaler --app otel-demo --node <node>   # an application's scaler entry
+uv run run.py calibrate-scaler --app otel-demo --mix           # the same under the mix, into <app>-mix.json
 uv run run.py compare --prefix hpa- duo-                  # burst runs scored per arm
 ```
 
@@ -166,6 +168,7 @@ A new application is a new entry, not new code. `--app` picks one.
 | `host`, `path`, `health` | the ingress host, the request path the load hits, and the readiness check |
 | `scaler` | the calibration croft needs: `syscall`, `calls_per_request`, `cpu_per_request_ms` |
 | `scale` | the `--profile` scale a burst runs at by default |
+| `mix` | `endpoints` for `--mix` runs, the number of `users` a run spreads `{user}` over (1 if unset), and an optional `scale` and `scaler` that replace the app's own in them |
 | `services` | every Deployment of the namespace with its `role` (`gateway`, `business`, `cache`, `database`, `support`) and `language`; `support` marks components that serve no request, such as `consul`, `jaeger`, `flagd` and `otel-collector` |
 
 Three applications are defined:
@@ -175,6 +178,33 @@ Three applications are defined:
 | `hotel-reservation` | [DeathStarBench](https://github.com/delimitrou/DeathStarBench) hotelReservation; a hotel search across five Go services | 1.6 ms | 200m |
 | `online-boutique` | [Online Boutique](https://github.com/GoogleCloudPlatform/microservices-demo) v0.10.7; the home page across a Go frontend and its product catalog, currency, cart, recommendation and ad services | 3.3 ms | 200m |
 | `otel-demo` | the [OpenTelemetry Demo](https://github.com/open-telemetry/opentelemetry-demo) 3.1.0; recommendations across Node.js, Python, Go and C++ services | 5.6 ms | 300m |
+
+An endpoint of a `mix` has a `name`, a `path` and a `weight`; a request goes to it with its share of the summed weights. Optional fields:
+
+| Field | Meaning |
+|---|---|
+| `method` | `GET` (default) or `POST` |
+| `body` | the POST body: a string is sent as a form, an object as JSON |
+| `headers` | extra headers, such as a session cookie |
+| `before` | another endpoint sent first, in the same timed request; a `weight` of 0 sends an endpoint only this way |
+
+`{n}` in a path, body or header becomes a number unique to each request. `{user}` becomes `<run id>-<k>`, with
+`k` drawn from the run's `users` by a generator seeded from the profile, so each run starts with fresh sessions and
+carts, and a repeated run sends the same users.
+
+A `before` chain counts as one request: `target_rps`, `workload.csv` and the levels of `calibrate-scaler --mix` count
+chains, while the frontend sees two HTTP requests per chain. In otel-demo's mix, `checkout` (2 of 24 weight, 8.3%)
+is such a chain, so frontend load is that much higher than `target_rps`, and `cpu_per_request_ms` is per chain.
+
+The weights follow each project's own load generator; the ids are fixed:
+
+| Application | Endpoints and weights | Source |
+|---|---|---|
+| `hotel-reservation` | search 60, recommend 39, login 0.5, reserve 0.5 | DeathStarBench `wrk2/scripts/hotel-reservation/mixed-workload_type_1.lua` |
+| `online-boutique` | index 1, currency 2, product 10, cart-add 2, cart 3, checkout 1, over 50 sessions per run | the project's `loadgenerator/locustfile.py` |
+| `otel-demo` | index 1, product 10, recommendations 3, ads 3, cart 3, cart-add 2, checkout 2 | the project's `load-generator/locustfile.py`; checkout and checkout-multi merged |
+
+Two answers of these apps say less than their status. hotel-reservation answers a failed login with 200 and a message, so its user is `Cornell_31` with password `1111111111`, which this image's user database holds. OTel Demo fails a checkout of an empty cart with 500, so its checkout first adds a product for a new user (`before`, `{n}`), as its own load generator does.
 
 The workload folders:
 
@@ -207,6 +237,7 @@ data/
     ├── compare.csv              run.py compare: one scored row per burst run, kept across prefixes
     └── <run>/
         ├── workload.csv         open-loop runs: target and achieved RPS, latency, per second
+        ├── endpoints.csv        open-loop runs: sent, successes, failures and latency per endpoint, per second
         ├── locust_*.csv         Locust runs: stats, history, failures, exceptions
         ├── prometheus.csv       cpu_cores, cpu_throttled_fraction, memory_bytes, network, restarts, replicas
         ├── services.csv         role, language, CPU, throttled share, memory, restarts and replicas of every Deployment
@@ -236,6 +267,7 @@ Factors deliberately changed:
 autoscaler arm (none, croft)
 application
 offered load profile and scale
+endpoints: the app's path, or its mix (--mix)
 ```
 
 ## Dependent variables
@@ -295,6 +327,10 @@ kube-prometheus-stack drops `container_cpu_cfs_throttled_seconds_total`, so `cpu
 **The open-loop profiles follow cloud2023.**
 
 `--profile` uses the rates of `cloud-dynamics-experiments`, a 30 s warm-up at 5 RPS and a 15 s cool-down, and writes `workload.csv` with the same columns. Each application needs its own `--scale` to keep a burst within ten pods.
+
+**`--mix`**
+
+sends the application's endpoint mix instead of its one path, picked per request by a generator seeded with the profile's `seed`, so a repeated run sends the same sequence. The mix's `scale` and `scaler` replace the application's own when set. Locust runs keep the one path, so `--mix` needs `--profile`. Every web run records its `host`, the `endpoints` it sent with their weights, and `mix` in `runs.jsonl`.
 
 **`--scaler croft`**
 

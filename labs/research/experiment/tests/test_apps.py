@@ -1,4 +1,4 @@
-"""apps.json without a cluster: services match the manifests, bad roles stop the load, and the services.csv layout."""
+"""apps.json without a cluster: services match the manifests, bad roles and mixes stop the load, and the services.csv layout."""
 
 import csv
 import json
@@ -46,6 +46,63 @@ class AppsTest(unittest.TestCase):
             path = catalog(Path(tmp), services={"search": {"role": "business", "language": "go"}})
             with self.assertRaisesRegex(SystemExit, "frontend"):
                 apps.load(path)
+
+    def test_every_app_has_a_mix(self) -> None:
+        for app in apps.APPS.values():
+            with self.subTest(app=app.name):
+                self.assertGreater(len(app.endpoints(mix=True)), 1)
+                self.assertEqual([e.path for e in app.endpoints()], [app.path])
+
+    def test_with_mix_takes_the_mix_scale_and_calibration(self) -> None:
+        mix = {"scale": 4, "scaler": {"syscall": "read", "calls_per_request": 2, "cpu_per_request_ms": 3},
+               "endpoints": [{"name": "a", "path": "/a"}]}
+        with tempfile.TemporaryDirectory() as tmp:
+            app = apps.load(catalog(Path(tmp), mix=mix))["hotel-reservation"]
+        mixed = app.with_mix()
+        self.assertEqual((mixed.scale, mixed.scaler.syscall), (4, "read"))
+        self.assertEqual((app.scale, app.scaler.syscall), (2, "write"))
+
+    def test_a_bad_mix_stops_the_load(self) -> None:
+        bad = {
+            "duplicate": [{"name": "a", "path": "/a"}, {"name": "a", "path": "/b"}],
+            "weight": [{"name": "a", "path": "/a", "weight": -1}],
+            "method": [{"name": "a", "path": "/a", "method": "PUT"}],
+            "get body": [{"name": "a", "path": "/a", "body": "x=1"}],
+            "path": [{"name": "a", "path": "a"}],
+            "all weights 0": [{"name": "a", "path": "/a", "weight": 0}],
+            "unknown before": [{"name": "a", "path": "/a", "before": "b"}],
+            "chained before": [{"name": "a", "path": "/a", "before": "b"}, {"name": "b", "path": "/b", "before": "c"},
+                               {"name": "c", "path": "/c"}],
+        }
+        for case, endpoints in bad.items():
+            with self.subTest(case=case), tempfile.TemporaryDirectory() as tmp:
+                with self.assertRaises(SystemExit):
+                    apps.load(catalog(Path(tmp), mix={"endpoints": endpoints}))
+
+    def test_mix_users_default_to_one_and_must_be_whole(self) -> None:
+        endpoints = [{"name": "a", "path": "/a"}]
+        with tempfile.TemporaryDirectory() as tmp:
+            app = apps.load(catalog(Path(tmp), mix={"endpoints": endpoints}))["hotel-reservation"]
+        self.assertEqual((app.users(mix=True), app.users(mix=False)), (1, 1))
+        for users in (0, 2.5, "50"):
+            with self.subTest(users=users), tempfile.TemporaryDirectory() as tmp:
+                with self.assertRaises(SystemExit):
+                    apps.load(catalog(Path(tmp), mix={"endpoints": endpoints, "users": users}))
+
+    def test_session_and_cart_mixes_spread_over_users(self) -> None:
+        for name in ("online-boutique", "otel-demo"):
+            app = apps.APPS[name]
+            sent = " ".join(e.path + e.body + "".join(e.headers.values()) for e in app.endpoints(mix=True))
+            with self.subTest(app=name):
+                self.assertGreater(app.users(mix=True), 1)
+                self.assertIn("croft-{user}", sent)
+                self.assertNotIn("croft-load", sent)
+
+    def test_no_mix_stops_a_mix_run(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            app = apps.load(catalog(Path(tmp), mix=None))["hotel-reservation"]
+        with self.assertRaisesRegex(SystemExit, "no mix"):
+            app.with_mix()
 
     def test_services_csv_labels_known_services_and_leaves_others_empty(self) -> None:
         app = apps.APPS["hotel-reservation"]

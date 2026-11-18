@@ -1,8 +1,49 @@
-"""Offered-load profiles in requests per second, with the parameters of the cloud2023 cloud-dynamics scenarios."""
+"""Offered load: profiles in requests per second, with the parameters of the cloud2023 cloud-dynamics scenarios, and
+the endpoints a request goes to."""
 
+import json
 import math
 import random
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
+
+# Consts
+METHODS = ("GET", "POST")
+
+
+@dataclass(frozen=True)
+class Endpoint:
+    """One request of an application; a mix sends each with a share of weight over the sum of weights.
+
+    before names an endpoint sent first in the same slot, as one timed request; a weight of 0 sends an endpoint only
+    there. {n} in the path, body or headers is replaced by a number unique to each send, such as a new user, and
+    {user} by one of the run's users, such as a session.
+    """
+
+    name: str
+    path: str
+    weight: float = 1.0
+    method: str = "GET"
+    body: str = ""
+    content_type: str = ""
+    headers: dict[str, str] = field(default_factory=dict)
+    before: str = ""
+
+    @classmethod
+    def parse(cls, entry: dict) -> "Endpoint":
+        """An endpoint of apps.json; an object body is sent as JSON, a string body as a form."""
+        entry = dict(entry)
+        body = entry.pop("body", "")
+        if isinstance(body, dict):
+            entry.setdefault("content_type", "application/json")
+            body = json.dumps(body, separators=(",", ":"))
+        elif body:
+            entry.setdefault("content_type", "application/x-www-form-urlencoded")
+        endpoint = cls(body=body, **entry)
+        if endpoint.weight < 0 or endpoint.method not in METHODS or not endpoint.path.startswith("/"):
+            raise ValueError(f"endpoint {endpoint.name}: needs a weight of 0 or more, a method of {METHODS} and a path from /")
+        if endpoint.body and endpoint.method != "POST":
+            raise ValueError(f"endpoint {endpoint.name}: a body needs POST")
+        return endpoint
 
 
 @dataclass(frozen=True)

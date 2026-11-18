@@ -33,6 +33,14 @@
       "memcached-reserve": {"role": "cache", "language": "c"},
       "consul": {"role": "support", "language": "go"},
       "jaeger": {"role": "support", "language": "go"}
+    },
+    "mix": {
+      "endpoints": [
+        {"name": "search", "weight": 60, "path": "/hotels?inDate=2015-04-09&outDate=2015-04-10&lat=38.0235&lon=-122.095"},
+        {"name": "recommend", "weight": 39, "path": "/recommendations?require=rate&lat=38.0235&lon=-122.095"},
+        {"name": "login", "weight": 0.5, "method": "POST", "path": "/user?username=Cornell_31&password=1111111111"},
+        {"name": "reserve", "weight": 0.5, "method": "POST", "path": "/reservation?inDate=2015-04-09&outDate=2015-04-10&lat=38.0235&lon=-122.095&hotelId=1&customerName=Cornell_31&username=Cornell_31&password=1111111111&number=1"}
+      ]
     }
   },
   "online-boutique": {
@@ -61,6 +69,17 @@
       "recommendationservice": {"role": "business", "language": "python"},
       "shippingservice": {"role": "business", "language": "go"},
       "redis-cart": {"role": "cache", "language": "c"}
+    },
+    "mix": {
+      "users": 50,
+      "endpoints": [
+        {"name": "index", "weight": 1, "path": "/", "headers": {"Cookie": "shop_session-id=croft-{user}"}},
+        {"name": "currency", "weight": 2, "method": "POST", "path": "/setCurrency", "body": "currency_code=EUR", "headers": {"Cookie": "shop_session-id=croft-{user}"}},
+        {"name": "product", "weight": 10, "path": "/product/OLJCESPC7Z", "headers": {"Cookie": "shop_session-id=croft-{user}"}},
+        {"name": "cart-add", "weight": 2, "method": "POST", "path": "/cart", "body": "product_id=OLJCESPC7Z&quantity=1", "headers": {"Cookie": "shop_session-id=croft-{user}"}},
+        {"name": "cart", "weight": 3, "path": "/cart", "headers": {"Cookie": "shop_session-id=croft-{user}"}},
+        {"name": "checkout", "weight": 1, "method": "POST", "path": "/cart/checkout", "body": "email=someone%40example.com&street_address=1600+Amphitheatre+Parkway&zip_code=94043&city=Mountain+View&state=CA&country=United+States&credit_card_number=4432801561520454&credit_card_expiration_month=1&credit_card_expiration_year=2039&credit_card_cvv=672", "headers": {"Cookie": "shop_session-id=croft-{user}"}}
+      ]
     }
   },
   "otel-demo": {
@@ -93,6 +112,19 @@
       "valkey-cart": {"role": "cache", "language": "c"},
       "flagd": {"role": "support", "language": "go"},
       "otel-collector": {"role": "support", "language": "go"}
+    },
+    "mix": {
+      "users": 50,
+      "endpoints": [
+        {"name": "index", "weight": 1, "path": "/"},
+        {"name": "product", "weight": 10, "path": "/api/products/OLJCESPC7Z?currencyCode=USD"},
+        {"name": "recommendations", "weight": 3, "path": "/api/recommendations?productIds=OLJCESPC7Z&currencyCode=USD"},
+        {"name": "ads", "weight": 3, "path": "/api/data?contextKeys=telescopes"},
+        {"name": "cart", "weight": 3, "path": "/api/cart?sessionId=croft-{user}&currencyCode=USD"},
+        {"name": "cart-add", "weight": 2, "method": "POST", "path": "/api/cart?currencyCode=USD", "body": {"item": {"productId": "OLJCESPC7Z", "quantity": 1}, "userId": "croft-{user}"}},
+        {"name": "checkout-cart", "weight": 0, "method": "POST", "path": "/api/cart?currencyCode=USD", "body": {"item": {"productId": "OLJCESPC7Z", "quantity": 1}, "userId": "croft-{n}"}},
+        {"name": "checkout", "weight": 2, "method": "POST", "path": "/api/checkout?currencyCode=USD", "body": {"userId": "croft-{n}", "email": "someone@example.com", "address": {"streetAddress": "1600 Amphitheatre Parkway", "city": "Mountain View", "state": "CA", "country": "United States", "zipCode": "94043"}, "userCurrency": "USD", "creditCard": {"creditCardNumber": "4432-8015-6152-0454", "creditCardExpirationMonth": 1, "creditCardExpirationYear": 2039, "creditCardCvv": 672}}, "before": "checkout-cart"}
+      ]
     }
   }
 }

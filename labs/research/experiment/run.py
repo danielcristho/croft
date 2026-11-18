@@ -31,6 +31,7 @@ def main() -> None:
     web_args.add_argument("--shape", choices=["step", "ramp"], default="step", help="hold each step, or ramp between them")
     web_args.add_argument("--profile", choices=sorted(PROFILES), help="one open-loop run of a cloud2023 RPS profile instead")
     web_args.add_argument("--scale", type=float, help="multiply every rate of --profile; default the app's scale in apps.json")
+    web_args.add_argument("--mix", action="store_true", help="send the app's endpoint mix of apps.json, with its scale and calibration; needs --profile")
     web_args.add_argument("--probes", choices=sorted(web.PROBES), default="default", help="relaxed: no liveness restart, slower readiness; none: no probes, the HPA best case")
     web_args.add_argument("--scaler", choices=["none", "croft"], default="none", help="croft: croft scale replaces the HPA; needs --profile")
     web_args.add_argument("--concurrent", action="store_true", help="share the cluster with runs of other apps; the run records it")
@@ -44,6 +45,7 @@ def main() -> None:
     scaler_args.add_argument("--levels", nargs="+", type=int, default=[20, 50, 100], help="constant RPS levels, all below one pod's saturation")
     scaler_args.add_argument("--seconds", type=int, default=75, help="seconds per level; the first 20 settle")
     scaler_args.add_argument("--node", help="pin the pod to one node")
+    scaler_args.add_argument("--mix", action="store_true", help="send the app's endpoint mix; writes <app>-mix.json")
 
     compare_args = suites.add_parser("compare", help="score burst runs per arm, the HPA alone against the HPA with croft scale")
     compare_args.add_argument("--prefix", nargs="+", default=[], help="run id prefixes to score; default every burst run")
@@ -57,7 +59,7 @@ def main() -> None:
         gpu.run(args.only, args.reps, args.seconds, args.cooldown, args.seed, args.node, args.dry_run)
     elif args.suite == "calibrate-scaler":
         lock = records.hold_lock()
-        calibrate_scaler.run(APPS[args.app], args.levels, args.seconds, args.node)
+        calibrate_scaler.run(APPS[args.app], args.levels, args.seconds, args.node, args.mix)
     else:
         if args.scaler != "none" and (not args.profile or args.replicas):
             parser.error(f"--scaler {args.scaler} needs --profile and an autoscaler, so no --replicas")
@@ -66,13 +68,15 @@ def main() -> None:
             parser.error("--mesh does not work with --scaler croft: croft scale would count the linkerd-proxy's syscalls")
         if args.concurrent and args.scaler == "croft":
             parser.error("--concurrent does not work with --scaler croft: the croft arm needs the cluster alone")
+        if args.mix and not args.profile:
+            parser.error("--mix needs --profile: Locust sends the app's path alone")
         lock = records.hold_lock(args.app if args.concurrent else None)
-        app = APPS[args.app]
+        app = APPS[args.app].with_mix() if args.mix else APPS[args.app]
         if args.profile:
             warmup = 30 if args.warmup is None else args.warmup
             cooldown = 15 if args.cooldown is None else args.cooldown
             scale = app.scale if args.scale is None else args.scale
-            web.run_profile(app, args.prefix, args.profile, scale, warmup, cooldown, args.replicas, args.node, args.probes, args.scaler, args.mesh, args.concurrent)
+            web.run_profile(app, args.prefix, args.profile, scale, warmup, cooldown, args.replicas, args.node, args.probes, args.scaler, args.mesh, args.concurrent, args.mix)
         else:
             warmup = 60 if args.warmup is None else args.warmup
             cooldown = 30 if args.cooldown is None else args.cooldown

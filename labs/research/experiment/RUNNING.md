@@ -370,6 +370,19 @@ Read the RPS at which p95 leaves its floor.
 
 `--replicas N` runs no autoscaler: the frontend stays at N pods and every other Deployment at its manifest's count. Use it to see which services take a burst.
 
+## Endpoint mix
+
+`--mix` sends the application's weighted endpoints from `apps.json` instead of its one path, so services off that path take load too: Boutique's checkout, payment and shipping, for example. The final series keeps the one path.
+
+A mix costs a different CPU per request than the path, so it needs its own scale and calibration before a burst:
+
+1. Check that every endpoint answers: `uv run run.py web --app <app> --prefix <app>-mix-smoke --profile constant --mix --replicas 1`. `endpoints.csv` should show no failures.
+2. Find one pod's capacity: `uv run run.py web --app <app> --prefix <app>-mix-ramp --profile ramp --mix --replicas 1`.
+3. Calibrate: `uv run run.py calibrate-scaler --app <app> --mix --node <node>`, and compare `data/calibration/<app>-mix.json` with `<app>.json`.
+4. Set `mix.scale` so the burst needs about six to eight pods, and `mix.scaler` when the calibration moved.
+
+hotel-reservation answers a failed login with 200, so `endpoints.csv` cannot show it; check a reserve once by hand after changing its user.
+
 ---
 
 # 12. Run a first burst
@@ -413,6 +426,7 @@ A run writes:
 ```text
 data/web/<prefix>-<profile>/
 ├── workload.csv       target and achieved RPS, successes, failures, mean and p95 latency, per second
+├── endpoints.csv      the same per endpoint; one endpoint without --mix
 ├── prometheus.csv     CPU, throttled share, memory, network, restarts and replicas, every 5 s
 ├── services.csv       the same for every Deployment, with its role and language from apps.json
 ├── signals.csv        collector series of every service: syscalls, bytes, socket I/O, connects, CPU
