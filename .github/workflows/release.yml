@@ -77,6 +77,7 @@ jobs:
           cache-from: type=gha
 
   # The chart's appVersion is set to the release here, so a chart from GHCR pulls the image of the same release.
+  # The artifacthub.io tag holds deploy/helm/artifacthub-repo.yml, which Artifact Hub reads to verify the publisher.
   chart:
     needs: [release-please, image]
     if: needs.release-please.outputs.release_created
@@ -89,6 +90,7 @@ jobs:
         with:
           ref: ${{ needs.release-please.outputs.tag_name }}
       - uses: azure/setup-helm@v5
+      - uses: oras-project/setup-oras@v2
       - env:
           TAG: ${{ needs.release-please.outputs.tag_name }}
           TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -97,6 +99,11 @@ jobs:
           echo "$TOKEN" | helm registry login ghcr.io -u "${{ github.actor }}" --password-stdin
           helm package deploy/helm/croft --version "$version" --app-version "$version"
           helm push "croft-$version.tgz" "oci://ghcr.io/${{ github.repository_owner }}/charts"
+          echo "$TOKEN" | oras login ghcr.io -u "${{ github.actor }}" --password-stdin
+          cd deploy/helm
+          oras push "ghcr.io/${{ github.repository_owner }}/charts/croft:artifacthub.io" \
+            --config /dev/null:application/vnd.cncf.artifacthub.config.v1+yaml \
+            artifacthub-repo.yml:application/vnd.cncf.artifacthub.repository-metadata.layer.v1.yaml
 
   # The binary comes out of the release image, which already holds the eBPF program; building it again needs bpf-linker.
   binary:

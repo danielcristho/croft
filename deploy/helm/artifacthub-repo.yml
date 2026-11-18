@@ -1,0 +1,3 @@
+# Artifact Hub reads this file from oci://ghcr.io/danielcristho/charts/croft:artifacthub.io; the release pushes it.
+# repositoryID is shown in the repository's settings on artifacthub.io.
+repositoryID: REPLACE_WITH_ARTIFACT_HUB_REPOSITORY_ID
