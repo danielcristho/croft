@@ -3,11 +3,13 @@
 use std::{
     io::{Read, Write},
     net::{TcpStream, ToSocketAddrs},
-    time::Duration,
+    // time::Duration,
+    time::{Duration, Instant},
 };
 
 use anyhow::{Context, anyhow, bail};
 
+// TIMEOUT bounds the whole request, from connect to the last byte of the answer.
 const TIMEOUT: Duration = Duration::from_secs(2);
 
 pub struct Response {
@@ -35,6 +37,7 @@ fn ok(response: Response, url: &str) -> anyhow::Result<String> {
 
 // request speaks HTTP/1.0, so the server closes the connection and never answers in chunks.
 fn request(method: &str, url: &str, body: Option<(&str, &str)>) -> anyhow::Result<Response> {
+    let deadline = Instant::now() + TIMEOUT;
     let (host, path) = split_url(url)?;
     let address = host
         .to_socket_addrs()
@@ -55,11 +58,32 @@ fn request(method: &str, url: &str, body: Option<(&str, &str)>) -> anyhow::Resul
         message.push_str("\r\n");
     }
     stream.write_all(message.as_bytes())?;
-    let mut raw = Vec::new();
-    stream
-        .read_to_end(&mut raw)
-        .with_context(|| format!("read {url}"))?;
+    let raw = read_until(&mut stream, deadline).with_context(|| format!("read {url}"))?;
+    // let mut raw = Vec::new();
+    // stream
+    //     .read_to_end(&mut raw)
+    //     .with_context(|| format!("read {url}"))?;
     parse_response(&String::from_utf8_lossy(&raw))
+}
+
+// read_until reads to the end of the answer; a read timeout alone restarts with every byte, so a server that
+// trickles bytes would hold the poll past TIMEOUT.
+fn read_until(stream: &mut TcpStream, deadline: Instant) -> anyhow::Result<Vec<u8>> {
+    let mut raw = Vec::new();
+    let mut chunk = [0; 8192]; // 8 KiB is enough for a single HTTP header, and we don't care about the body size.
+    loop {
+        let left = deadline.saturating_duration_since(Instant::now());
+        if left.is_zero() {
+            bail!("no complete answer within {TIMEOUT:?}");
+        }
+        stream.set_read_timeout(Some(left))?;
+        match stream.read(&mut chunk) {
+            Ok(0) => return Ok(raw),
+            Ok(n) => raw.extend_from_slice(&chunk[..n]),
+            Err(error) if error.kind() == std::io::ErrorKind::Interrupted => {}
+            Err(error) => return Err(error.into()),
+        }
+    }
 }
 
 fn split_url(url: &str) -> anyhow::Result<(&str, &str)> {
@@ -110,5 +134,23 @@ mod tests {
         assert_eq!(response.status, 404);
         assert_eq!(response.body, "missing");
         assert!(parse_response("garbage").is_err());
+    }
+
+    #[test]
+    fn a_server_that_trickles_bytes_ends_within_the_timeout() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            for _ in 0..20 {
+                if stream.write_all(b"H").is_err() {
+                    return;
+                }
+                std::thread::sleep(Duration::from_millis(300));
+            }
+        });
+        let started = Instant::now();
+        assert!(get(&format!("http://{address}/metrics")).is_err());
+        assert!(started.elapsed() < TIMEOUT + Duration::from_millis(500));
     }
 }

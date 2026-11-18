@@ -5,8 +5,21 @@ import subprocess
 from datetime import datetime
 
 
+# KubectlError keeps CalledProcessError for callers and adds kubectl's stderr to the message.
+class KubectlError(subprocess.CalledProcessError):
+    def __str__(self) -> str:
+        return f"{super().__str__()}\n{(self.stderr or '').strip()}".rstrip()
+
+
+# def kubectl(*args: str, stdin: str | None = None) -> str:
+#     return subprocess.run(["kubectl", *args], input=stdin, check=True, capture_output=True, text=True).stdout
+
+
 def kubectl(*args: str, stdin: str | None = None) -> str:
-    return subprocess.run(["kubectl", *args], input=stdin, check=True, capture_output=True, text=True).stdout
+    done = subprocess.run(["kubectl", *args], input=stdin, capture_output=True, text=True)
+    if done.returncode:
+        raise KubectlError(done.returncode, done.args, done.stdout, done.stderr)
+    return done.stdout
 
 
 def apply(manifest: str) -> None:

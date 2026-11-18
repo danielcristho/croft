@@ -90,6 +90,11 @@ class TimeTest(unittest.TestCase):
         self.assertIsNone(metrics.deployment_of("redis-0"))
         self.assertEqual(metrics.deployment_of("checkout-service-5c8f9d7b4-abcde"), "checkout-service")
 
+    def test_label_values_unescape_in_one_pass(self):
+        sample = metrics._sample(r'croft_container_cpu_cores{container_id="a\\nb", note="x\"y\nz"} 1')
+        # self.assertEqual(sample[1]["container_id"], "a\nb")
+        self.assertEqual(sample[1], {"container_id": "a\\nb", "note": 'x"y\nz'})
+
 
 EXPOSITION = b"""# TYPE croft_poll_unix_ms gauge
 croft_poll_unix_ms 1794960000000
