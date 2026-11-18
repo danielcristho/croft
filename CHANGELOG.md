@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.2](https://github.com/danielcristho/croft/compare/v0.3.1...v0.3.2) (2026-11-18)
+
+
+### Bug Fixes
+
+* kubectl stderr, one HTTP deadline, label unescape ([#45](https://github.com/danielcristho/croft/issues/45)) ([3a1ed00](https://github.com/danielcristho/croft/commit/3a1ed00845a366cbd52d91331ef174ccbabf29c2))
+
 ## [0.3.1](https://github.com/danielcristho/croft/compare/v0.3.0...v0.3.1) (2026-11-18)
 
 
