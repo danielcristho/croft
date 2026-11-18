@@ -228,3 +228,5 @@ labs/k3s-cluster/hosts.ini
 
 # Notes and settings for one checkout
 /.local/
+
+.config/
