@@ -186,7 +186,7 @@ the two numbers.
   one request costs, measured for each application.
 - **It counts answered requests.** `sendto` rises with requests a pod answers, so
   a saturated pod shows its capacity, not the offered load. The queue of
-  connections waiting to be accepted would show it (issue #8).
+  connections waiting to be accepted would show it (issue #11).
 - **Root on every node.** The collector loads eBPF programs, so it runs as root or
   in a privileged container. [Limited reads](#limited-reads) lists what it reads.
 - **One container per pod.** `croft scale` sizes replicas from the CPU request of

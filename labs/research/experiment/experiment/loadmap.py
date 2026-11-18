@@ -1,4 +1,4 @@
-"""Load map (#42): which services take a burst, read from a run's services.csv, signals.csv and edges.csv.
+"""Load map (#21): which services take a burst, read from a run's services.csv, signals.csv and edges.csv.
 
   python3 -m experiment.loadmap summary <prefix>   services and edges of the burst runs whose id starts with <prefix>
 

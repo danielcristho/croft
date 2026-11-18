@@ -65,12 +65,12 @@ zstd segments `croft-dataset-<UTC start>.jsonl.zst` beside it.
 | otel-demo | `otel-demo` | `frontend` | `writev` |
 
 Calibration lives in `apps.json`. It is measured per application and only for
-`frontend`. Boutique's `getpeername` likely counts DNS lookups (#39), so recheck
+`frontend`. Boutique's `getpeername` likely counts DNS lookups (#18), so recheck
 it before relying on it under a new endpoint mix.
 
 ## Current Plan
 
-Open issues #37 to #47 hold the plan: per-service analysis, syscall patterns,
+Open issues #17 to #25 hold the plan: per-service analysis, syscall patterns,
 syscall operands, and a final series of the HPA against croft alone. Read them
 before starting experiment work.
 

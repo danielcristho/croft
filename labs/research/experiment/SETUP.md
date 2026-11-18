@@ -74,7 +74,7 @@ Each application offers one URL:
 
 ### Scales of the first interaction series
 
-Commit `789540f`, 2026-11-06 and 2026-11-07. These scales were not derived from a capacity measurement, so this series does not follow the rule in [RUNNING.md section 18](RUNNING.md#18-study-service-interactions). It used the earlier generator. The series is kept under `si-*` and will be run again under a new series name.
+Commit `32cd004`, 2026-11-06 and 2026-11-07. These scales were not derived from a capacity measurement, so this series does not follow the rule in [RUNNING.md section 18](RUNNING.md#18-study-service-interactions). It used the earlier generator. The series is kept under `si-*` and will be run again under a new series name.
 
 | Application | Scale | `burst` base and peak (RPS) | `ramp` (RPS) |
 |---|---:|---:|---:|
