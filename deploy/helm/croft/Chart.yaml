@@ -5,5 +5,17 @@ type: application
 version: 0.3.0 # x-release-please-version
 appVersion: "main"
 home: https://croft-docs.pages.dev
+icon: https://croft-docs.pages.dev/favicon.svg
+keywords:
+  - autoscaling
+  - ebpf
+  - kubernetes
+maintainers:
+  - name: danielcristho
+    url: https://github.com/danielcristho
+  - name: Agitdavid
+    url: https://github.com/Agitdavid
+annotations:
+  artifacthub.io/license: Apache-2.0
 sources:
   - https://github.com/danielcristho/croft

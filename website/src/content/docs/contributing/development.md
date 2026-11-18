@@ -114,6 +114,8 @@ Release Please reads the Conventional Commits on `main` and keeps a release pull
 
 Merging it tags `vX.Y.Z`, publishes a GitHub release, pushes the image `ghcr.io/danielcristho/croft:X.Y.Z` and the chart `oci://ghcr.io/danielcristho/charts/croft` at `X.Y.Z`. The chart in the repository keeps `appVersion: main`; the release sets it to `X.Y.Z` when it packages the chart.
 
+The release also pushes `deploy/helm/artifacthub-repo.yml` to the tag `artifacthub.io` of the chart, where [Artifact Hub](https://artifacthub.io) reads it to mark the repository as from a verified publisher. Artifact Hub lists the chart from GHCR; it stores no copy. The `repositoryID` in that file comes from the repository's settings on Artifact Hub.
+
 The current version lives in `.release-please-manifest.json`. To release a chosen version, such as 1.0.0, set `"release-as": "1.0.0"` in `release-please-config.json` before merging, and remove it afterwards.
 
 ## This site
