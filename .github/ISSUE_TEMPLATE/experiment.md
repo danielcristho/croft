@@ -27,4 +27,4 @@ Notebooks, datasets or issues this builds on (e.g. `research/burst_signals.ipynb
 
 ## Checklist
 
-- [ ] I have checked this is not already covered by another issue or by the [results](https://croft-cog.pages.dev/research/results/)
+- [ ] I have checked this is not already covered by another issue or by the [results](https://croft-docs.pages.dev/research/results/)
