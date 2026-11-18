@@ -57,7 +57,7 @@ class LinkerdTest(unittest.TestCase):
     def test_signal_query_joins_the_app_pod_and_leaves_out_the_proxy(self) -> None:
         query = prometheus.signal_query("boutique", "m_total", ("syscall",), True)
         self.assertIn("rate(m_total[15s]) * on (container_id) group_left (pod)", query)
-        self.assertIn('namespace="boutique",container!="linkerd-proxy"', query)
+        self.assertIn('namespace="boutique",container!="linkerd-proxy",container_id!=""', query)
         self.assertIn("sum by (service, syscall)", query)
         self.assertNotIn("rate(", prometheus.signal_query("boutique", "m", (), False))
 
