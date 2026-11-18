@@ -40,6 +40,8 @@ POD = re.compile(r"(.+)-[a-z0-9]{5,10}-[a-z0-9]{5}")
 KUBE_LABELS = ("namespace", "pod", "container")
 LINE = re.compile(r"([a-zA-Z_:][a-zA-Z0-9_:]*)(?:\{(.*)\})? (\S+)")
 LABEL = re.compile(r'([a-zA-Z_][a-zA-Z0-9_]*)="((?:[^"\\]|\\.)*)"')
+ESCAPES = {"\\": "\\", '"': '"', "n": "\n"}
+ESCAPE = re.compile(r"\\(.)")
 
 Time = str | float | int | datetime | pd.Timestamp
 
@@ -129,6 +131,9 @@ def wide(frame: pd.DataFrame, by: str | list[str] = "pod") -> pd.DataFrame:
     table.attrs = dict(frame.attrs)
     return table
 
+def _unescape(value: str) -> str:
+    return ESCAPE.sub(lambda m: ESCAPES.get(m.group(1), m.group(0)), value)
+
 
 def live(address: str | None = None, timeout_s: float = 10) -> pd.DataFrame:
     """The newest poll of one collector, read from its /metrics: one row per series, counters as running totals.
@@ -157,9 +162,10 @@ def _sample(line: str) -> tuple[str, dict[str, str], float] | None:
     found = LINE.fullmatch(line.strip())
     if not found or line.startswith("#"):
         return None
-    labels = {
-        key: value.replace('\\"', '"').replace("\\\\", "\\") for key, value in LABEL.findall(found.group(2) or "")
-    }
+    labels = {key: _unescape(value) for key, value in LABEL.findall(found.group(2) or "")}
+    # labels = {
+    #     key: ESCAPE.sub(lambda m: ESCAPES.get(m.group(1), m.group(0)), value) for key, value in LABEL.findall(found.group(2) or "")
+    # }
     return found.group(1), labels, float(found.group(3))
 
 
