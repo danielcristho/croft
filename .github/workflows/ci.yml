@@ -1,4 +1,5 @@
-# Checks every pull request and main: the collector, its eBPF program, the Helm chart, the experiment harness and the Python package.
+# Checks every pull request and main: the collector, its eBPF program, the Helm chart, the experiment harness, the
+# Python package, dependency licenses and, on pull requests, the DCO sign-off.
 # Pushes to main and version tags also publish the image to GHCR.
 name: ci
 
@@ -102,3 +103,27 @@ jobs:
       - uses: astral-sh/setup-uv@v7
       - run: uv sync --locked --all-extras
       - run: uv run python -m unittest discover -s tests
+
+  dco:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - run: .github/scripts/dco.sh "$BASE" "$HEAD"
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+
+  licenses:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          manifest-path: collector/Cargo.toml
+          command: check licenses
+      - uses: astral-sh/setup-uv@v7
+      - run: .github/scripts/python-licenses.sh labs/research/experiment
+      - run: .github/scripts/python-licenses.sh python

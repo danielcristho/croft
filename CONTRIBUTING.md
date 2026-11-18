@@ -249,6 +249,8 @@ Sign off every commit with `git commit -s`. The line certifies the
 [Developer Certificate of Origin](https://developercertificate.org/), so a person
 adds it, never an AI tool.
 
+CI checks the sign-off of every commit in a pull request; commits by bots are exempt.
+
 ## AI-assisted contributions
 
 AI tools are welcome. The person who opens the pull request answers for all of it:

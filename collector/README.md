@@ -33,24 +33,15 @@ copied to a Linux server or VM and run there.
 
 ## License
 
-With the exception of eBPF code, collector is distributed under the terms
-of either the [MIT license] or the [Apache License] (version 2.0), at your
-option.
+The collector, its CLI and `collector-common` are licensed under the Apache License 2.0, as is the rest of
+croft; see [LICENSE](../LICENSE).
 
-Unless you explicitly state otherwise, any contribution intentionally submitted
-for inclusion in this crate by you, as defined in the Apache-2.0 license, shall
-be dual licensed as above, without any additional terms or conditions.
+The eBPF programs in `collector-ebpf` are licensed under either the [GNU General Public License, Version 2]
+or the [MIT license], at your option, because the kernel helpers they call need a GPL-compatible license.
+Contributions to them are dual licensed the same way.
 
-### eBPF
+The workspace started from [aya-template](https://github.com/aya-rs/aya-template), Copyright (c) 2021
+Alessandro Decina, under the MIT license; `LICENSE-MIT` keeps that notice.
 
-All eBPF code is distributed under either the terms of the
-[GNU General Public License, Version 2] or the [MIT license], at your
-option.
-
-Unless you explicitly state otherwise, any contribution intentionally submitted
-for inclusion in this project by you, as defined in the GPL-2 license, shall be
-dual licensed as above, without any additional terms or conditions.
-
-[Apache license]: LICENSE-APACHE
 [MIT license]: LICENSE-MIT
 [GNU General Public License, Version 2]: LICENSE-GPL2
