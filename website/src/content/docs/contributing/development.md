@@ -93,6 +93,12 @@ The `commit-msg` hook checks the first line against [Conventional Commits](https
 
 The `pre-commit` hook runs rustfmt, clippy and the tests when a staged change touches `collector/`.
 
+Sign off every commit with `git commit -s`, for the [Developer Certificate of Origin](https://developercertificate.org/); a person adds it, never an AI tool.
+
+## Merging
+
+Nobody pushes to `main` directly. A pull request merges once a maintainer approves it and the `collector`, `image`, `chart`, `harness`, `python`, `licenses`, `dco` and `title` checks pass. It is squash-merged, so its title becomes the commit on `main`.
+
 ## Bots
 
 | Workflow | Does |

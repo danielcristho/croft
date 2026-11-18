@@ -30,7 +30,7 @@ eBPF sees events, which no file keeps: each syscall, each wait for a CPU, each c
 | `gpu-held` | holds a GPU fd with no ioctl in the last 5 s, often busy on mapped queues; also a process that opened the GPU before the collector started |
 | `no-gpu` | holds no GPU fd |
 
-Holding a GPU is not using it: utilization needs NVML (issue #11).
+Holding a GPU is not using it: utilization needs NVML (issue #13).
 
 ## Request rate from syscalls
 
@@ -43,4 +43,4 @@ Holding a GPU is not using it: utilization needs NVML (issue #11).
 | `cpu_pressure_avg10 > 10` or `cpu_throttled_fraction > 0.2`, two polls | pressure rule |
 | `runqueue_s` | seconds per second the threads waited for a CPU, summed over threads; reacts within a 2 s window where PSI averages 10 s |
 
-`sendto` counts answered requests. Once a pod saturates, it shows the pod's capacity, not the offered load (issue #8).
+`sendto` counts answered requests. Once a pod saturates, it shows the pod's capacity, not the offered load (issue #11).

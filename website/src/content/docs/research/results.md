@@ -23,9 +23,9 @@ The lab webapp costs 45–58 ms of CPU per request. Node calibration gives 38–
 
 ## Open questions
 
-- `sendto` counts answered requests, so a saturated pod shows its capacity, not the offered load. The missing signal is the queue of connections waiting to be accepted (issue #8).
+- `sendto` counts answered requests, so a saturated pod shows its capacity, not the offered load. The missing signal is the queue of connections waiting to be accepted (issue #11).
 - `runqueue_s` fires with `sendto` and PSI on bursts (0.1–2.3 s) and tracks throttling per pod, but climbs with the pod count, so it does not size a burst.
-- The scaler runs next to the HPA (`--scaler croft`) but is not yet validated against it (issue #9).
+- The scaler runs next to the HPA (`--scaler croft`) but is not yet validated against it.
 
 ## Notebooks
 

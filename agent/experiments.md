@@ -42,7 +42,7 @@ over. One experiment runs at a time (`data/experiment.lock`).
   and a series that stopped at its first run looks like it succeeded. Read the
   output and check that `data/web/<run>/` exists for every run.
 - `kube-state-metrics` is scraped every 30 s and misses fast replica changes. Take
-  replica metrics from scaling decisions (#35).
+  replica metrics from scaling decisions.
 - Do not edit the harness while a series runs. Each repetition starts a new
   Python process and loads whatever the files hold at that moment.
 - Test a Kubernetes patch with `--dry-run=server` before a series depends on it.
@@ -59,7 +59,7 @@ over. One experiment runs at a time (`data/experiment.lock`).
 Pair the arms: the HPA alone and `--scaler croft`, same profile, scale and `--probes relaxed`,
 three repetitions each, then score them with `just samples compare`. Per-run scores go to
 `data/web/compare.csv`. Check for croft climbing in small steps, since a syscall shows a
-saturated pod's capacity, not the offered load (issue #8).
+saturated pod's capacity, not the offered load (issue #11).
 
 ## Load: open loop for bursts
 

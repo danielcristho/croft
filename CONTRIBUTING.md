@@ -265,7 +265,7 @@ Say in the pull request when an AI tool wrote a substantial part of the change.
 ## Pushing changes
 
 ```sh
-git commit -m "fix(collector): <what changed>"
+git commit -s -m "fix(collector): <what changed>"
 git push origin fix/short-description
 ```
 
@@ -273,6 +273,10 @@ Then open your fork on GitHub, select the branch and click **Compare & pull
 request**. Check that the base is the right branch of this repository, describe
 what changed and how you tested it, and link the issue (`Closes #12`). Further
 pushes to the same branch update the pull request.
+
+Nobody pushes to `main` directly. A pull request merges once a maintainer approves
+it and the `collector`, `image`, `chart`, `harness`, `python`, `licenses`, `dco` and
+`title` checks pass. It is squash-merged: its title becomes the commit on `main`.
 
 ---
 
