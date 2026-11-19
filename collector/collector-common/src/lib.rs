@@ -35,16 +35,19 @@ pub const AF_INET6: u16 = 10;
 pub const SOCKET_READ: u32 = 0;
 pub const SOCKET_WRITE: u32 = 1;
 
-// COnsts for the values of SERVER_FDS. An accepeted connection waits for a reqs, or holds one noot ye answered.
+// Consts for the values of SERVER_FDS. An accepted connection waits for a request, or holds one not yet answered.
 pub const FD_IDLE: u8 = 1;
 pub const FD_AWAITING: u8 = 2;
 
-// is_reqeust_read matches the x86_64 syscalls that read from a socket: read, recvfrom, recvmsg.
+// MAX_SERVER_FDS caps SERVER_FDS; once full, the LRU evicts connections, so userspace warns near it.
+pub const MAX_SERVER_FDS: u32 = 65536;
+
+// is_request_read matches the x86_64 syscalls that read from a socket: read, readv, recvfrom, recvmsg.
 pub const fn is_request_read(nr: i64) -> bool {
     matches!(nr, 0 | 19 | 45 | 47)
 }
 
-// is_reply_write matches the x86_64 syscalls that write to a socket: write, sendto, sendmsg.
+// is_reply_write matches the x86_64 syscalls that write to a socket: write, writev, sendto, sendmsg.
 pub const fn is_reply_write(nr: i64) -> bool {
     matches!(nr, 1 | 20 | 44 | 46)
 }

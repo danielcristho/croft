@@ -8,14 +8,13 @@ use aya_ebpf::{
 use collector_common::{DropSite, GpuActivity, PRESENT, is_gpu_path, pack_key};
 
 use crate::{
-    context::{arg, current_tgid, ret, tracepoint_ret},
+    context::{FD_ARG, arg, current_tgid, ret, tracepoint_ret},
     maps::{GPU_ACTIVITY, GPU_FDS, PENDING_GPU_OPEN, SERVER_FDS, count_on_err},
     // maps::{GPU_ACTIVITY, GPU_FDS, PENDING_GPU_OPEN, count_on_err},
 };
 
 // Consts for the offsets of the fields in the fixed tracepoint records.
 const PATH_PREFIX_LEN: usize = 16;
-const FD_ARG: usize = 0;
 const FILENAME_ARG: usize = 1;
 
 #[tracepoint]
@@ -85,13 +84,6 @@ fn record_gpu_ioctl(ctx: &TracePointContext) -> Result<(), i32> {
         GPU_ACTIVITY.insert(tgid, activity, 0),
         DropSite::GpuActivity,
     );
-    Ok(())
-}
-
-// forget_gpu_fd is called on close, and removes the fd from the map of tracked fds.
-fn forget_gpu_fd(ctx: &TracePointContext) -> Result<(), i32> {
-    let fd: u64 = arg(ctx, FD_ARG)?;
-    let _ = GPU_FDS.remove(pack_key(current_tgid(), fd as u32));
     Ok(())
 }
 

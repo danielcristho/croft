@@ -20,12 +20,11 @@ use crate::{
 pub const CPU_CORES: &str = "croft_container_cpu_cores";
 pub const CPU_PRESSURE: &str = "croft_container_cpu_pressure_avg10";
 pub const CPU_THROTTLED: &str = "croft_container_cpu_throttled_fraction";
-
 pub const RUNQUEUE: &str = "croft_container_runqueue_wait";
 pub const INFLIGHT: &str = "croft_container_inflight_requests";
 pub const SYSCALL_RATE: &str = "croft_container_syscall_rate";
+// Counters, not rates: a single connect would otherwise show for one poll and fall between scrapes.
 pub const SYSCALL_BYTES: &str = "croft_container_syscall_bytes_total";
-
 pub const CONNECTS: &str = "croft_container_connects_total";
 pub const SOCKET_IO: &str = "croft_container_socket_io_total";
 pub const POLL_UNIX_MS: &str = "croft_poll_unix_ms";
@@ -73,7 +72,9 @@ impl Snapshot {
         if let Some(runqueue) = usage.runqueue_s {
             *signals.runqueue.get_or_insert(0.0) += runqueue;
         }
-        *signals.inflight.get_or_insert(0.0) += operands.inflight as f64;
+        if let Some(inflight) = operands.inflight {
+            *signals.inflight.get_or_insert(0.0) += inflight as f64;
+        }
         for rate in rates {
             *signals.syscalls.entry(rate.name.clone()).or_default() += rate.rate_per_sec;
         }
@@ -301,7 +302,7 @@ mod tests {
                     bytes: &bytes,
                     connects,
                     socket_io: &reads,
-                    inflight: 3, //
+                    inflight: Some(3), // two processes of container a, three each, sum to 6
                 },
             );
         }
