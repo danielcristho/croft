@@ -9,9 +9,12 @@ pub const PRESENT: u8 = 1;
 
 // Each name must match its `#[map]` static in collector-ebpf.
 pub mod map_names {
+    // GPU maps.
     pub const PENDING_GPU_OPEN: &str = "PENDING_GPU_OPEN";
     pub const GPU_FDS: &str = "GPU_FDS";
     pub const GPU_ACTIVITY: &str = "GPU_ACTIVITY";
+
+    // Syscall maps.
     pub const SYSCALL_BY_TYPE: &str = "SYSCALL_BY_TYPE";
     pub const RUNQUEUE_SINCE: &str = "RUNQUEUE_SINCE";
     pub const RUNQUEUE_PENDING: &str = "RUNQUEUE_PENDING";
@@ -20,6 +23,8 @@ pub mod map_names {
     pub const CONNECTS: &str = "CONNECTS";
     pub const SOCKET_IO: &str = "SOCKET_IO";
     pub const DROPS: &str = "DROPS";
+    pub const SERVER_FDS: &str = "SERVER_FDS";
+    pub const THREAD_FD: &str = "THREAD_FD";
 }
 
 // Consts for the address families connect records.
@@ -29,6 +34,25 @@ pub const AF_INET6: u16 = 10;
 // Consts for the keys of SOCKET_IO.
 pub const SOCKET_READ: u32 = 0;
 pub const SOCKET_WRITE: u32 = 1;
+
+// COnsts for the values of SERVER_FDS. An accepeted connection waits for a reqs, or holds one noot ye answered.
+pub const FD_IDLE: u8 = 1;
+pub const FD_AWAITING: u8 = 2;
+
+// is_reqeust_read matches the x86_64 syscalls that read from a socket: read, recvfrom, recvmsg.
+pub const is_reqeust_read(nr: i64) -> bool {
+    matches!(nr, 0 | 19 | 45 | 47)
+}
+
+// is_reply_write matches the x86_64 syscalls that write to a socket: write, sendto, sendmsg.
+pub const is_reply_write(nr: i64) -> bool {
+    matches!(nr, 1 | 20 | 44 | 46)
+}
+
+// is_accept matches the x86_64 syscalls that return an accepted connection: accept, accept4.
+pub const is_accept(nr: i64) -> bool {
+    matches!(nr, 43 | 288)
+}
 
 // is_byte_syscall matches the x86_64 syscalls that return bytes moved: read, write, pread64, pwrite64, readv, writev, sendto, recvfrom, sendmsg, recvmsg.
 pub const fn is_byte_syscall(nr: i64) -> bool {
@@ -98,6 +122,8 @@ pub enum DropSite {
     SyscallBytes,
     Connects,
     SocketIo,
+    ServerFd,
+    ThreadFd,
 }
 
 impl DropSite {
@@ -112,6 +138,8 @@ impl DropSite {
         DropSite::SyscallBytes,
         DropSite::Connects,
         DropSite::SocketIo,
+        DropSite::ServerFd,
+        DropSite::ThreadFd,
     ];
 
     pub const fn index(self) -> u32 {
@@ -130,6 +158,8 @@ impl DropSite {
             DropSite::SyscallBytes => map_names::SYSCALL_BYTES,
             DropSite::Connects => map_names::CONNECTS,
             DropSite::SocketIo => map_names::SOCKET_IO,
+            DropSite::ServerFd => map_names::SERVER_FDS,
+            DropSite::ThreadFd => map_names::THREAD_FD,
         }
     }
 }
@@ -197,6 +227,29 @@ mod tests {
         // close, poll, connect, accept, ioctl, and the -1 of a task outside a syscall
         for nr in [3, 7, 42, 43, 16, -1] {
             assert!(!is_byte_syscall(nr), "{nr}");
+        }
+    }
+
+    [test]
+    fn request_reads_reply_writes_and_accepts_do_not_overlap(){
+        for nr in [0, 19, 45, 47] {
+            assert!(is_request_read(nr) && !is_reply_write(nr) && !is_accept(nr), "{nr}");
+        }
+        for nr in [1, 20, 44, 46] {
+            assert!(!is_request_read(nr) && is_reply_write(nr) && !is_accept(nr), "{nr}");
+        }
+        for nr in [43, 288] {
+            assert!(
+                is_accept(nr) && !is_request_read(nr) && !is_reply_write(nr),
+                "{nr}"
+            );
+        }
+        // pread64 and pwrite64 address a file offset, not a connection
+        for nr in [17, 18, 42, -1] {
+            assert!(
+                !is_accept(nr) && !is_request_read(nr) && !is_reply_write(nr),
+                "{nr}"
+            );
         }
     }
 

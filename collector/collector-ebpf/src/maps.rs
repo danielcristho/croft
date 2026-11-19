@@ -6,7 +6,6 @@ use aya_ebpf::{
 };
 use collector_common::{ConnectKey, DropSite, GpuActivity};
 
-// Consts for the maximum number of entries in the eBPF maps.
 const MAX_TRACKED: u32 = 10240;
 const MAX_SYSCALL_ENTRIES: u32 = 65536;
 const MAX_THREADS: u32 = 65536;
@@ -14,14 +13,12 @@ const MAX_THREADS: u32 = 65536;
 #[map]
 pub static PENDING_GPU_OPEN: HashMap<u64, u8> = HashMap::with_max_entries(MAX_TRACKED, 0);
 
-// LRU, so fds of exited processes age out.
 #[map]
 pub static GPU_FDS: LruHashMap<u64, u8> = LruHashMap::with_max_entries(MAX_TRACKED, 0);
 
 #[map]
 pub static GPU_ACTIVITY: HashMap<u32, GpuActivity> = HashMap::with_max_entries(MAX_TRACKED, 0);
 
-// Keyed by thread id: when a runnable thread was queued, and the wait it has not yet charged to its process.
 #[map]
 pub static RUNQUEUE_SINCE: LruHashMap<u32, u64> = LruHashMap::with_max_entries(MAX_THREADS, 0);
 
@@ -44,7 +41,12 @@ pub static CONNECTS: LruHashMap<ConnectKey, u64> = LruHashMap::with_max_entries(
 #[map]
 pub static SOCKET_IO: LruHashMap<u64, u64> = LruHashMap::with_max_entries(MAX_TRACKED, 0);
 
-// Per-CPU so the hot path increments without atomics; userspace sums the CPUs.
+#[map]
+pub static SERVER_FDS: LruHashMap<u64, u8> = LruHashMap::with_max_entries(MAX_TRACKED, 0);
+
+#[map]
+pub static THREAD_FD: LruHashMap<u32, u8> = LruHashMap::with_max_entries(MAX_THREADS, 0);
+
 #[map]
 pub static DROPS: PerCpuArray<u64> = PerCpuArray::with_max_entries(DropSite::ALL.len() as u32, 0);
 

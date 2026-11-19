@@ -9,7 +9,8 @@ use collector_common::{DropSite, GpuActivity, PRESENT, is_gpu_path, pack_key};
 
 use crate::{
     context::{arg, current_tgid, ret, tracepoint_ret},
-    maps::{GPU_ACTIVITY, GPU_FDS, PENDING_GPU_OPEN, count_on_err},
+    maps::{GPU_ACTIVITY, GPU_FDS, PENDING_GPU_OPEN, SERVER_FDS, count_on_err},
+    // maps::{GPU_ACTIVITY, GPU_FDS, PENDING_GPU_OPEN, count_on_err},
 };
 
 // Consts for the offsets of the fields in the fixed tracepoint records.
@@ -34,7 +35,8 @@ pub fn sys_enter_ioctl(ctx: TracePointContext) -> u32 {
 
 #[tracepoint]
 pub fn sys_enter_close(ctx: TracePointContext) -> u32 {
-    tracepoint_ret(forget_gpu_fd(&ctx))
+    tracepoint_ret(forget_fd(&ctx))
+    // tracepoint_ret(forget_gpu_fd(&ctx))
 }
 
 // mark_gpu_open is called on openat entry, and records the pid in a map if the open is for a GPU device.
@@ -90,5 +92,14 @@ fn record_gpu_ioctl(ctx: &TracePointContext) -> Result<(), i32> {
 fn forget_gpu_fd(ctx: &TracePointContext) -> Result<(), i32> {
     let fd: u64 = arg(ctx, FD_ARG)?;
     let _ = GPU_FDS.remove(pack_key(current_tgid(), fd as u32));
+    Ok(())
+}
+
+// forget_fd is called on close, and removes the fd from the maps of tracked GPU fds and accepted connections.
+fn forget_fd(ctx: &TracePointContext) -> Result<(), i32> {
+    let fd: u64 = arg(ctx, FD_ARG)?;
+    let key = pack_key(current_tgid(), fd as u32);
+    let _ = GPU_FDS.remove(key);
+    let _ = SERVER_FDS.remove(&key);
     Ok(())
 }
