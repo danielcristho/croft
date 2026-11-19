@@ -8,6 +8,9 @@ const RET_OFFSET: usize = 16;
 const SYSCALL_NR_OFFSET: usize = 8;
 const ARG_SIZE: usize = 8;
 
+// The fd is the first argument of every fd syscall: read, write, ioctl, close.
+pub const FD_ARG: usize = 0;
+
 pub fn current_tgid() -> u32 {
     (bpf_get_current_pid_tgid() >> 32) as u32
 }

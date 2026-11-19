@@ -59,6 +59,11 @@ pub fn gpu_fds(ebpf: &mut Ebpf) -> anyhow::Result<HashMap<&mut MapData, u64, u8>
     Ok(HashMap::try_from(find_mut(ebpf, map_names::GPU_FDS)?)?)
 }
 
+// server_fds_mut returns a writable view of the accepted connections, by process and fd, with FD_IDLE or FD_AWAITING.
+pub fn server_fds(ebpf: &mut Ebpf) -> anyhow::Result<HashMap<&mut MapData, u64, u8>> {
+    Ok(HashMap::try_from(find_mut(ebpf, map_names::SERVER_FDS)?)?)
+}
+
 // gpu_activity_mut returns a writable view of the GPU activity map.
 pub fn gpu_activity_mut(
     ebpf: &mut Ebpf,

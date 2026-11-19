@@ -22,7 +22,7 @@ use crate::{
         clock::{self, NANOS_PER_MS},
         drops::DropWatcher,
         maps,
-        operands::Operands,
+        operands::{Operands, ServerFdPruner},
         syscalls::{self, RateTracker, SyscallCount, SyscallRate},
         watch::CgroupWatch,
     },
@@ -39,7 +39,7 @@ const IDLE_RATE: f64 = 0.005;
 const FRAMEWORK_RECHECK_POLLS: u64 = 30;
 
 pub async fn run(
-    ebpf: Ebpf,
+    mut ebpf: Ebpf,
     dataset: Dataset,
     watch: CgroupWatch,
     frameworks: Catalog,
@@ -49,7 +49,7 @@ pub async fn run(
     let mut reporter = Reporter::new(dataset, watch, frameworks, published);
     loop {
         interval.tick().await;
-        if let Err(e) = reporter.poll(&ebpf) {
+        if let Err(e) = reporter.poll(&mut ebpf) {
             warn!("poll eBPF maps: {e:#}");
         }
     }
@@ -65,6 +65,7 @@ struct Reporter {
     dataset: Dataset,
     watch: CgroupWatch,
     drops: DropWatcher,
+    server_fds: ServerFdPruner,
     rates: RateTracker,
     resources: ResourceTracker,
     idle: IdleThrottle,
@@ -93,6 +94,7 @@ impl Reporter {
             dataset,
             watch,
             drops: DropWatcher::default(),
+            server_fds: ServerFdPruner::default(),
             rates: RateTracker::default(),
             resources: ResourceTracker::new(),
             idle: IdleThrottle::new(IDLE_HEARTBEAT_POLLS),
@@ -103,14 +105,17 @@ impl Reporter {
         }
     }
 
-    fn poll(&mut self, ebpf: &Ebpf) -> anyhow::Result<()> {
+    fn poll(&mut self, ebpf: &mut Ebpf) -> anyhow::Result<()> {
         self.drops.warn_new(ebpf)?;
         let syscall_counts = maps::syscall_counts(ebpf)?;
         let by_tgid = syscalls::group_by_tgid(syscall_counts.iter().flatten());
         let runqueue: HashMap<u32, u64> = maps::runqueue_ns(ebpf)?.iter().flatten().collect();
         // Operands reach only the metrics endpoint, so a run without it skips the map reads.
         let operands = match self.published {
-            Some(_) => Operands::read(ebpf)?,
+            Some(_) => {
+                let server_fds = self.server_fds.prune(ebpf)?;
+                Operands::read(ebpf, &server_fds)?
+            }
             None => Operands::default(),
         };
         let now = clock::monotonic_ns();
