@@ -45,7 +45,7 @@ pub static SOCKET_IO: LruHashMap<u64, u64> = LruHashMap::with_max_entries(MAX_TR
 pub static SERVER_FDS: LruHashMap<u64, u8> = LruHashMap::with_max_entries(MAX_TRACKED, 0);
 
 #[map]
-pub static THREAD_FD: LruHashMap<u32, u8> = LruHashMap::with_max_entries(MAX_THREADS, 0);
+pub static THREAD_FD: LruHashMap<u32, u32> = LruHashMap::with_max_entries(MAX_THREADS, 0);
 
 #[map]
 pub static DROPS: PerCpuArray<u64> = PerCpuArray::with_max_entries(DropSite::ALL.len() as u32, 0);

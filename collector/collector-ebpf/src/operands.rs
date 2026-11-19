@@ -96,7 +96,7 @@ fn track_request(ctx: &TracePointContext) -> Result<(), i32> {
         return Ok(());
     };
     let _ = THREAD_FD.remove(&pid_tgid);
-    let key = pack_key(current_tgid(), fd as u32);
+    let key = pack_key(current_tgid(), fd);
     // SAFETY: the reference iopped on this line.
     if result <= 0 || unsafe { SERVER_FDS.get(&key) }.is_none() {
         return Ok(());

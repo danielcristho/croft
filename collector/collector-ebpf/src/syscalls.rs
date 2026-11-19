@@ -30,7 +30,7 @@ fn count_syscall(ctx: &TracePointContext) -> Result<(), i32> {
     if is_request_read(nr) || is_reply_write(nr) {
         let fd: u64 = arg(ctx, FD_ARG)?;
         count_on_err(
-            THREAD_FD.insert(bpf_get_current_pid_tgid() as u32, fd as u8, 0),
+            THREAD_FD.insert(bpf_get_current_pid_tgid() as u32, fd as u32, 0),
             DropSite::ThreadFd,
         );
     }
