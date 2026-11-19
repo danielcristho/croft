@@ -12,7 +12,7 @@ eBPF sees events, which no file keeps: each syscall, each wait for a CPU, each c
 | eBPF, `raw_syscalls/sys_enter` | syscall rates; the request rate of a web server | `syscalls` |
 | eBPF, `sched_wakeup`, `sched_wakeup_new`, `sched_switch` | time each process waited for a CPU | `usage.runqueue_s` |
 | eBPF, `openat`, `ioctl`, `close` on `/dev/nvidia*` and `/dev/dri/*` | which processes hold a GPU and when they call into it | `workload`, `ioctl_count`, `since_last_gpu_ioctl_ms` |
-| eBPF, `raw_syscalls/sys_exit` of `accept`, reads and writes, `close` | accepted connections holding a request not yet answered | `croft_container_inflight_requests` on `/metrics` |
+| eBPF, `raw_syscalls/sys_enter` and `sys_exit` of `accept`, reads and writes; `syscalls/sys_enter_close` | accepted connections holding a request not yet answered | `croft_container_inflight_requests` on `/metrics` |
 | eBPF, `sched_process_exit` | clears a process's state when it exits | |
 | `/proc/<pid>/maps`, `cmdline` | framework, from the libraries a process loaded or its arguments | `process.framework` |
 | `/proc/<pid>/stat`, `status`, `io`, `cwd`, `cgroup`, `net/dev` | CPU, RSS, threads, context switches, disk and network bytes, working directory, container | `usage`, `process` |
@@ -48,11 +48,18 @@ Holding a GPU is not using it: utilization needs NVML (issue #13).
 
 ## In-flight requests
 
-The collector marks each connection a process accepts. A read that returns data marks it as holding a request; a write marks it answered; `close` forgets it. `croft_container_inflight_requests` counts the connections holding a request, summed per container: the same quantity an app exports as an in-flight gauge, read without changing the app.
+The collector marks each connection a process accepts. A read that returns data marks it as holding a request; a write marks it answered; `close` forgets it. `croft_container_inflight_requests` counts the connections holding a request, summed per container: the same quantity an app exports as an in-flight gauge, read without changing the app. A container with no tracked connection has no value, not 0.
+
+Each poll, the collector drops the connections of exited processes, and the counted ones whose fd no longer names a socket. The map holds 65,536 connections for the whole node; near that, the collector logs a warning, as the oldest entries are evicted, requests in flight among them.
 
 | Limit | Effect |
 |---|---|
 | Connections accepted before the collector started | not counted until they reconnect; ingress-nginx keeps upstream connections open for a long time |
 | HTTP/2 and gRPC | many requests share one connection, which counts once |
 | A queue inside the app's memory | leaves no trace in a socket; the kernel cannot see it |
-| Connections the process opened itself | never counted, so a call to a database or another service is not an in-flight request |
+| Connections the process opened itself | not counted, so a call to a database or another service is not an in-flight request |
+| An fd freed without `close`: `dup2`/`dup3` over it, `close_range` | if a new outgoing socket takes the same fd number, its reads count as in-flight requests |
+| Replies sent through `sendfile`, `splice` or `sendmmsg`; requests read through `recvmmsg` | not matched, so the connection stays awaiting, or is never marked |
+| Servers on io_uring | make no read or write syscalls, so their requests are not seen |
+| Syscall numbers | x86_64 only; an arm64 node has no value |
+| Map capacity | 65,536 connections per node; past it the LRU evicts the oldest, with a warning in the log |
