@@ -6,7 +6,7 @@ use std::{
 };
 
 use aya::Ebpf;
-use collector_common::{AF_INET, AF_INET6, ConnectKey, SOCKET_READ};
+use collector_common::{AF_INET, AF_INET6, ConnectKey, FD_AWAITING, SOCKET_READ, unpack_key};
 
 use super::{
     maps,
@@ -21,6 +21,7 @@ pub struct Operands {
     bytes: HashMap<u32, Vec<SyscallCount>>,
     connects: HashMap<u32, Vec<(Destination, u64)>>,
     socket_io: HashMap<u32, Vec<SyscallCount>>,
+    inflight: HashMap<u32, u64>,
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -29,6 +30,7 @@ pub struct ProcessOperands<'a> {
     pub connects: &'a [(Destination, u64)],
     // nr holds SOCKET_READ or SOCKET_WRITE.
     pub socket_io: &'a [SyscallCount],
+    pub inflight: u64,
 }
 
 impl Operands {
@@ -36,6 +38,7 @@ impl Operands {
         let bytes = syscalls::group_by_tgid(maps::syscall_bytes(ebpf)?.iter().flatten());
         let socket_io = syscalls::group_by_tgid(maps::socket_io(ebpf)?.iter().flatten());
         let mut connects: HashMap<u32, Vec<(Destination, u64)>> = HashMap::new();
+        let inflight = awaiting_by_tgid(maps::server_fds(ebpf)?.iter().flatten());
         for (key, count) in maps::connects(ebpf)?.iter().flatten() {
             if let Some(destination) = destination(&key) {
                 connects
@@ -48,6 +51,7 @@ impl Operands {
             bytes,
             connects,
             socket_io,
+            inflight,
         })
     }
 
@@ -56,8 +60,20 @@ impl Operands {
             bytes: self.bytes.get(&tgid).map_or(&[], Vec::as_slice),
             connects: self.connects.get(&tgid).map_or(&[], Vec::as_slice),
             socket_io: self.socket_io.get(&tgid).map_or(&[], Vec::as_slice),
+            inflight: self.inflight.get(&tgid).copied().unwrap_or(0),
         }
     }
+}
+
+// awaiting_by_tgid counts, per process, the accepted connections whose last read has no reply yet.
+fn awaiting_by_tgid(entries: impl Iterator<Item = (u64, u8)>) -> HashMap<u32, u64> {
+    let mut by_tgid = HashMap::new();
+    for (key, state) in entries {
+        if state == FD_AWAITING {
+            *by_tgid.entry(unpack_key(key).0).or_default() += 1;
+        }
+    }
+    by_tgid
 }
 
 // socket_direction names a key of SOCKET_IO.
@@ -133,9 +149,24 @@ mod tests {
     }
 
     #[test]
+    fn only_awaiting_connections_count_as_inflight() {
+        use collector_common::{FD_IDLE, pack_key};
+        let entries = [
+            (pack_key(1, 5), FD_AWAITING),
+            (pack_key(1, 6), FD_IDLE),
+            (pack_key(1, 7), FD_AWAITING),
+            (pack_key(2, 5), FD_IDLE),
+        ];
+        let inflight = awaiting_by_tgid(entries.into_iter());
+        assert_eq!(inflight.get(&1), Some(&2));
+        assert_eq!(inflight.get(&2), None);
+    }
+
+    #[test]
     fn an_unseen_process_has_no_operands() {
         let operands = Operands::default();
         let process = operands.of(7);
         assert!(process.bytes.is_empty() && process.connects.is_empty());
+        assert_eq!(process.inflight, 0);
     }
 }

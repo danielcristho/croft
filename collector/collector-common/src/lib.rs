@@ -40,17 +40,17 @@ pub const FD_IDLE: u8 = 1;
 pub const FD_AWAITING: u8 = 2;
 
 // is_reqeust_read matches the x86_64 syscalls that read from a socket: read, recvfrom, recvmsg.
-pub const is_reqeust_read(nr: i64) -> bool {
+pub const fn is_request_read(nr: i64) -> bool {
     matches!(nr, 0 | 19 | 45 | 47)
 }
 
 // is_reply_write matches the x86_64 syscalls that write to a socket: write, sendto, sendmsg.
-pub const is_reply_write(nr: i64) -> bool {
+pub const fn is_reply_write(nr: i64) -> bool {
     matches!(nr, 1 | 20 | 44 | 46)
 }
 
 // is_accept matches the x86_64 syscalls that return an accepted connection: accept, accept4.
-pub const is_accept(nr: i64) -> bool {
+pub const fn is_accept(nr: i64) -> bool {
     matches!(nr, 43 | 288)
 }
 
@@ -127,7 +127,7 @@ pub enum DropSite {
 }
 
 impl DropSite {
-    pub const ALL: [DropSite; 10] = [
+    pub const ALL: [DropSite; 12] = [
         DropSite::PendingOpen,
         DropSite::GpuFd,
         DropSite::GpuActivity,
@@ -230,13 +230,19 @@ mod tests {
         }
     }
 
-    [test]
-    fn request_reads_reply_writes_and_accepts_do_not_overlap(){
+    #[test]
+    fn request_reads_reply_writes_and_accepts_do_not_overlap() {
         for nr in [0, 19, 45, 47] {
-            assert!(is_request_read(nr) && !is_reply_write(nr) && !is_accept(nr), "{nr}");
+            assert!(
+                is_request_read(nr) && !is_reply_write(nr) && !is_accept(nr),
+                "{nr}"
+            );
         }
         for nr in [1, 20, 44, 46] {
-            assert!(!is_request_read(nr) && is_reply_write(nr) && !is_accept(nr), "{nr}");
+            assert!(
+                !is_request_read(nr) && is_reply_write(nr) && !is_accept(nr),
+                "{nr}"
+            );
         }
         for nr in [43, 288] {
             assert!(

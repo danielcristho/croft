@@ -2,24 +2,19 @@
 //! accepted connections holding a request not yet answered.
 
 use aya_ebpf::{
-    helpers::bpf_probe_read_user_buf,
+    helpers::{bpf_get_current_pid_tgid, bpf_probe_read_user_buf},
     macros::{kprobe, tracepoint},
     maps::LruHashMap,
     programs::{ProbeContext, TracePointContext},
 };
-
-helpers::{bpf_get_current_pid_tgid, bpf_probe_read_user_buf}
-
 use collector_common::{
     AF_INET, AF_INET6, ConnectKey, DropSite, FD_AWAITING, FD_IDLE, SOCKET_READ, SOCKET_WRITE,
     is_accept, is_byte_syscall, is_reply_write, is_request_read, pack_key,
 };
-    maps::{CONNECTS, SERVER_FDS, SOCKET_IO, SYSCALL_BYTES, THREAD_FD, count_on_err},
-
 
 use crate::{
     context::{arg, current_tgid, ret, syscall_nr, tracepoint_ret},
-    maps::{CONNECTS, SOCKET_IO, SYSCALL_BYTES, count_on_err},
+    maps::{CONNECTS, SERVER_FDS, SOCKET_IO, SYSCALL_BYTES, THREAD_FD, count_on_err},
 };
 
 // Consts for the sockaddr layout.
@@ -95,21 +90,20 @@ fn track_request(ctx: &TracePointContext) -> Result<(), i32> {
     } else {
         return Ok(());
     };
-    let pid_tgid = bpf_get_current_pid_tgid();
+    let pid_tgid = bpf_get_current_pid_tgid() as u32;
     // SAFETY: the value is copied out before the entry can change.
     let Some(fd) = (unsafe { THREAD_FD.get(&pid_tgid) }).copied() else {
         return Ok(());
     };
     let _ = THREAD_FD.remove(&pid_tgid);
-    let key = pack_key(current
+    let key = pack_key(current_tgid(), fd as u32);
     // SAFETY: the reference iopped on this line.
-    if result <= 0 || unsafe {ne() {
+    if result <= 0 || unsafe { SERVER_FDS.get(&key) }.is_none() {
         return Ok(());
     }
-    count_on_err(SERVER_FDS.inte::ServerFd);
+    count_on_err(SERVER_FDS.insert(&key, &state, 0), DropSite::ServerFd);
     Ok(())
 }
-
 
 // count_connect counts attempts: a nonblocking connect has no result yet at entry.
 fn count_connect(ctx: &TracePointContext) -> Result<(), i32> {

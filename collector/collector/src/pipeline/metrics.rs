@@ -20,10 +20,12 @@ use crate::{
 pub const CPU_CORES: &str = "croft_container_cpu_cores";
 pub const CPU_PRESSURE: &str = "croft_container_cpu_pressure_avg10";
 pub const CPU_THROTTLED: &str = "croft_container_cpu_throttled_fraction";
+
 pub const RUNQUEUE: &str = "croft_container_runqueue_wait";
+pub const INFLIGHT: &str = "croft_container_inflight_requests";
 pub const SYSCALL_RATE: &str = "croft_container_syscall_rate";
-// Counters, not rates: a single connect would otherwise show for one poll and fall between scrapes.
 pub const SYSCALL_BYTES: &str = "croft_container_syscall_bytes_total";
+
 pub const CONNECTS: &str = "croft_container_connects_total";
 pub const SOCKET_IO: &str = "croft_container_socket_io_total";
 pub const POLL_UNIX_MS: &str = "croft_poll_unix_ms";
@@ -34,6 +36,7 @@ pub struct ContainerSignals {
     pub cpu_pressure: Option<f64>,
     pub cpu_throttled: Option<f64>,
     pub runqueue: Option<f64>,
+    pub inflight: Option<f64>,
     pub syscalls: BTreeMap<String, f64>,
     pub syscall_bytes: BTreeMap<String, u64>,
     pub connects: BTreeMap<Destination, u64>,
@@ -70,6 +73,7 @@ impl Snapshot {
         if let Some(runqueue) = usage.runqueue_s {
             *signals.runqueue.get_or_insert(0.0) += runqueue;
         }
+        *signals.inflight.get_or_insert(0.0) += operands.inflight as f64;
         for rate in rates {
             *signals.syscalls.entry(rate.name.clone()).or_default() += rate.rate_per_sec;
         }
@@ -92,11 +96,12 @@ impl Snapshot {
 
     pub fn render(&self, poll_unix_ms: u128) -> String {
         let mut text = format!("# TYPE {POLL_UNIX_MS} gauge\n{POLL_UNIX_MS} {poll_unix_ms}\n");
-        let gauges: [(&str, Field); 4] = [
+        let gauges: [(&str, Field); 5] = [
             (CPU_CORES, |s| s.cpu_cores),
             (CPU_PRESSURE, |s| s.cpu_pressure),
             (CPU_THROTTLED, |s| s.cpu_throttled),
             (RUNQUEUE, |s| s.runqueue),
+            (INFLIGHT, |s| s.inflight),
         ];
         for (name, value) in gauges {
             let _ = writeln!(text, "# TYPE {name} gauge");
@@ -296,6 +301,7 @@ mod tests {
                     bytes: &bytes,
                     connects,
                     socket_io: &reads,
+                    inflight: 3, //
                 },
             );
         }
@@ -311,6 +317,7 @@ mod tests {
         assert_eq!(find(CONNECTS, "address", "10.43.0.10"), Some(7.0));
         assert_eq!(find(CONNECTS, "address", "fd00::1"), Some(1.0));
         assert_eq!(find(CONNECTS, "port", "8080"), Some(1.0));
+        assert_eq!(find(INFLIGHT, "container_id", "a"), Some(6.0));
     }
 
     #[test]
