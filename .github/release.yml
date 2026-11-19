@@ -1,0 +1,6 @@
+# GitHub writes each release's notes from the merged PRs, with their authors and first-time contributors.
+changelog:
+  exclude:
+    labels:
+      - "autorelease: pending"
+      - "autorelease: tagged"

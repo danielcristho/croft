@@ -1,4 +1,5 @@
 # Checks links in the docs: on pull requests that touch Markdown, and weekly, where a broken link opens an issue.
+# Commit and compare links in CHANGELOG.md come from Release Please; GitHub answers 503 when lychee checks them all at once.
 name: links
 
 on:
@@ -37,6 +38,7 @@ jobs:
             --exclude-path node_modules
             --exclude-path .venv
             --exclude '^https?://(localhost|127\.0\.0\.1|ADDR)'
+            --exclude '^https://github\.com/danielcristho/croft/(commit|compare)/'
             './*.md' 'docs/**/*.md' 'agent/*.md' 'deploy/**/*.md' 'labs/**/*.md' 'website/dist/**/*.html'
           fail: ${{ github.event_name == 'pull_request' }}
       - if: github.event_name != 'pull_request' && steps.lychee.outputs.exit_code != 0
