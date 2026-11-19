@@ -22,6 +22,21 @@ jobs:
       - id: release
         uses: googleapis/release-please-action@v5
 
+  # Swaps the release body for GitHub's notes: each PR with its author, and new contributors. CHANGELOG.md keeps the grouped list.
+  notes:
+    needs: release-please
+    if: needs.release-please.outputs.release_created
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ needs.release-please.outputs.tag_name }}
+    steps:
+      - run: |
+          gh api "repos/$GITHUB_REPOSITORY/releases/generate-notes" -f tag_name="$TAG" --jq .body > notes.md
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes-file notes.md
+
   # Release Please bumps the workspace version in Cargo.toml but not Cargo.lock.
   lockfile:
     needs: release-please
