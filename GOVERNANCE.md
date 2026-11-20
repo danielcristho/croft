@@ -14,6 +14,10 @@ Everyday decisions happen in issues and pull requests by lazy consensus. Every c
 
 Changes to this document, to the license or to the project's direction need a majority of maintainers, in a public issue open for at least seven days.
 
+## Releases
+
+A minor release ships when a milestone is done, and at least every eight weeks while `main` holds unreleased changes. A patch release ships only for a regression, a crash of the collector or a security fix. A maintainer merges the release pull request; [the developer docs](https://croft-docs.pages.dev/contributing/development/#releases) describe the steps.
+
 ## Code of Conduct
 
 Everyone follows the [Code of Conduct](CODE_OF_CONDUCT.md).

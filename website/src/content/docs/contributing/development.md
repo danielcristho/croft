@@ -118,6 +118,15 @@ Merging it tags `vX.Y.Z`, publishes a GitHub release, pushes the image `ghcr.io/
 
 The release also pushes `deploy/helm/artifacthub-repo.yml` to the tag `artifacthub.io` of the chart, where [Artifact Hub](https://artifacthub.io) reads it to mark the repository as from a verified publisher. Artifact Hub lists the chart from GHCR; it stores no copy. The `repositoryID` in that file comes from the repository's settings on Artifact Hub.
 
+The release pull request stays open while changes collect on `main`. [GOVERNANCE.md](https://github.com/danielcristho/croft/blob/main/GOVERNANCE.md#releases) sets when it is merged:
+
+| Release | When |
+|---|---|
+| Minor | a milestone is done, such as a new signal with its docs; at least every eight weeks while `main` holds unreleased changes |
+| Patch | a regression, a crash of the collector or a security fix; smaller fixes wait for the next minor release |
+
+A milestone gives each release one clear story in its notes, and the eight-week limit keeps finished work from waiting long.
+
 The current version lives in `.release-please-manifest.json`. To release a chosen version, such as 1.0.0, set `"release-as": "1.0.0"` in `release-please-config.json` before merging, and remove it afterwards.
 
 ## This site
