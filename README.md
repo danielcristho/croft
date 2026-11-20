@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="assets/croft-logo.svg" width="96" alt="Croft logo" />
+
 # Croft
 
 **Kubernetes autoscaling that reacts to eBPF kernel signals**
