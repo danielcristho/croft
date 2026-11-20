@@ -230,3 +230,6 @@ labs/k3s-cluster/hosts.ini
 /.local/
 
 .config/
+
+# Favicon Starlight derives from the logo on build; regenerates every time
+assets/croft-logo.png

@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="assets/croft-logo.svg" width="96" alt="Croft logo" />
+
 # Croft
 
 **Kubernetes autoscaling that reacts to eBPF kernel signals**
@@ -7,6 +9,7 @@
 [![CI](https://github.com/danielcristho/croft/actions/workflows/ci.yml/badge.svg)](https://github.com/danielcristho/croft/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/croft)](https://artifacthub.io/packages/search?repo=croft)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/danielcristho/croft/badge)](https://scorecard.dev/viewer/?uri=github.com/danielcristho/croft)
 
 [Docs](https://croft-docs.pages.dev) · [Getting started](#getting-started) · [Deployment](deploy/README.md) · [Experiments](labs/research/experiment/README.md) · [Roadmap](ROADMAP.md) · [Contributing](CONTRIBUTING.md)
 
