@@ -3,7 +3,9 @@ name: codeql
 on:
   push:
     branches: [main]
+    paths-ignore: ["**.md", "**.mdx", "assets/**"]
   pull_request:
+    paths-ignore: ["**.md", "**.mdx", "assets/**"]
   schedule:
     - cron: "17 3 * * 1"
 
