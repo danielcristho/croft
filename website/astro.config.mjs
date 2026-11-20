@@ -9,6 +9,7 @@ export default defineConfig({
 	integrations: [
 		starlight({
 			title: 'Croft',
+			logo: { src: '../assets/croft-logo.svg', alt: 'Croft logo' },
 			description: 'Kubernetes autoscaling that reacts to eBPF kernel signals.',
 			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/danielcristho/croft' }],
 			editLink: { baseUrl: 'https://github.com/danielcristho/croft/edit/main/website/' },
