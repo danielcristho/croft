@@ -30,6 +30,7 @@ SIGNALS = {
     "cpu_pressure": Signal("croft_container_cpu_pressure_avg10", (), False, "%"),
     "runqueue_wait": Signal("croft_container_runqueue_wait", (), False, "s/s"),
     "inflight_requests": Signal("croft_container_inflight_requests", (), False, "requests"),
+    "accept_queue": Signal("croft_container_accept_queue", (), False, "connections"),
 }
 # The collector is scraped every 5 s, so 15 s holds three samples for rate().
 RATE_WINDOW_S = 15
@@ -239,9 +240,15 @@ def runqueue_wait(namespace: str | None = None, deployment: str | None = None, *
     return signal("runqueue_wait", namespace, deployment, **options)
 
 
+# def inflight_requests(namespace: str | None = None, deployment: str | None = None, **options) -> pd.DataFrame:
+#     return signal("inflight_requests", namespace, deployment, **options)
+
 def inflight_requests(namespace: str | None = None, deployment: str | None = None, **options) -> pd.DataFrame:
     return signal("inflight_requests", namespace, deployment, **options)
 
+
+def accept_queue(namespace: str | None = None, deployment: str | None = None, **options) -> pd.DataFrame:
+    return signal("accept_queue", namespace, deployment, **options)
 
 def _selector(labels: dict[str, str]) -> str:
     if not labels:
@@ -255,7 +262,6 @@ def _selector(labels: dict[str, str]) -> str:
 
 def _quote(value: str) -> str:
     return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
-
 
 # _seconds reads a unix time, a datetime, or a duration such as "90m" before relative_to.
 def _seconds(at: Time, relative_to: float | None = None) -> float:

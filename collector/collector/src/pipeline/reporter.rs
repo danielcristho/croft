@@ -21,8 +21,9 @@ use crate::{
     sensing::{
         clock::{self, NANOS_PER_MS},
         drops::DropWatcher,
+        listeners::AcceptQueues,
         maps,
-        operands::{Operands, ServerFdPruner},
+        operands::{Operands, ProcessOperands, ServerFdPruner},
         syscalls::{self, RateTracker, SyscallCount, SyscallRate},
         watch::CgroupWatch,
     },
@@ -37,6 +38,7 @@ const SUMMARY_POLLS: u32 = 15;
 const IDLE_HEARTBEAT_POLLS: u64 = 15;
 const IDLE_RATE: f64 = 0.005;
 const FRAMEWORK_RECHECK_POLLS: u64 = 30;
+const LISTENER_RESCAN_POLLS: u64 = 30;
 
 pub async fn run(
     mut ebpf: Ebpf,
@@ -66,6 +68,7 @@ struct Reporter {
     watch: CgroupWatch,
     drops: DropWatcher,
     server_fds: ServerFdPruner,
+    accept_queues: AcceptQueues,
     rates: RateTracker,
     resources: ResourceTracker,
     idle: IdleThrottle,
@@ -95,6 +98,7 @@ impl Reporter {
             watch,
             drops: DropWatcher::default(),
             server_fds: ServerFdPruner::default(),
+            accept_queues: AcceptQueues::new(LISTENER_RESCAN_POLLS),
             rates: RateTracker::default(),
             resources: ResourceTracker::new(),
             idle: IdleThrottle::new(IDLE_HEARTBEAT_POLLS),
@@ -136,6 +140,7 @@ impl Reporter {
         self.resources.end_poll();
         self.idle.end_poll();
         self.frameworks.end_poll();
+        self.accept_queues.end_poll();
         self.summary.end_poll();
         Ok(())
     }
@@ -208,12 +213,16 @@ impl Reporter {
             .map(|cgroup| self.resources.cgroup(cgroup, now));
         // The snapshot sees idle processes too: a container's rate must not drop out while its rows are thinned.
         if self.published.is_some() {
+            let listeners = self.accept_queues.listeners(tgid);
             self.snapshot.add(
                 process,
                 &usage,
                 cgroup_usage.as_ref(),
                 &rates,
-                operands.of(tgid),
+                ProcessOperands {
+                    listeners: &listeners,
+                    ..operands.of(tgid)
+                },
             );
         }
         // GPU holders are never thinned: a process busy on mapped GPU queues looks idle to the CPU.
