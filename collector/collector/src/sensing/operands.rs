@@ -36,8 +36,10 @@ pub struct Operands {
 pub struct ProcessOperands<'a> {
     pub bytes: &'a [SyscallCount],
     pub connects: &'a [(Destination, u64)],
+    // nr holds SOCKET_READ or SOCKET_WRITE.
     pub socket_io: &'a [SyscallCount],
-    pub inflight: Option<u64>, /*  */
+    // inflight is None for a process with no tracked accepted connection.
+    pub inflight: Option<u64>,
     pub listeners: &'a [Listener],
 }
 

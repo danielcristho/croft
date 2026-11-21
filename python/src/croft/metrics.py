@@ -240,15 +240,13 @@ def runqueue_wait(namespace: str | None = None, deployment: str | None = None, *
     return signal("runqueue_wait", namespace, deployment, **options)
 
 
-# def inflight_requests(namespace: str | None = None, deployment: str | None = None, **options) -> pd.DataFrame:
-#     return signal("inflight_requests", namespace, deployment, **options)
-
 def inflight_requests(namespace: str | None = None, deployment: str | None = None, **options) -> pd.DataFrame:
     return signal("inflight_requests", namespace, deployment, **options)
 
 
 def accept_queue(namespace: str | None = None, deployment: str | None = None, **options) -> pd.DataFrame:
     return signal("accept_queue", namespace, deployment, **options)
+
 
 def _selector(labels: dict[str, str]) -> str:
     if not labels:
@@ -262,6 +260,7 @@ def _selector(labels: dict[str, str]) -> str:
 
 def _quote(value: str) -> str:
     return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
 
 # _seconds reads a unix time, a datetime, or a duration such as "90m" before relative_to.
 def _seconds(at: Time, relative_to: float | None = None) -> float:

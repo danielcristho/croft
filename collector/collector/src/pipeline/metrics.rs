@@ -23,6 +23,7 @@ pub const CPU_THROTTLED: &str = "croft_container_cpu_throttled_fraction";
 pub const RUNQUEUE: &str = "croft_container_runqueue_wait";
 pub const INFLIGHT: &str = "croft_container_inflight_requests";
 pub const SYSCALL_RATE: &str = "croft_container_syscall_rate";
+// Counters, not rates: a single connect would otherwise show for one poll and fall between scrapes.
 pub const SYSCALL_BYTES: &str = "croft_container_syscall_bytes_total";
 pub const CONNECTS: &str = "croft_container_connects_total";
 pub const SOCKET_IO: &str = "croft_container_socket_io_total";
@@ -106,7 +107,7 @@ impl Snapshot {
             (RUNQUEUE, |s| s.runqueue),
             (INFLIGHT, |s| s.inflight),
             (ACCEPT_QUEUE, |s| {
-                (!s.listeners.is_empty()).then(|| s.listeners.values().sum::<u64>() as f64) // +
+                (!s.listeners.is_empty()).then(|| s.listeners.values().sum::<u64>() as f64)
             }),
         ];
         for (name, value) in gauges {
