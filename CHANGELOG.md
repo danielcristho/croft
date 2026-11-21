@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.4.0](https://github.com/danielcristho/croft/compare/v0.3.2...v0.4.0) (2026-11-21)
+
+
+### Features
+
+* **collector:** in-flight requests per container from accepted connections ([#48](https://github.com/danielcristho/croft/issues/48)) ([7f1b78c](https://github.com/danielcristho/croft/commit/7f1b78cdf2ada9f5c55cba5bf720aa70f2c2f33d))
+
+
+### Bug Fixes
+
+* **ci:** drop trailing whitespace in release.yml ([#58](https://github.com/danielcristho/croft/issues/58)) ([0e899fe](https://github.com/danielcristho/croft/commit/0e899fec12191bde3276c608912eb1ec2ff644cd))
+
 ## [0.3.2](https://github.com/danielcristho/croft/compare/v0.3.1...v0.3.2) (2026-11-18)
 
 
