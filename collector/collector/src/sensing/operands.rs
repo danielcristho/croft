@@ -14,7 +14,10 @@ use collector_common::{
 use log::warn;
 
 use super::{
+    listeners::Listener,
     maps,
+    // pub inflight: Option<u64>,
+    // pub listeners: &'a [Listener],
     syscalls::{self, SyscallCount},
 };
 
@@ -37,6 +40,7 @@ pub struct ProcessOperands<'a> {
     pub socket_io: &'a [SyscallCount],
     // inflight is None for a process with no tracked accepted connection.
     pub inflight: Option<u64>,
+    pub listeners: &'a [Listener],
 }
 
 impl Operands {
@@ -68,6 +72,7 @@ impl Operands {
             connects: self.connects.get(&tgid).map_or(&[], Vec::as_slice),
             socket_io: self.socket_io.get(&tgid).map_or(&[], Vec::as_slice),
             inflight: self.inflight.get(&tgid).copied(),
+            listeners: &[],
         }
     }
 }
