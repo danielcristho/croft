@@ -142,7 +142,7 @@ jobs:
           docker cp croft:/usr/local/bin/croft croft-linux-amd64
           sha256sum croft-linux-amd64 | cut -d' ' -f1 > croft-linux-amd64.sha256
           gh release upload "$TAG" croft-linux-amd64 croft-linux-amd64.sha256 --repo "${{ github.repository }}"
-  
+
   # Trusted Publishing: PyPI trusts this workflow through OIDC, so the repository holds no PyPI token.
   pypi:
     needs: release-please
