@@ -1,11 +1,29 @@
 [project]
-name = "croft"
-version = "0.1.0"
+name = "croft-signals"
+version = "0.3.2"
 description = "croft signals for notebooks: Prometheus metrics and collector datasets as pandas frames"
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.12"
+authors = [{ name = "Daniel Pepuho" }]
+keywords = ["ebpf", "kubernetes", "autoscaling", "prometheus", "pandas"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: System :: Monitoring",
+]
 dependencies = ["pandas>=2.2", "zstandard>=0.25"]
+
+[project.urls]
+Repository = "https://github.com/danielcristho/croft"
+Documentation = "https://croft-docs.pages.dev"
+Changelog = "https://github.com/danielcristho/croft/blob/main/CHANGELOG.md"
+
+[tool.uv.build-backend]
+module-name = "croft"
 
 [project.optional-dependencies]
 plot = ["matplotlib>=3.9"]

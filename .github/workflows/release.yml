@@ -49,11 +49,13 @@ jobs:
         with:
           ref: ${{ fromJSON(needs.release-please.outputs.pr).headBranchName }}
       - run: cargo update --workspace --manifest-path collector/Cargo.toml
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+      - run: uv lock --directory python
       - run: |
-          git diff --quiet collector/Cargo.lock && exit 0
+          git diff --quiet collector/Cargo.lock python/uv.lock && exit 0
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -am "chore: update Cargo.lock for the release"
+          git commit -am "chore: update lockfiles for the release"
           git push
 
   image:
@@ -140,3 +142,24 @@ jobs:
           docker cp croft:/usr/local/bin/croft croft-linux-amd64
           sha256sum croft-linux-amd64 | cut -d' ' -f1 > croft-linux-amd64.sha256
           gh release upload "$TAG" croft-linux-amd64 croft-linux-amd64.sha256 --repo "${{ github.repository }}"
+  
+  # Trusted Publishing: PyPI trusts this workflow through OIDC, so the repository holds no PyPI token.
+  pypi:
+    needs: release-please
+    if: needs.release-please.outputs.release_created
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/croft-signals/
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+      - run: uv build --directory python
+      - uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
+        with:
+          packages-dir: python/dist/

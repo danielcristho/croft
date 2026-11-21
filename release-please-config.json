@@ -9,7 +9,8 @@
       "changelog-path": "CHANGELOG.md",
       "extra-files": [
         { "type": "toml", "path": "collector/Cargo.toml", "jsonpath": "$.workspace.package.version" },
-        { "type": "generic", "path": "deploy/helm/croft/Chart.yaml" }
+        { "type": "generic", "path": "deploy/helm/croft/Chart.yaml" },
+        { "type": "toml", "path": "python/pyproject.toml", "jsonpath": "$.project.version" }
       ]
     }
   }

@@ -91,8 +91,8 @@ wheels = [
 ]
 
 [[package]]
-name = "croft"
-version = "0.1.0"
+name = "croft-signals"
+version = "0.3.2"
 source = { editable = "." }
 dependencies = [
     { name = "pandas" },

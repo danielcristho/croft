@@ -3,7 +3,8 @@
 The collector's signals as pandas frames, for notebooks and analysis.
 
 ```sh
-uv add "croft[plot] @ git+https://github.com/danielcristho/croft#subdirectory=python"
+pip install "croft-signals[plot]"
+uv add "croft-signals[plot]"
 uv add --editable ../python    # from a project inside this repository
 ```
 
@@ -30,6 +31,7 @@ uv add --editable ../python    # from a project inside this repository
 | `cpu_throttled_fraction` | `croft_container_cpu_throttled_fraction` | fraction |
 | `cpu_pressure` | `croft_container_cpu_pressure_avg10` | % |
 | `runqueue_wait` | `croft_container_runqueue_wait` | s/s |
+| `inflight_requests` | `croft_container_inflight_requests` | requests |
 
 Counters come as rates over 15 s or the step, whichever is longer; gauges are averaged over each step longer than
 5 s. `metrics.catalog()` returns this table. The dataset holds `syscall_rate`, `runqueue_wait` and the three CPU
