@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-FROM rust:1-slim-bookworm AS builder
+FROM rust:1-slim-bookworm@sha256:7c7d4eb4d05b7781187a327809466cfddf29753f6defdc3d19a0e291951b7a37 AS builder
 
 WORKDIR /src
 
@@ -30,7 +30,7 @@ COPY . .
 
 RUN cargo build --manifest-path collector/Cargo.toml -p collector --release
 
-FROM debian:bookworm-slim
+FROM debian:bookworm-slim@sha256:734a72b3d6142a71993b4bc580ca01d8ca687f77a2c422d96a961d3376b179bc
 
 COPY --from=builder /src/collector/target/release/croft /usr/local/bin/croft
 

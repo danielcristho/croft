@@ -2,7 +2,7 @@
 
 ## Reporting a vulnerability
 
-Do not open a public issue. Use the repository's **Security** tab and choose **Report a vulnerability**.
+Do not open a public issue. Report it privately at <https://github.com/danielcristho/croft/security/advisories/new>, or open the repository's **Security** tab and choose **Report a vulnerability**.
 
 Include the affected version or commit, the kernel version, the steps to reproduce and the impact. Maintainers work on a best-effort basis, will reply as soon as they can, and will agree a disclosure date with you.
 
