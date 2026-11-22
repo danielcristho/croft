@@ -153,21 +153,41 @@ def export_series(app: App, directory: Path, start_ms: int, end_ms: int, mesh: b
 
 
 # merge_pods adds to the live pods those only Prometheus saw: pods a scale-down deleted before the run ended, which the
-# API server no longer lists. Their container ids are gone with them.
-def merge_pods(live: list[dict], recorded: dict[str, dict[str, int]], since_ms: int) -> list[dict]:
+# API server no longer lists. Their node and container ids come from kube-state-metrics too.
+def merge_pods(live: list[dict], recorded: dict[str, dict], since_ms: int) -> list[dict]:
     found = {pod["pod"]: dict(pod) for pod in live}
-    for name, times in recorded.items():
+    for name, seen in recorded.items():
         if name in found:
             if found[name]["ready_ms"] is None:
-                found[name]["ready_ms"] = times.get("ready_ms")
-        elif times.get("created_ms") is not None and times["created_ms"] >= since_ms:
-            found[name] = {"pod": name, "node": None, "created_ms": times["created_ms"],
-                           "ready_ms": times.get("ready_ms"), "container_ids": []}
+                found[name]["ready_ms"] = seen.get("ready_ms")
+        elif seen.get("created_ms") is not None and seen["created_ms"] >= since_ms:
+            found[name] = {"pod": name, "node": seen.get("node"), "created_ms": seen["created_ms"],
+                           "ready_ms": seen.get("ready_ms"), "container_ids": list(seen.get("container_ids", []))}
     return sorted(found.values(), key=lambda pod: (pod["created_ms"], pod["pod"]))
 
 
-def timeline(app: App, start_ms: int, deployed_ms: int) -> dict:
-    recorded = prometheus.pod_times(app.namespace, app.deployment, deployed_ms // 1000, records.now_ms() // 1000 + 1)
+# recorded_pods is every pod of the app's Deployment that Prometheus saw between since_ms and now: when it was created
+# and first Ready, its node and its container ids.
+def recorded_pods(app: App, since_ms: int, until_ms: int | None = None) -> dict[str, dict]:
+    start_s, end_s = since_ms // 1000, (until_ms or records.now_ms()) // 1000 + 1
+    found = prometheus.pod_times(app.namespace, app.deployment, start_s, end_s)
+    for name, pod in prometheus.pod_containers(app.namespace, app.deployment, start_s, end_s).items():
+        found.setdefault(name, {}).update(pod)
+    return found
+
+
+# run_containers maps the container ids of the pods created since the deploy to their node: the ones a scale-down
+# deleted mid-run are in no kube.containers listing, and croft rows join on container ids.
+def run_containers(recorded: dict[str, dict], since_ms: int) -> dict[str, str | None]:
+    return {
+        container_id: pod.get("node")
+        for pod in recorded.values()
+        if pod.get("created_ms") is not None and pod["created_ms"] >= since_ms
+        for container_id in pod.get("container_ids", [])
+    }
+
+
+def timeline(app: App, start_ms: int, deployed_ms: int, recorded: dict[str, dict]) -> dict:
     return {
         "rescales": rescales(app, start_ms),
         "replica_sets": rescales(app, start_ms, "Deployment", "ScalingReplicaSet"),
@@ -182,8 +202,7 @@ def backfill_pods(app: App, record: dict) -> tuple[int, int]:
     found = json.loads(path.read_text())
     before = found.get("pods", [])
     since_ms = min([pod["created_ms"] for pod in before] + [record["started_ms"]])
-    recorded = prometheus.pod_times(app.namespace, app.deployment, since_ms // 1000, record["ended_ms"] // 1000 + 1)
-    found["pods"] = merge_pods(before, recorded, since_ms)
+    found["pods"] = merge_pods(before, recorded_pods(app, since_ms, record["ended_ms"]), since_ms)
     path.write_text(json.dumps(found, indent=1))
     return len(before), len(found["pods"])
 
@@ -200,8 +219,10 @@ def run_level(app: App, name: str, users: int, warmup: int, seconds: int, replic
     locust(app, users, seconds, directory / "locust", env)
     end_ms = records.now_ms()
     containers |= kube.containers(app.namespace, "-l", app.selector)
+    recorded = recorded_pods(app, deployed_ms)
+    containers = {**run_containers(recorded, deployed_ms), **containers}
     recorded_mesh = export_series(app, directory, start_ms, end_ms, mesh)
-    (directory / "timeline.json").write_text(json.dumps(timeline(app, start_ms, deployed_ms), indent=1))
+    (directory / "timeline.json").write_text(json.dumps(timeline(app, start_ms, deployed_ms, recorded), indent=1))
     return {
         "run_id": name,
         "app": app.name,
@@ -271,8 +292,10 @@ def run_profile(app: App, prefix: str, name: str, scale: float, warmup: int, coo
             finally:
                 scaler.stop(app)
     containers |= kube.containers(app.namespace, "-l", app.selector)
+    recorded = recorded_pods(app, deployed_ms)
+    containers = {**run_containers(recorded, deployed_ms), **containers}
     recorded_mesh = export_series(app, directory, start_ms, end_ms, mesh)
-    (directory / "timeline.json").write_text(json.dumps(timeline(app, start_ms, deployed_ms), indent=1))
+    (directory / "timeline.json").write_text(json.dumps(timeline(app, start_ms, deployed_ms, recorded), indent=1))
     record = {
         "run_id": run_id,
         "app": app.name,

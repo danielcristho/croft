@@ -69,6 +69,22 @@ def pod_times(namespace: str, deployment: str, start_s: int, end_s: int) -> dict
     return times
 
 
+# pod_containers reads each of a Deployment's pods' node and container ids from kube-state-metrics, deleted pods too.
+def pod_containers(namespace: str, deployment: str, start_s: int, end_s: int) -> dict[str, dict]:
+    labels = f'namespace="{namespace}",pod=~"{pod_regex(deployment)}"'
+    found: dict[str, dict] = {}
+    for stream in query_range(f"kube_pod_info{{{labels}}}", start_s, end_s):
+        found.setdefault(stream["metric"]["pod"], {"node": None, "container_ids": []})["node"] = stream["metric"].get("node")
+    for stream in query_range(f"kube_pod_container_info{{{labels}}}", start_s, end_s):
+        # The label reads containerd://<id>, as the pod status does; kube.container_id keeps the id alone.
+        container_id = stream["metric"].get("container_id", "").partition("://")[2]
+        if container_id:
+            pod = found.setdefault(stream["metric"]["pod"], {"node": None, "container_ids": []})
+            if container_id not in pod["container_ids"]:
+                pod["container_ids"].append(container_id)
+    return found
+
+
 def query_range(query: str, start_s: int, end_s: int) -> list[dict]:
     params = urllib.parse.urlencode({"query": query, "start": start_s, "end": end_s, "step": STEP_S})
     with urllib.request.urlopen(f"{PROMETHEUS}/api/v1/query_range?{params}", timeout=30) as response:
