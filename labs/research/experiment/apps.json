@@ -9,10 +9,10 @@
     "health": "/",
     "scaler": {
       "syscall": "write",
-      "calls_per_request": 11.4,
-      "cpu_per_request_ms": 1.6
+      "calls_per_request": 11.8,
+      "cpu_per_request_ms": 6.18
     },
-    "scale": 2,
+    "scale": 1,
     "services": {
       "frontend": {"role": "gateway", "language": "go"},
       "search": {"role": "business", "language": "go"},
