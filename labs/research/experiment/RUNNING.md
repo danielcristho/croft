@@ -285,10 +285,13 @@ Accept a calibration only when, at every level:
 [ ] failed is 0
 [ ] p95 stays flat
 [ ] throttled is 0%
+[ ] the frontend's CPU stays below 85% of its limit
 [ ] no other pod of the namespace nears its own CPU limit
 ```
 
 Otherwise the levels are too high, or a backend service saturates before the frontend.
+
+`calibrate-scaler` stops at a level with failed requests, one that answers less than 95% of what was sent, or one where the frontend reaches 85% of its CPU limit. A pod at its limit still answers every request, but later, so its CPU per request comes out too low. `otel-demo`'s frontend answered all of 20 RPS at 91% of its 300m limit, at 13.6 ms per request against 17.6 ms at 10 RPS.
 
 Extrapolate the backends to the burst's peak too. In Online Boutique, `currencyservice` used 0.067 core at 20 RPS, a third of its 200m limit and more than the frontend; at 150 RPS it would need about 0.5 core at one replica and cap the burst. Its limit is 1 core for that reason.
 
