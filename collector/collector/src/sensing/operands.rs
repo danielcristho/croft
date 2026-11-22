@@ -16,8 +16,6 @@ use log::warn;
 use super::{
     listeners::Listener,
     maps,
-    // pub inflight: Option<u64>,
-    // pub listeners: &'a [Listener],
     syscalls::{self, SyscallCount},
 };
 

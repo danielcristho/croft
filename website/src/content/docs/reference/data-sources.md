@@ -67,11 +67,15 @@ Each poll, the collector drops the connections of exited processes, and the coun
 
 ## Accept queue
 
-For a socket in LISTEN, the kernel reports the connections waiting for `accept()` as `rx_queue` in `/proc/net/tcp`. The collector reads each network namespace's table once per poll and matches the listening sockets to the fds of each process. Workers that share one listening socket count it once per container. A container with no listening socket has no value, not 0.
+For a socket in LISTEN, the kernel reports the connections waiting for `accept()` as `rx_queue` in `/proc/net/tcp`. Each poll, the collector reads the `tcp` and `tcp6` tables of each network namespace that holds a listening process, once per namespace, and looks up the queue of each process's listening sockets in them. Which sockets a process listens on comes from a walk of its `/proc/<pid>/fd`, which is slower, so it runs once per 30 polls (60 s) per process, spread over the polls. Workers that share one listening socket count it once per container. A container with no listening socket has no value, not 0.
+
+The queue grows only once the server's `accept()` falls behind, which for most servers means it is already saturated. Read it as a sign of saturation, not as an early sign of load.
 
 | Limit | Effect |
 |---|---|
 | A queue between two polls | the value is the queue at the poll, every 2 s; a burst drained within a poll is not seen |
-| A socket that starts listening after its process was scanned | seen at the next scan, up to 60 s later |
+| A socket that starts listening after its process's last fd walk | seen at the next walk, up to 60 s later; a closed one drops out at the next poll |
 | The queue limit (`listen` backlog) | not in `/proc`; the value is the queue length, not its fill |
+| Unix-socket listeners, such as gunicorn, uwsgi or php-fpm behind nginx | not in `/proc/net/tcp`; no value |
+| Linkerd and other sidecar proxies | the proxy accepts the inbound connections and pools its connections to the app, so the app's queue stays near 0; a queue shows under the proxy's container |
 | ingress-nginx and other proxies with kept-alive upstream connections | new connections are rare, so requests queue in the app and show in `croft_container_inflight_requests` instead |
