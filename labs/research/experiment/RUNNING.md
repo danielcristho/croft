@@ -154,7 +154,7 @@ Three applications are available:
 |---|---|---:|---:|---:|
 | `hotel-reservation` | DeathStarBench, 8 Go services, MongoDB, memcached | 6.2 ms at the frontend | 200m | 1 |
 | `online-boutique` | Online Boutique, a Go frontend over 10 services, Redis | 3.3 ms at the frontend | 200m | 1 |
-| `otel-demo` | OpenTelemetry Demo, Node.js, Python, Go and C++ services, PostgreSQL | 5.6 ms at the frontend | 300m | 1 |
+| `otel-demo` | OpenTelemetry Demo, Node.js, Python, Go and C++ services, PostgreSQL | 18.3 ms at the frontend | 300m | 0.55 |
 
 Each autoscaler scales the application's frontend. The services behind it stay at one replica.
 
@@ -266,13 +266,15 @@ The current values:
 |---|---|---:|---:|
 | `hotel-reservation` | `write` | 11.8 | 6.18 |
 | `online-boutique` | `getpeername` | 2.0 | 3.26 |
-| `otel-demo` | `writev` | 5.32 | 5.64 |
+| `otel-demo` | `writev` | 4.83 | 18.26 |
 
 The Go and Node.js frontends answer through `write` and `writev`. Take the syscall the calibration picks, not the one another application uses.
 
 Online Boutique's frontend calls `getpeername` twice per request at 5, 10 and 20 RPS, within 0.1%; `write` runs at about 38 per request and spreads 3.5%. Check in its first croft burst that croft's estimated RPS follows the client's.
 
-The `otel-demo` values were measured at its 300m limit, at 10, 20 and 35 RPS. `writev` per request moved 3% across the levels; CPU per request fell from 7.1 to 4.4 ms, because the Node.js frontend spends about 40m whatever the load.
+The `otel-demo` values were measured at its 300m limit, at 5, 10 and 15 RPS. `writev` per request moved 4.5% across the levels. CPU per request fell from 21.4 to 15.0 ms, because the Node.js frontend spends about 50m whatever the load; each further request costs about 12 ms. The mean, 18.26 ms, therefore puts one pod's capacity at about 12 RPS at 70%, a little below the 13.5 RPS a line through the levels gives, so croft scales slightly early. 20 RPS ran the frontend at 91% of its limit and stops the calibration.
+
+An earlier calibration measured 7.1 ms at 10 RPS; this one 18.4 ms at 10 RPS, and a run at 10 and 20 RPS 17.6 ms. hotel-reservation rose from 1.8 to 6.2 ms in the same period. The collector changed between them, to `croft-collector:operands`. That its probes cost the frontend this CPU is not verified.
 
 ---
 
@@ -284,11 +286,13 @@ Accept a calibration only when, at every level:
 [ ] achieved RPS equals the target
 [ ] failed is 0
 [ ] p95 stays flat
-[ ] throttled is 0%
+[ ] the frontend's CPU stays below 85% of its limit; throttling alone does not count
 [ ] no other pod of the namespace nears its own CPU limit
 ```
 
 Otherwise the levels are too high, or a backend service saturates before the frontend.
+
+`calibrate-scaler` stops at a level with failed requests, one that answers less than 95% of what was sent, or one where the frontend reaches 85% of its CPU limit. A pod at its limit still answers every request, but later, so its CPU per request comes out too low. `otel-demo`'s frontend answered all of 20 RPS at 91% of its 300m limit, at 13.6 ms per request against 17.6 ms at 10 RPS.
 
 Extrapolate the backends to the burst's peak too. In Online Boutique, `currencyservice` used 0.067 core at 20 RPS, a third of its 200m limit and more than the frontend; at 150 RPS it would need about 0.5 core at one replica and cap the burst. Its limit is 1 core for that reason.
 
@@ -356,7 +360,7 @@ A good burst saturates one pod at least twice over and stays within ten pods:
 
 ```text
 hotel-reservation  --scale 1    10 → 150 → 10 RPS    23 RPS per pod    about 7 pods
-otel-demo          --scale 1    10 → 150 → 10 RPS    37 RPS per pod    about 4 pods
+otel-demo          --scale 0.55 5.5 → 82.5 → 5.5 RPS 12 RPS per pod    about 7 pods
 online-boutique    --scale 1    10 → 150 → 10 RPS    43 RPS per pod    about 4 pods
 ```
 

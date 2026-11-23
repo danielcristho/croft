@@ -92,10 +92,10 @@
     "health": "/",
     "scaler": {
       "syscall": "writev",
-      "calls_per_request": 5.32,
-      "cpu_per_request_ms": 5.64
+      "calls_per_request": 4.83,
+      "cpu_per_request_ms": 18.26
     },
-    "scale": 1,
+    "scale": 0.55,
     "services": {
       "frontend": {"role": "gateway", "language": "nodejs"},
       "recommendation": {"role": "business", "language": "python"},

@@ -24,6 +24,10 @@ MIN_CALLS = 0.5
 # and per-request figures read from it come out too low. Throttling alone does not show it: a 200m limit is 20 ms of CPU
 # per 100 ms period, and short bursts such as a garbage collection throttle a pod far below its average limit.
 MIN_ANSWERED = 0.95
+# A level saturates the pod too when its CPU reaches this share of the limit: the pod still answers every request, later,
+# so the CPU per request read from it falls. otel-demo's frontend answered all of 20 RPS at 0.91 of its limit, at
+# 13.6 ms per request against 17.6 ms at 10 RPS. p95 is no test: hotel's went from 15 to 48 ms at 0.46 of its limit.
+MAX_CPU_SHARE = 0.85
 COLLECTOR_PORT = 9464
 
 
@@ -79,12 +83,15 @@ def load_stats(path: Path) -> dict:
     }
 
 
-# saturated says why a level cannot calibrate: failed requests or a throttled pod; None when it can.
-def saturated(level: dict) -> str | None:
+# saturated says why a level cannot calibrate: failed or unanswered requests, or a pod at its CPU limit; None when it can.
+def saturated(level: dict, limit_cores: float) -> str | None:
     if level["failed"]:
         return f"{level['failed']} failed requests"
     if level["answered_rps"] < MIN_ANSWERED * level["achieved_rps"]:
         return f"answered {level['answered_rps']} of {level['achieved_rps']} RPS sent"
+    share = level["metrics"].get("cpu_cores", 0.0) / limit_cores
+    if share >= MAX_CPU_SHARE:
+        return f"CPU at {share:.0%} of the {limit_cores:g} core limit"
     return None
 
 
@@ -131,13 +138,13 @@ def run(app: App, levels: list[int], seconds: int, node: str | None, mix: bool =
         load = threading.Thread(target=rps.run, args=(app.host, endpoints, Profile("constant", seconds, rps=level), csv_path))
         load.start()
         time.sleep(SETTLE_S)
-        samples, busiest = [], {}
+        samples = []
         while load.is_alive():
             samples.append(sample(url, container_id))
-            if len(samples) == 5:
-                busiest = top(app.namespace)
             time.sleep(SAMPLE_S)
         load.join()
+        # Read at the end of the level: metrics-server's window, read earlier, still holds the pause before the level.
+        busiest = top(app.namespace)
         keys = set().union(*samples)
         metrics = {k: statistics.mean(s.get(k, 0.0) for s in samples) for k in keys}
         results[level] = {**load_stats(csv_path), "metrics": metrics, "pods_mcpu": busiest}
@@ -146,7 +153,7 @@ def run(app: App, levels: list[int], seconds: int, node: str | None, mix: bool =
         print(f"  {level:>4} RPS: sent {r['achieved_rps']}, answered {r['answered_rps']}, failed {r['failed']}, p95 {r['p95_ms']:.0f} ms, "
               f"CPU {per_request:.2f} ms/request, throttled {metrics.get('throttled', 0):.0%}")
         print("        busiest pods:", ", ".join(f"{p} {m}m" for p, m in sorted(busiest.items(), key=lambda x: -x[1])[:4]))
-        if reason := saturated(r):
+        if reason := saturated(r, limit):
             path = OUT / f"{name}-saturated.json"
             path.write_text(json.dumps({"app": app.name, "node": pod["spec"]["nodeName"], "limit_cores": limit,
                                         "mix": mix, "levels": results}, indent=1))

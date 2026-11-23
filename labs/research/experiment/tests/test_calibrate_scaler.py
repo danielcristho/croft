@@ -55,15 +55,28 @@ class LoadStatsTest(unittest.TestCase):
 class SaturatedTest(unittest.TestCase):
     def test_failures_or_unanswered_requests_saturate_a_level(self) -> None:
         ok = {"achieved_rps": 10.0, "answered_rps": 10.0, "failed": 0, "metrics": {"throttled": 0.05}}
-        self.assertIsNone(calibrate_scaler.saturated(ok))
-        self.assertIn("failed", calibrate_scaler.saturated({**ok, "failed": 3}))
-        self.assertIn("answered 8.0 of 10.0", calibrate_scaler.saturated({**ok, "answered_rps": 8.0}))
-        self.assertIn("answered 0", calibrate_scaler.saturated({**ok, "answered_rps": 0}))
+        self.assertIsNone(calibrate_scaler.saturated(ok, 0.2))
+        self.assertIn("failed", calibrate_scaler.saturated({**ok, "failed": 3}, 0.2))
+        self.assertIn("answered 8.0 of 10.0", calibrate_scaler.saturated({**ok, "answered_rps": 8.0}, 0.2))
+        self.assertIn("answered 0", calibrate_scaler.saturated({**ok, "answered_rps": 0}, 0.2))
+
+    def test_a_pod_at_its_cpu_limit_saturates_a_level_that_answers_everything(self) -> None:
+        # otel-demo's frontend on a 300m limit: 10 RPS at 0.176 cores, 20 RPS at 0.272 with p95 doubled.
+        def otel(rps: float, cpu: float) -> dict:
+            return {"achieved_rps": rps, "answered_rps": rps, "failed": 0, "metrics": {"cpu_cores": cpu, "throttled": 0.5}}
+
+        self.assertIsNone(calibrate_scaler.saturated(otel(10, 0.176), 0.3))
+        self.assertIn("CPU at 91% of the 0.3 core limit", calibrate_scaler.saturated(otel(20, 0.272), 0.3))
+
+    def test_hotels_levels_stay_below_the_cpu_limit_check(self) -> None:
+        # hotel-reservation's calibration on a 200m limit: 0.59 of it at 20 RPS, the highest level.
+        level = {"achieved_rps": 20.0, "answered_rps": 20.0, "failed": 0, "metrics": {"cpu_cores": 0.118, "throttled": 0.24}}
+        self.assertIsNone(calibrate_scaler.saturated(level, 0.2))
 
     def test_throttling_alone_does_not_saturate_a_level(self) -> None:
         # hotel-reservation at 10 RPS on a 200m limit: every request answered, 31% CPU, 20% throttled.
-        level = {"achieved_rps": 10.0, "answered_rps": 10.0, "failed": 0, "metrics": {"throttled": 0.2}}
-        self.assertIsNone(calibrate_scaler.saturated(level))
+        level = {"achieved_rps": 10.0, "answered_rps": 10.0, "failed": 0, "metrics": {"cpu_cores": 0.062, "throttled": 0.2}}
+        self.assertIsNone(calibrate_scaler.saturated(level, 0.2))
 
 
 class ParseSampleTest(unittest.TestCase):
