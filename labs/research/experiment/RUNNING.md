@@ -591,7 +591,7 @@ Rows of runs it scores again are replaced; rows of other runs stay, so scoring o
 
 `[k]` after a value means only k runs of the group have it.
 
-`first_ready_s` reads the pods in `timeline.json`. A run lists the pods still running at its end and adds, from kube-state-metrics in Prometheus, the pods a scale-down deleted before then; those carry no container ids. Runs recorded before this left the deleted pods out, so their `first_ready_s` is empty. Fill them in while Prometheus still keeps them (10 days), then score again:
+`first_ready_s` reads the pods in `timeline.json`. A run lists the pods still running at its end and adds, from kube-state-metrics in Prometheus, the pods a scale-down deleted before then, with their node and container ids. The run's `containers` in `runs.jsonl` holds those ids too, so collector rows of a deleted pod still join on their container id. Runs recorded before this left the deleted pods out, so their `first_ready_s` is empty. Fill them in while Prometheus still keeps them (10 days), then score again:
 
 ```sh
 uv run run.py timeline --prefix f2-hr-
