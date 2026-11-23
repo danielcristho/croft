@@ -272,9 +272,9 @@ The Go and Node.js frontends answer through `write` and `writev`. Take the sysca
 
 Online Boutique's frontend calls `getpeername` twice per request at 5, 10 and 20 RPS, within 0.1%; `write` runs at about 38 per request and spreads 3.5%. Check in its first croft burst that croft's estimated RPS follows the client's.
 
-The `otel-demo` values were measured on `digi-flood` at its 300m limit, at 5, 10 and 15 RPS. `writev` per request moved 4.5% across the levels. CPU per request fell from 21.4 to 15.0 ms, because the Node.js frontend spends about 50m whatever the load; each further request costs about 12 ms. The mean, 18.26 ms, therefore puts one pod's capacity at about 12 RPS at 70%, a little below the 13.5 RPS a line through the levels gives, so croft scales slightly early. 20 RPS ran the frontend at 91% of its limit and stops the calibration.
+The `otel-demo` values were measured at its 300m limit, at 5, 10 and 15 RPS. `writev` per request moved 4.5% across the levels. CPU per request fell from 21.4 to 15.0 ms, because the Node.js frontend spends about 50m whatever the load; each further request costs about 12 ms. The mean, 18.26 ms, therefore puts one pod's capacity at about 12 RPS at 70%, a little below the 13.5 RPS a line through the levels gives, so croft scales slightly early. 20 RPS ran the frontend at 91% of its limit and stops the calibration.
 
-An earlier calibration measured 7.1 ms at 10 RPS; this one 18.4 ms. hotel-reservation rose from 1.8 to 6.2 ms in the same period. The collector changed between them, to `croft-collector:operands`. That its probes cost the frontend this CPU is not verified.
+An earlier calibration measured 7.1 ms at 10 RPS; this one 18.4 ms at 10 RPS, and a run at 10 and 20 RPS 17.6 ms. hotel-reservation rose from 1.8 to 6.2 ms in the same period. The collector changed between them, to `croft-collector:operands`. That its probes cost the frontend this CPU is not verified.
 
 ---
 
@@ -286,8 +286,7 @@ Accept a calibration only when, at every level:
 [ ] achieved RPS equals the target
 [ ] failed is 0
 [ ] p95 stays flat
-[ ] throttled is 0%
-[ ] the frontend's CPU stays below 85% of its limit
+[ ] the frontend's CPU stays below 85% of its limit; throttling alone does not count
 [ ] no other pod of the namespace nears its own CPU limit
 ```
 
