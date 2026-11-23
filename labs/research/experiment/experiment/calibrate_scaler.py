@@ -20,6 +20,10 @@ SAMPLE_S = 2
 TARGET = 0.7
 # A syscall counts per request only when every level sees at least this many calls of it.
 MIN_CALLS = 0.5
+# A level saturates the pod when it fails requests or answers less than this share of what was sent: requests queue,
+# and per-request figures read from it come out too low. Throttling alone does not show it: a 200m limit is 20 ms of CPU
+# per 100 ms period, and short bursts such as a garbage collection throttle a pod far below its average limit.
+MIN_ANSWERED = 0.95
 COLLECTOR_PORT = 9464
 
 
@@ -33,12 +37,17 @@ def collector_url(node: str) -> str:
 
 # sample reads one container's syscall rates, CPU cores and throttled share from the collector.
 def sample(url: str, container_id: str) -> dict[str, float]:
+    return parse_sample(urllib.request.urlopen(url, timeout=5).read().decode(), container_id)
+
+
+# parse_sample keeps croft_container_syscall_rate only: syscall_bytes_total carries a syscall label too.
+def parse_sample(text: str, container_id: str) -> dict[str, float]:
     found = {}
-    for line in urllib.request.urlopen(url, timeout=5).read().decode().splitlines():
+    for line in text.splitlines():
         if container_id not in line:
             continue
         name, _, value = line.rpartition(" ")
-        if match := re.search(r'syscall="([^"]+)"', name):
+        if name.startswith("croft_container_syscall_rate{") and (match := re.search(r'syscall="([^"]+)"', name)):
             found[match.group(1)] = float(value)
         elif name.startswith("croft_container_cpu_cores"):
             found["cpu_cores"] = float(value)
@@ -56,22 +65,34 @@ def top(namespace: str) -> dict[str, int]:
     return usage
 
 
-# load_stats reads the client side of one level from its workload.csv, after the settle time.
+# load_stats reads the client side of one level from its workload.csv, after the settle time. achieved_rps is what the
+# generator sent; answered_rps counts the successful answers, which is what the pod's syscalls and CPU served.
 def load_stats(path: Path) -> dict:
     rows = [r for r in csv.DictReader(path.open()) if float(r["elapsed_s"]) >= SETTLE_S]
     p95 = sorted(float(r["p95_latency_ms"]) for r in rows)
+    seconds = float(rows[-1]["elapsed_s"]) - float(rows[0]["elapsed_s"]) + 1 if rows else 0
     return {
         "achieved_rps": round(statistics.mean(float(r["achieved_rps"]) for r in rows), 1),
+        "answered_rps": round(sum(int(r["success"]) for r in rows) / seconds, 1) if seconds else 0.0,
         "failed": sum(int(r["failed"]) for r in rows),
         "p95_ms": p95[len(p95) // 2],
     }
+
+
+# saturated says why a level cannot calibrate: failed requests or a throttled pod; None when it can.
+def saturated(level: dict) -> str | None:
+    if level["failed"]:
+        return f"{level['failed']} failed requests"
+    if level["answered_rps"] < MIN_ANSWERED * level["achieved_rps"]:
+        return f"answered {level['answered_rps']} of {level['achieved_rps']} RPS sent"
+    return None
 
 
 def summarize(levels: dict[int, dict]) -> dict:
     """The syscall whose calls per request move least across the levels, and the mean CPU per request."""
     per_request = {}
     for level in levels.values():
-        rate = level["achieved_rps"]
+        rate = level["answered_rps"]
         for name, value in level["metrics"].items():
             if name not in ("cpu_cores", "throttled"):
                 per_request.setdefault(name, []).append(value / rate)
@@ -81,7 +102,7 @@ def summarize(levels: dict[int, dict]) -> dict:
     }
     spread = {name: (max(v) - min(v)) / statistics.mean(v) for name, v in stable.items()}
     best = min(spread, key=spread.get)
-    cpu_ms = [level["metrics"]["cpu_cores"] / level["achieved_rps"] * 1000 for level in levels.values()]
+    cpu_ms = [level["metrics"]["cpu_cores"] / level["answered_rps"] * 1000 for level in levels.values()]
     return {
         "syscall": best,
         "calls_per_request": round(statistics.mean(stable[best]), 2),
@@ -121,9 +142,15 @@ def run(app: App, levels: list[int], seconds: int, node: str | None, mix: bool =
         metrics = {k: statistics.mean(s.get(k, 0.0) for s in samples) for k in keys}
         results[level] = {**load_stats(csv_path), "metrics": metrics, "pods_mcpu": busiest}
         r = results[level]
-        print(f"  {level:>4} RPS: achieved {r['achieved_rps']}, failed {r['failed']}, p95 {r['p95_ms']:.0f} ms, "
-              f"CPU {metrics.get('cpu_cores', 0) / r['achieved_rps'] * 1000:.2f} ms/request, throttled {metrics.get('throttled', 0):.0%}")
+        per_request = metrics.get("cpu_cores", 0) / r["answered_rps"] * 1000 if r["answered_rps"] else float("nan")
+        print(f"  {level:>4} RPS: sent {r['achieved_rps']}, answered {r['answered_rps']}, failed {r['failed']}, p95 {r['p95_ms']:.0f} ms, "
+              f"CPU {per_request:.2f} ms/request, throttled {metrics.get('throttled', 0):.0%}")
         print("        busiest pods:", ", ".join(f"{p} {m}m" for p, m in sorted(busiest.items(), key=lambda x: -x[1])[:4]))
+        if reason := saturated(r):
+            path = OUT / f"{name}-saturated.json"
+            path.write_text(json.dumps({"app": app.name, "node": pod["spec"]["nodeName"], "limit_cores": limit,
+                                        "mix": mix, "levels": results}, indent=1))
+            raise SystemExit(f"{level} RPS saturates one pod ({reason}); rerun with levels below it. Levels so far in {path}")
         time.sleep(10)
 
     summary = summarize(results)

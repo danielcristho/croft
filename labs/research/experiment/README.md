@@ -175,7 +175,7 @@ Three applications are defined:
 
 | Application | Request | Frontend CPU per request | Frontend limit |
 |---|---|---:|---:|
-| `hotel-reservation` | [DeathStarBench](https://github.com/delimitrou/DeathStarBench) hotelReservation; a hotel search across five Go services | 1.6 ms | 200m |
+| `hotel-reservation` | [DeathStarBench](https://github.com/delimitrou/DeathStarBench) hotelReservation; a hotel search across five Go services | 6.2 ms | 200m |
 | `online-boutique` | [Online Boutique](https://github.com/GoogleCloudPlatform/microservices-demo) v0.10.7; the home page across a Go frontend and its product catalog, currency, cart, recommendation and ad services | 3.3 ms | 200m |
 | `otel-demo` | the [OpenTelemetry Demo](https://github.com/open-telemetry/opentelemetry-demo) 3.1.0; recommendations across Node.js, Python, Go and C++ services | 5.6 ms | 300m |
 

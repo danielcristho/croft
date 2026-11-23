@@ -152,7 +152,7 @@ Three applications are available:
 
 | Application | Shape | CPU per request | Pod CPU limit | `--scale` |
 |---|---|---:|---:|---:|
-| `hotel-reservation` | DeathStarBench, 8 Go services, MongoDB, memcached | 1.6 ms at the frontend | 200m | 2 |
+| `hotel-reservation` | DeathStarBench, 8 Go services, MongoDB, memcached | 6.2 ms at the frontend | 200m | 1 |
 | `online-boutique` | Online Boutique, a Go frontend over 10 services, Redis | 3.3 ms at the frontend | 200m | 1 |
 | `otel-demo` | OpenTelemetry Demo, Node.js, Python, Go and C++ services, PostgreSQL | 5.6 ms at the frontend | 300m | 1 |
 
@@ -264,7 +264,7 @@ The current values:
 
 | Application | `syscall` | `calls_per_request` | `cpu_per_request_ms` |
 |---|---|---:|---:|
-| `hotel-reservation` | `write` | 11.4 | 1.6 |
+| `hotel-reservation` | `write` | 11.8 | 6.18 |
 | `online-boutique` | `getpeername` | 2.0 | 3.26 |
 | `otel-demo` | `writev` | 5.32 | 5.64 |
 
@@ -355,7 +355,7 @@ Five profiles are available:
 A good burst saturates one pod at least twice over and stays within ten pods:
 
 ```text
-hotel-reservation  --scale 2    20 → 300 → 20 RPS    87.5 RPS per pod  about 4 pods
+hotel-reservation  --scale 1    10 → 150 → 10 RPS    23 RPS per pod    about 7 pods
 otel-demo          --scale 1    10 → 150 → 10 RPS    37 RPS per pod    about 4 pods
 online-boutique    --scale 1    10 → 150 → 10 RPS    43 RPS per pod    about 4 pods
 ```
@@ -363,7 +363,7 @@ online-boutique    --scale 1    10 → 150 → 10 RPS    43 RPS per pod    about
 For a new application or a changed manifest, find one pod's capacity first with a ramp at a fixed replica count:
 
 ```sh
-uv run run.py web --app hotel-reservation --prefix hr-ramp --profile ramp --scale 2 --replicas 1
+uv run run.py web --app hotel-reservation --prefix hr-ramp --profile ramp --scale 1 --replicas 1
 ```
 
 Read the RPS at which p95 leaves its floor.
@@ -590,6 +590,13 @@ Rows of runs it scores again are replaced; rows of other runs stay, so scoring o
 | `replica_seconds` | replicas times seconds over the run, the cost |
 
 `[k]` after a value means only k runs of the group have it.
+
+`first_ready_s` reads the pods in `timeline.json`. A run lists the pods still running at its end and adds, from kube-state-metrics in Prometheus, the pods a scale-down deleted before then; those carry no container ids. Runs recorded before this left the deleted pods out, so their `first_ready_s` is empty. Fill them in while Prometheus still keeps them (10 days), then score again:
+
+```sh
+uv run run.py timeline --prefix f2-hr-
+uv run run.py compare --prefix f2-hr-none- f2-hr-croft-
+```
 
 `peak_replicas`, `time_to_peak_s` and `pods_created` follow every scaling decision: the HPA's events and croft's log. kube-state-metrics is scraped every 30 s and misses a count the HPA undoes seconds after croft asked for it. Kubernetes merges an event's repeats into one with a count, so the repeats are spread evenly over its span, one per 15 s HPA sync. `replica_seconds` still comes from kube-state-metrics.
 

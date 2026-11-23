@@ -60,7 +60,9 @@ class AppsTest(unittest.TestCase):
             app = apps.load(catalog(Path(tmp), mix=mix))["hotel-reservation"]
         mixed = app.with_mix()
         self.assertEqual((mixed.scale, mixed.scaler.syscall), (4, "read"))
-        self.assertEqual((app.scale, app.scaler.syscall), (2, "write"))
+        # The app itself keeps its own scale and calibration from apps.json.
+        own = apps.APPS["hotel-reservation"]
+        self.assertEqual((app.scale, app.scaler), (own.scale, own.scaler))
 
     def test_a_bad_mix_stops_the_load(self) -> None:
         bad = {

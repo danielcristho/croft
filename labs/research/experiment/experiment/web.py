@@ -152,12 +152,40 @@ def export_series(app: App, directory: Path, start_ms: int, end_ms: int, mesh: b
     return "linkerd"
 
 
+# merge_pods adds to the live pods those only Prometheus saw: pods a scale-down deleted before the run ended, which the
+# API server no longer lists. Their container ids are gone with them.
+def merge_pods(live: list[dict], recorded: dict[str, dict[str, int]], since_ms: int) -> list[dict]:
+    found = {pod["pod"]: dict(pod) for pod in live}
+    for name, times in recorded.items():
+        if name in found:
+            if found[name]["ready_ms"] is None:
+                found[name]["ready_ms"] = times.get("ready_ms")
+        elif times.get("created_ms") is not None and times["created_ms"] >= since_ms:
+            found[name] = {"pod": name, "node": None, "created_ms": times["created_ms"],
+                           "ready_ms": times.get("ready_ms"), "container_ids": []}
+    return sorted(found.values(), key=lambda pod: (pod["created_ms"], pod["pod"]))
+
+
 def timeline(app: App, start_ms: int, deployed_ms: int) -> dict:
+    recorded = prometheus.pod_times(app.namespace, app.deployment, deployed_ms // 1000, records.now_ms() // 1000 + 1)
     return {
         "rescales": rescales(app, start_ms),
         "replica_sets": rescales(app, start_ms, "Deployment", "ScalingReplicaSet"),
-        "pods": pods(app, deployed_ms),
+        "pods": merge_pods(pods(app, deployed_ms), recorded, deployed_ms),
     }
+
+
+# backfill_pods adds the pods of a finished run that its timeline.json missed, while Prometheus still holds them.
+# The run record has no deploy time, so the earliest pod already in the timeline stands for it.
+def backfill_pods(app: App, record: dict) -> tuple[int, int]:
+    path = records.DATA / "web" / record["run_id"] / "timeline.json"
+    found = json.loads(path.read_text())
+    before = found.get("pods", [])
+    since_ms = min([pod["created_ms"] for pod in before] + [record["started_ms"]])
+    recorded = prometheus.pod_times(app.namespace, app.deployment, since_ms // 1000, record["ended_ms"] // 1000 + 1)
+    found["pods"] = merge_pods(before, recorded, since_ms)
+    path.write_text(json.dumps(found, indent=1))
+    return len(before), len(found["pods"])
 
 
 def run_level(app: App, name: str, users: int, warmup: int, seconds: int, replicas: int | None, steps: str | None, step_seconds: int, deployed_ms: int, shape: str = "step", node: str | None = None, mesh: bool = False, concurrent: bool = False) -> dict:
