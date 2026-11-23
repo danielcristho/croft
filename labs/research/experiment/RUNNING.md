@@ -591,6 +591,13 @@ Rows of runs it scores again are replaced; rows of other runs stay, so scoring o
 
 `[k]` after a value means only k runs of the group have it.
 
+`first_ready_s` reads the pods in `timeline.json`. A run lists the pods still running at its end and adds, from kube-state-metrics in Prometheus, the pods a scale-down deleted before then; those carry no container ids. Runs recorded before this left the deleted pods out, so their `first_ready_s` is empty. Fill them in while Prometheus still keeps them (10 days), then score again:
+
+```sh
+uv run run.py timeline --prefix f2-hr-
+uv run run.py compare --prefix f2-hr-none- f2-hr-croft-
+```
+
 `peak_replicas`, `time_to_peak_s` and `pods_created` follow every scaling decision: the HPA's events and croft's log. kube-state-metrics is scraped every 30 s and misses a count the HPA undoes seconds after croft asked for it. Kubernetes merges an event's repeats into one with a count, so the repeats are spread evenly over its span, one per 15 s HPA sync. `replica_seconds` still comes from kube-state-metrics.
 
 ---

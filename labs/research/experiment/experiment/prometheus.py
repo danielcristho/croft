@@ -50,6 +50,25 @@ def queries(namespace: str, deployment: str) -> dict[str, str]:
     }
 
 
+# pod_regex matches a Deployment's own pods, <deployment>-<replica set hash>-<5 characters>, and not those of a
+# Deployment whose name only starts the same, such as otel-demo's frontend-proxy. PromQL anchors the regex.
+def pod_regex(deployment: str) -> str:
+    return f"{deployment}-[a-z0-9]+-[a-z0-9]{{5}}"
+
+
+# pod_times reads when each of a Deployment's pods was created and first Ready, in epoch ms, from kube-state-metrics.
+# Unlike the API server, Prometheus still holds the pods a scale-down deleted before the run ended.
+def pod_times(namespace: str, deployment: str, start_s: int, end_s: int) -> dict[str, dict[str, int]]:
+    labels = f'namespace="{namespace}",pod=~"{pod_regex(deployment)}"'
+    times: dict[str, dict[str, int]] = {}
+    for metric, key in (("kube_pod_created", "created_ms"), ("kube_pod_status_ready_time", "ready_ms")):
+        for stream in query_range(f"{metric}{{{labels}}}", start_s, end_s):
+            values = [float(value) for _, value in stream["values"] if value != "NaN"]
+            if values:
+                times.setdefault(stream["metric"]["pod"], {})[key] = int(min(values) * 1000)
+    return times
+
+
 def query_range(query: str, start_s: int, end_s: int) -> list[dict]:
     params = urllib.parse.urlencode({"query": query, "start": start_s, "end": end_s, "step": STEP_S})
     with urllib.request.urlopen(f"{PROMETHEUS}/api/v1/query_range?{params}", timeout=30) as response:

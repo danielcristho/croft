@@ -50,10 +50,17 @@ def main() -> None:
     compare_args = suites.add_parser("compare", help="score burst runs per arm, the HPA alone against the HPA with croft scale")
     compare_args.add_argument("--prefix", nargs="+", default=[], help="run id prefixes to score; default every burst run")
 
+    timeline_args = suites.add_parser("timeline", help="add the pods a scale-down deleted to the timeline.json of burst runs, from Prometheus")
+    timeline_args.add_argument("--prefix", nargs="+", required=True, help="run id prefixes; Prometheus keeps 10 days")
+
     args = parser.parse_args()
     lock = None
     if args.suite == "compare":
         compare.run(args.prefix)
+    elif args.suite == "timeline":
+        for record in compare.burst_records(compare.RUNS, args.prefix):
+            before, after = web.backfill_pods(APPS[record["app"]], record)
+            print(f"{record['run_id']}: {before} pods in timeline.json, {after} with Prometheus")
     elif args.suite == "gpu":
         lock = None if args.dry_run else records.hold_lock()
         gpu.run(args.only, args.reps, args.seconds, args.cooldown, args.seed, args.node, args.dry_run)
