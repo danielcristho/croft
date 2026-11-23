@@ -9,7 +9,7 @@ from unittest import mock
 from experiment import compare, prometheus, records, web
 from experiment.apps import APPS
 
-LIVE = {"pod": "frontend-7d4b768894-h6ptc", "node": "digi-flood", "created_ms": 1_000_000, "ready_ms": 1_002_000,
+LIVE = {"pod": "frontend-7d4b768894-h6ptc", "node": "node-a", "created_ms": 1_000_000, "ready_ms": 1_002_000,
         "container_ids": ["fad9"]}
 
 
@@ -42,23 +42,23 @@ class PodContainersTest(unittest.TestCase):
 
         def result(query: str, start_s: int, end_s: int) -> list[dict]:
             if query.startswith("kube_pod_info"):
-                return [{"metric": {"pod": pod, "node": "digi-flood"}, "values": []}]
+                return [{"metric": {"pod": pod, "node": "node-a"}, "values": []}]
             # A restarted container gets a new id; both ran in the run, so both are kept.
             return [{"metric": {"pod": pod, "container_id": f"containerd://{cid}"}, "values": []} for cid in ("aa11", "bb22", "aa11")]
 
         with mock.patch.object(prometheus, "query_range", result):
             found = prometheus.pod_containers("hotel-res", "frontend", 1000, 1300)
-        self.assertEqual(found, {pod: {"node": "digi-flood", "container_ids": ["aa11", "bb22"]}})
+        self.assertEqual(found, {pod: {"node": "node-a", "container_ids": ["aa11", "bb22"]}})
 
 
 class RunContainersTest(unittest.TestCase):
     def test_maps_the_containers_of_pods_since_the_deploy_to_their_node(self) -> None:
         recorded = {
-            "frontend-7d4b768894-z7r7d": {"created_ms": 1_235_000, "node": "digi-flood", "container_ids": ["c0ffee"]},
-            "frontend-0ld0ld0ld-aaaaa": {"created_ms": 500_000, "node": "digi-flood", "container_ids": ["01d"]},
+            "frontend-7d4b768894-z7r7d": {"created_ms": 1_235_000, "node": "node-a", "container_ids": ["c0ffee"]},
+            "frontend-0ld0ld0ld-aaaaa": {"created_ms": 500_000, "node": "node-a", "container_ids": ["01d"]},
             "frontend-7d4b768894-new00": {"created_ms": 1_240_000},
         }
-        self.assertEqual(web.run_containers(recorded, since_ms=900_000), {"c0ffee": "digi-flood"})
+        self.assertEqual(web.run_containers(recorded, since_ms=900_000), {"c0ffee": "node-a"})
 
 
 class MergePodsTest(unittest.TestCase):
@@ -75,10 +75,10 @@ class MergePodsTest(unittest.TestCase):
         self.assertIsNone(pods[2]["ready_ms"])
 
     def test_a_deleted_pod_keeps_its_node_and_container_ids(self) -> None:
-        recorded = {"frontend-7d4b768894-z7r7d": {"created_ms": 1_235_000, "ready_ms": 1_236_000, "node": "digi-flood",
+        recorded = {"frontend-7d4b768894-z7r7d": {"created_ms": 1_235_000, "ready_ms": 1_236_000, "node": "node-a",
                                                   "container_ids": ["c0ffee"]}}
         pod = web.merge_pods([], recorded, since_ms=900_000)[0]
-        self.assertEqual((pod["node"], pod["container_ids"]), ("digi-flood", ["c0ffee"]))
+        self.assertEqual((pod["node"], pod["container_ids"]), ("node-a", ["c0ffee"]))
 
     def test_leaves_out_pods_of_an_earlier_deploy(self) -> None:
         pods = web.merge_pods([], {"frontend-0ld0ld0ld-aaaaa": {"created_ms": 500_000, "ready_ms": 501_000}}, since_ms=900_000)
