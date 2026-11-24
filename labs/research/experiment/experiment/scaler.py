@@ -41,6 +41,25 @@ def check(app: App) -> None:
         raise SystemExit(f"{COLLECTORS} does not set {METRICS_ENV}; deploy the collector with deploy/kubernetes/collector.yaml")
 
 
+# collector_image reads the collector the run ran beside: the DaemonSet's image and the digests its pods run. A tag such
+# as :operands moves when the image is rebuilt, and the collector's probes cost the observed containers CPU (#71).
+def collector_image(daemonset: dict, pods: list[dict]) -> dict:
+    return {
+        "image": daemonset["spec"]["template"]["spec"]["containers"][0]["image"],
+        "image_ids": sorted({status["imageID"] for pod in pods for status in pod["status"].get("containerStatuses", [])
+                             if status.get("imageID")}),
+    }
+
+
+# collector reads collector_image from the cluster; None when the collector is not deployed.
+def collector() -> dict | None:
+    try:
+        daemonset = kube.get("daemonset", NAMESPACE, COLLECTORS)
+    except kube.KubectlError:
+        return None
+    return collector_image(daemonset, kube.get("pods", NAMESPACE, "-l", f"app={COLLECTORS}")["items"])
+
+
 # documents splits kubectl's output, which prints one JSON object per manifest document back to back.
 def documents(text: str) -> list[dict]:
     decoder, found, position = json.JSONDecoder(), [], 0

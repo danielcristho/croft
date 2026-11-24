@@ -739,6 +739,7 @@ Every accepted run preserves:
 [ ] profile and scale
 [ ] arm
 [ ] node the frontend was pinned to
+[ ] collector image and digests (`collector` in runs.jsonl); its probes cost the observed containers CPU (#71)
 [ ] repetition number in the prefix
 [ ] workload.csv
 [ ] prometheus.csv
