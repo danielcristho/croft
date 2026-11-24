@@ -28,6 +28,7 @@ pub const SYSCALL_BYTES: &str = "croft_container_syscall_bytes_total";
 pub const CONNECTS: &str = "croft_container_connects_total";
 pub const SOCKET_IO: &str = "croft_container_socket_io_total";
 pub const POLL_UNIX_MS: &str = "croft_poll_unix_ms";
+pub const ACCEPT_QUEUE: &str = "croft_container_accept_queue";
 
 #[derive(Debug, Default, PartialEq)]
 pub struct ContainerSignals {
@@ -40,6 +41,7 @@ pub struct ContainerSignals {
     pub syscall_bytes: BTreeMap<String, u64>,
     pub connects: BTreeMap<Destination, u64>,
     pub socket_io: BTreeMap<&'static str, u64>,
+    pub listeners: BTreeMap<u64, u64>,
 }
 
 // Field reads one gauge of a container.
@@ -75,6 +77,7 @@ impl Snapshot {
         if let Some(inflight) = operands.inflight {
             *signals.inflight.get_or_insert(0.0) += inflight as f64;
         }
+        signals.listeners.extend(operands.listeners.iter().copied());
         for rate in rates {
             *signals.syscalls.entry(rate.name.clone()).or_default() += rate.rate_per_sec;
         }
@@ -97,12 +100,15 @@ impl Snapshot {
 
     pub fn render(&self, poll_unix_ms: u128) -> String {
         let mut text = format!("# TYPE {POLL_UNIX_MS} gauge\n{POLL_UNIX_MS} {poll_unix_ms}\n");
-        let gauges: [(&str, Field); 5] = [
+        let gauges: [(&str, Field); 6] = [
             (CPU_CORES, |s| s.cpu_cores),
             (CPU_PRESSURE, |s| s.cpu_pressure),
             (CPU_THROTTLED, |s| s.cpu_throttled),
             (RUNQUEUE, |s| s.runqueue),
             (INFLIGHT, |s| s.inflight),
+            (ACCEPT_QUEUE, |s| {
+                (!s.listeners.is_empty()).then(|| s.listeners.values().sum::<u64>() as f64)
+            }),
         ];
         for (name, value) in gauges {
             let _ = writeln!(text, "# TYPE {name} gauge");
@@ -303,6 +309,7 @@ mod tests {
                     connects,
                     socket_io: &reads,
                     inflight: Some(3), // two processes of container a, three each, sum to 6
+                    listeners: &[(42, 4), (43, 1)],
                 },
             );
         }
@@ -319,6 +326,7 @@ mod tests {
         assert_eq!(find(CONNECTS, "address", "fd00::1"), Some(1.0));
         assert_eq!(find(CONNECTS, "port", "8080"), Some(1.0));
         assert_eq!(find(INFLIGHT, "container_id", "a"), Some(6.0));
+        assert_eq!(find(ACCEPT_QUEUE, "container_id", "a"), Some(5.0));
     }
 
     #[test]

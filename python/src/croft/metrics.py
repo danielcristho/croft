@@ -30,6 +30,7 @@ SIGNALS = {
     "cpu_pressure": Signal("croft_container_cpu_pressure_avg10", (), False, "%"),
     "runqueue_wait": Signal("croft_container_runqueue_wait", (), False, "s/s"),
     "inflight_requests": Signal("croft_container_inflight_requests", (), False, "requests"),
+    "accept_queue": Signal("croft_container_accept_queue", (), False, "connections"),
 }
 # The collector is scraped every 5 s, so 15 s holds three samples for rate().
 RATE_WINDOW_S = 15
@@ -241,6 +242,10 @@ def runqueue_wait(namespace: str | None = None, deployment: str | None = None, *
 
 def inflight_requests(namespace: str | None = None, deployment: str | None = None, **options) -> pd.DataFrame:
     return signal("inflight_requests", namespace, deployment, **options)
+
+
+def accept_queue(namespace: str | None = None, deployment: str | None = None, **options) -> pd.DataFrame:
+    return signal("accept_queue", namespace, deployment, **options)
 
 
 def _selector(labels: dict[str, str]) -> str:
