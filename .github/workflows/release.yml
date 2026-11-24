@@ -29,12 +29,24 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pull-requests: read
     env:
       GH_TOKEN: ${{ github.token }}
       TAG: ${{ needs.release-please.outputs.tag_name }}
     steps:
       - run: |
           gh api "repos/$GITHUB_REPOSITORY/releases/generate-notes" -f tag_name="$TAG" --jq .body > notes.md
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes-file notes.md
+      # Appends the authors and reviewers of the release's pull requests; the body above it stays Release Please's changelog.
+      - run: |
+          previous=$(gh release list --repo "$GITHUB_REPOSITORY" --json tagName -q '.[].tagName' | grep -vxF "$TAG" | head -1)
+          prs=$(gh api "repos/$GITHUB_REPOSITORY/compare/$previous...$TAG" -q '.commits[].commit.message' | grep -oE '\(#[0-9]+\)' | tr -d '(#)' | sort -u)
+          people=$(for pr in $prs; do
+            gh api "repos/$GITHUB_REPOSITORY/pulls/$pr" -q '.user.login'
+            gh api "repos/$GITHUB_REPOSITORY/pulls/$pr/reviews" -q '.[].user.login'
+          done | grep -v '\[bot\]$' | sort -u | sed 's/^/- @/')
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json body -q .body > notes.md
+          printf '\n## Contributors\n\n%s\n' "$people" >> notes.md
           gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes-file notes.md
 
   # Release Please bumps the workspace version in Cargo.toml but not Cargo.lock.
