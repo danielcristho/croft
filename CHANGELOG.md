@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.5.0](https://github.com/danielcristho/croft/compare/v0.4.0...v0.5.0) (2026-11-24)
+
+
+### Features
+
+* **collector:** accept queue per listening socket on /metrics ([#54](https://github.com/danielcristho/croft/issues/54)) ([dc561a6](https://github.com/danielcristho/croft/commit/dc561a6a95d36efa84ef21d63212f83cae524374))
+
+
+### Bug Fixes
+
+* **labs:** calibrate per answered request and stop at a saturated level ([5bebd04](https://github.com/danielcristho/croft/commit/5bebd04fd5bfbf5f820c257240f5ff686e0c5c64))
+* **labs:** recalibrate hotel-reservation at 6.18 ms per request, scale 1 ([5bebd04](https://github.com/danielcristho/croft/commit/5bebd04fd5bfbf5f820c257240f5ff686e0c5c64))
+* **labs:** record pods a scale-down deleted, so first_ready_s is set ([5bebd04](https://github.com/danielcristho/croft/commit/5bebd04fd5bfbf5f820c257240f5ff686e0c5c64))
+* **labs:** record the containers of pods a scale-down deleted mid-run ([#67](https://github.com/danielcristho/croft/issues/67)) ([758638e](https://github.com/danielcristho/croft/commit/758638e110cfd49f48e4cac4a7898fa49775cd8e))
+* **labs:** stop calibration at the CPU limit, recalibrate otel-demo ([#70](https://github.com/danielcristho/croft/issues/70)) ([ea7fbb5](https://github.com/danielcristho/croft/commit/ea7fbb578582e4a74fe4eb407f11133be6214a54))
+
 ## [0.4.0](https://github.com/danielcristho/croft/compare/v0.3.2...v0.4.0) (2026-11-21)
 
 
