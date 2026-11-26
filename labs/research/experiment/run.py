@@ -2,7 +2,7 @@
 
 import argparse
 
-from experiment import calibrate_scaler, compare, gpu, records, web
+from experiment import calibrate_scaler, compare, gpu, records, web, scaler
 from experiment.apps import APPS
 from experiment.profiles import PROFILES
 
