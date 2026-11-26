@@ -33,7 +33,8 @@ def main() -> None:
     web_args.add_argument("--scale", type=float, help="multiply every rate of --profile; default the app's scale in apps.json")
     web_args.add_argument("--mix", action="store_true", help="send the app's endpoint mix of apps.json, with its scale and calibration; needs --profile")
     web_args.add_argument("--probes", choices=sorted(web.PROBES), default="default", help="relaxed: no liveness restart, slower readiness; none: no probes, the HPA best case")
-    web_args.add_argument("--scaler", choices=["none", "croft"], default="none", help="croft: croft scale replaces the HPA; needs --profile")
+    # web_args.add_argument("--scaler", choices=["none", "croft"], default="none", help="croft: croft scale replaces the HPA; needs --profile")
+    web_args.add_argument("--scaler", choices=["none", *scaler.ARM_ARGS], default="none", help="croft: croft scale replaces the HPA; croft-step: the same, with the HPA's scale-up cap; needs --profile")
     web_args.add_argument("--concurrent", action="store_true", help="share the cluster with runs of other apps; the run records it")
     web_args.add_argument("--mesh", action="store_true", help="Linkerd on the app's namespace; records the call graph in edges.csv")
     web_args.add_argument("--warmup", type=int, help="seconds; default 60, or 30 with --profile.")
@@ -71,10 +72,10 @@ def main() -> None:
         if args.scaler != "none" and (not args.profile or args.replicas):
             parser.error(f"--scaler {args.scaler} needs --profile and an autoscaler, so no --replicas")
         # croft scale reads the first container's CPU request and counts every container's syscalls, the proxy's too.
-        if args.mesh and args.scaler == "croft":
-            parser.error("--mesh does not work with --scaler croft: croft scale would count the linkerd-proxy's syscalls")
-        if args.concurrent and args.scaler == "croft":
-            parser.error("--concurrent does not work with --scaler croft: the croft arm needs the cluster alone")
+        if args.mesh and args.scaler != "none":
+            parser.error(f"--mesh does not work with --scaler {args.scaler}: croft scale would count the linkerd-proxy's syscalls")
+        if args.concurrent and args.scaler != "none":
+            parser.error(f"--concurrent does not work with --scaler {args.scaler}: the croft arm needs the cluster alone")
         if args.mix and not args.profile:
             parser.error("--mix needs --profile: Locust sends the app's path alone")
         lock = records.hold_lock(args.app if args.concurrent else None)

@@ -332,9 +332,9 @@ kube-prometheus-stack drops `container_cpu_cfs_throttled_seconds_total`, so `cpu
 
 sends the application's endpoint mix instead of its one path, picked per request by a generator seeded with the profile's `seed`, so a repeated run sends the same sequence. The mix's `scale` and `scaler` replace the application's own when set. Locust runs keep the one path, so `--mix` needs `--profile`. Every web run records its `host`, the `endpoints` it sent with their weights, and `mix` in `runs.jsonl`.
 
-**`--scaler croft`**
+**`--scaler croft|croft-step`**
 
-deploys `deploy/kubernetes/scaler.yaml` for the application before the warm-up, saves its log and removes it after the run. It needs the collector with `CROFT_METRICS_ADDR` set.
+deploys `deploy/kubernetes/scaler.yaml` for the application before the warm-up, saves its log and removes it after the run. It needs the collector with `CROFT_METRICS_ADDR` set. `croft-step` adds the HPA's default scale-up cap, so the pair compares the signal alone.
 
 **`--mesh`**
 
