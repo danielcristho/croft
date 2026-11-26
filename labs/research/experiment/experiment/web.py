@@ -19,9 +19,7 @@ from .profiles import PROFILES, Profile
 LOCUSTFILE = ROOT / "load" / "locustfile.py"
 READY_CHECKS = 3
 READY_TIMEOUT_S = 120
-# cloud2023 warms up at 5 RPS for 30 s and cools down for 15 s.
 WARMUP_RPS = 5
-# relaxed keeps an overloaded pod alive and in its Service: no liveness restart, readiness tolerates 60 s of slow answers.
 PROBES = {
     "default": None,
     "relaxed": {"livenessProbe": None, "readinessProbe": {"timeoutSeconds": 10, "failureThreshold": 6}},
@@ -266,7 +264,8 @@ def run_profile(app: App, prefix: str, name: str, scale: float, warmup: int, coo
     """One open-loop run of a cloud2023 load profile against the app's request path, or its endpoint mix; croft scale
     replaces the HPA when asked."""
     endpoints = app.endpoints(mix)
-    with_scaler = arm == "croft"
+    # with_scaler = arm == "croft"
+    with_scaler = arm != "none"
     if with_scaler:
         scaler.check(app)
     deployed_ms = records.now_ms()
@@ -277,7 +276,7 @@ def run_profile(app: App, prefix: str, name: str, scale: float, warmup: int, coo
     directory.mkdir(parents=True, exist_ok=True)
     try:
         if with_scaler:
-            scaler.start(app)
+            scaler.start(app, arm)
         if warmup:
             rps.run(app.host, endpoints, Profile("constant", warmup, rps=WARMUP_RPS), None, run=run_id, users=app.users(mix))
         containers = kube.containers(app.namespace, "-l", app.selector)

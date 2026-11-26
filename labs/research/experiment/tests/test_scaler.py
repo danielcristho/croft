@@ -4,12 +4,21 @@ import unittest
 from unittest import mock
 
 from experiment import kube, scaler
+from types import SimpleNamespace
 
 DAEMONSET = {"spec": {"template": {"spec": {"containers": [{"image": "ghcr.io/danielcristho/croft-collector:operands"}]}}}}
 
+APP = SimpleNamespace(
+    name="hr", namespace="hotel", deployment="frontend",
+    scaler=SimpleNamespace(syscall="sendto", calls_per_request=2, cpu_per_request_ms=3.0),
+)
 
 def pod(*image_ids: str) -> dict:
     return {"status": {"containerStatuses": [{"imageID": image_id} for image_id in image_ids]}}
+
+def scale_args(arm: str) -> list[str]:
+    deployment = {"metadata": {}, "spec": {"selector": {}, "template": {"metadata": {}, "spec": {"containers": [{"name": "scaler"}]}}}}
+    return scaler.retarget(deployment, APP, arm)["spec"]["template"]["spec"]["containers"][0]["args"]
 
 
 class ScalerTest(unittest.TestCase):
@@ -32,6 +41,12 @@ class ScalerTest(unittest.TestCase):
         missing = kube.KubectlError(1, ["kubectl"], "", 'daemonsets.apps "croft-collector" not found')
         with mock.patch.object(kube, "get", side_effect=missing):
             self.assertIsNone(scaler.collector())
+
+    def test_croft_arm_leaves_scale_up_uncapped(self):
+            self.assertFalse(any(arg.startswith("--max-step-up") for arg in scale_args("croft")))
+
+    def test_step_arm_caps_scale_up_as_the_hpa(self):
+            self.assertIn("--max-step-up=4", scale_args("croft-step"))
 
 
 if __name__ == "__main__":

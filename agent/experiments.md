@@ -10,6 +10,7 @@ not: how to run series safely and the traps met so far.
 |---|---|---|
 | `none` | the HPA | CPU at 70% of the request, through metrics-server |
 | `croft` | `croft scale`, with no HPA | calibrated syscall rate from the collector's `/metrics` |
+| `croft-step` | `croft scale`, with no HPA, capped at +4 pods or +100% per 15 s | as `croft` |
 
 Both arms scale down after a 300 s window. Runs before this change had the HPA
 next to `croft scale`, so do not pool them with new runs.

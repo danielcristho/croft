@@ -11,8 +11,11 @@ NAMESPACE = "croft"
 COLLECTORS = "croft-collector"
 METRICS_ENV = "CROFT_METRICS_ADDR"
 READY_TIMEOUT_S = 120
-# The scale module logs its rate and replica estimate at debug on every poll; compare reads them from scaler.log.
 LOG_LEVEL = "info,croft::command::scale=debug"
+ARM_ARGS = {
+    "croft": [],
+    "croft-step": ["--max-step-up=4", "--max-step-up-percent=100", "--step-up-period=15"],
+}
 
 
 def name(app: App) -> str:
@@ -70,15 +73,19 @@ def documents(text: str) -> list[dict]:
             position += 1
     return found
 
-
-def objects(app: App) -> list[dict]:
+def objects(app: App, arm: str) -> list[dict]:
     """The manifest's objects, with its Deployment renamed and pointed at the app."""
     items = documents(kube.kubectl("create", "--dry-run=client", "-o", "json", "-f", str(MANIFEST)))
-    return [retarget(item, app) if item["kind"] == "Deployment" else item for item in items]
+    return [retarget(item, app, arm) if item["kind"] == "Deployment" else item for item in items]
+
+# def objects(app: App) -> list[dict]:
+#     """The manifest's objects, with its Deployment renamed and pointed at the app."""
+#     items = documents(kube.kubectl("create", "--dry-run=client", "-o", "json", "-f", str(MANIFEST)))
+#     return [retarget(item, app) if item["kind"] == "Deployment" else item for item in items]
 
 
 # retarget points the manifest's scaler Deployment at the app, with its calibration and the run's log level.
-def retarget(deployment: dict, app: App) -> dict:
+def retarget(deployment: dict, app: App, arm: str) -> dict:
     labels = {"app": "croft-scaler", "target": app.name}
     deployment["metadata"]["name"] = name(app)
     deployment["metadata"]["labels"] = labels
@@ -92,6 +99,7 @@ def retarget(deployment: dict, app: App) -> dict:
         f"--syscall={app.scaler.syscall}",
         f"--calls-per-request={app.scaler.calls_per_request}",
         f"--cpu-per-request-ms={app.scaler.cpu_per_request_ms}",
+        *ARM_ARGS[arm],
     ]
     env = [var for var in scaler.get("env", []) if var["name"] != "RUST_LOG"]
     scaler["env"] = [*env, {"name": "RUST_LOG", "value": LOG_LEVEL}]
@@ -99,9 +107,9 @@ def retarget(deployment: dict, app: App) -> dict:
 
 
 # start replaces any scaler left from an earlier run, so its confirmation streak starts empty.
-def start(app: App) -> None:
+def start(app: App, arm: str) -> None:
     stop(app)
-    for item in objects(app):
+    for item in objects(app, arm):
         kube.apply(json.dumps(item))
     kube.kubectl("rollout", "status", f"deployment/{name(app)}", "-n", NAMESPACE, f"--timeout={READY_TIMEOUT_S}s")
 
