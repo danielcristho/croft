@@ -22,7 +22,6 @@ METRICS = [
 CROFT_SCALE = re.compile(r"scale (up|down) from=\d+ to=(\d+)")
 HPA_NEW_SIZE = re.compile(r"New size: (\d+); reason: .*above target")
 NEW_SIZE = re.compile(r"New size: (\d+);")
-# croft colours its log unless NO_COLOR is set, and the scaler pod does not set it.
 ANSI = re.compile(r"\x1b\[[0-9;]*m")
 
 

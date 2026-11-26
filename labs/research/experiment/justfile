@@ -60,14 +60,22 @@ remove app:
 burst app arm="none" prefix="try":
     uv run run.py web --app {{ app }} --node {{ node }} --prefix {{ prefix }}-{{ arm }} --profile burst --probes relaxed --scaler {{ arm }}
 
-# Three repetitions of both arms, alternated, then the scores.
-series app prefix:
+# # Three repetitions of both arms, alternated, then the scores.
+# series app prefix:
+#     for i in 1 2 3; do \
+#       for arm in none croft; do \
+#         uv run run.py web --app {{ app }} --node {{ node }} --prefix {{ prefix }}-$arm-$i --profile burst --probes relaxed --scaler $arm || exit 1; \
+#       done; \
+#     done
+#     uv run run.py compare --prefix {{ prefix }}-none- {{ prefix }}-croft-
+
+series app prefix arms="none croft croft-step":
     for i in 1 2 3; do \
-      for arm in none croft; do \
+      for arm in {{ arms }}; do \
         uv run run.py web --app {{ app }} --node {{ node }} --prefix {{ prefix }}-$arm-$i --profile burst --probes relaxed --scaler $arm || exit 1; \
       done; \
     done
-    uv run run.py compare --prefix {{ prefix }}-none- {{ prefix }}-croft-
+    uv run run.py compare --prefix {{ prefix }}-
 
 # Service-interaction study, step 1 (about 1 hour): checks, the proxy scrape, then per sample a --mesh smoke run and a one-pod ramp.
 mesh-prepare:

@@ -17,15 +17,12 @@ ARM_ARGS = {
     "croft-step": ["--max-step-up=4", "--max-step-up-percent=100", "--step-up-period=15"],
 }
 
-
 def name(app: App) -> str:
     return f"croft-scaler-{app.name}"
-
 
 # cpu_cores reads a Kubernetes CPU quantity: "200m", "1" or "1.5".
 def cpu_cores(quantity: str) -> float:
     return float(quantity[:-1]) / 1000 if quantity.endswith("m") else float(quantity)
-
 
 # limit_cores reads the app container's CPU limit from the deployed Deployment.
 def limit_cores(app: App) -> float:
@@ -33,8 +30,7 @@ def limit_cores(app: App) -> float:
     container = next(c for c in deployment["spec"]["template"]["spec"]["containers"] if c["name"] == app.container)
     return cpu_cores(container["resources"]["limits"]["cpu"])
 
-
-# check stops before a run: without a calibration or collector metrics the scaler would run blind.
+# check refuses a run with no calibration or collector metrics.
 def check(app: App) -> None:
     if app.scaler is None:
         raise SystemExit(f"apps.json has no scaler calibration for {app.name}")
@@ -43,9 +39,8 @@ def check(app: App) -> None:
     if not any(var["name"] == METRICS_ENV and var.get("value") for var in env):
         raise SystemExit(f"{COLLECTORS} does not set {METRICS_ENV}; deploy the collector with deploy/kubernetes/collector.yaml")
 
-
-# collector_image reads the collector the run ran beside: the DaemonSet's image and the digests its pods run. A tag such
-# as :operands moves when the image is rebuilt, and the collector's probes cost the observed containers CPU (#71).
+# collector_image reads the DaemonSet's image and the digests its pods run, since a tag like :operands moves when the image is rebuilt.
+# Its probes cost the observed containers CPU.
 def collector_image(daemonset: dict, pods: list[dict]) -> dict:
     return {
         "image": daemonset["spec"]["template"]["spec"]["containers"][0]["image"],
@@ -53,15 +48,13 @@ def collector_image(daemonset: dict, pods: list[dict]) -> dict:
                              if status.get("imageID")}),
     }
 
-
-# collector reads collector_image from the cluster; None when the collector is not deployed.
+# collector reads collector_image from the cluster, or None when it is not deployed.
 def collector() -> dict | None:
     try:
         daemonset = kube.get("daemonset", NAMESPACE, COLLECTORS)
     except kube.KubectlError:
         return None
     return collector_image(daemonset, kube.get("pods", NAMESPACE, "-l", f"app={COLLECTORS}")["items"])
-
 
 # documents splits kubectl's output, which prints one JSON object per manifest document back to back.
 def documents(text: str) -> list[dict]:
@@ -82,7 +75,6 @@ def objects(app: App, arm: str) -> list[dict]:
 #     """The manifest's objects, with its Deployment renamed and pointed at the app."""
 #     items = documents(kube.kubectl("create", "--dry-run=client", "-o", "json", "-f", str(MANIFEST)))
 #     return [retarget(item, app) if item["kind"] == "Deployment" else item for item in items]
-
 
 # retarget points the manifest's scaler Deployment at the app, with its calibration and the run's log level.
 def retarget(deployment: dict, app: App, arm: str) -> dict:
@@ -105,7 +97,6 @@ def retarget(deployment: dict, app: App, arm: str) -> dict:
     scaler["env"] = [*env, {"name": "RUST_LOG", "value": LOG_LEVEL}]
     return deployment
 
-
 # start replaces any scaler left from an earlier run, so its confirmation streak starts empty.
 def start(app: App, arm: str) -> None:
     stop(app)
@@ -113,10 +104,8 @@ def start(app: App, arm: str) -> None:
         kube.apply(json.dumps(item))
     kube.kubectl("rollout", "status", f"deployment/{name(app)}", "-n", NAMESPACE, f"--timeout={READY_TIMEOUT_S}s")
 
-
 def save_log(app: App, path: Path) -> None:
     path.write_text(kube.kubectl("logs", f"deployment/{name(app)}", "-n", NAMESPACE, "-c", "scaler", "--timestamps"))
-
 
 def stop(app: App) -> None:
     kube.kubectl("delete", "deployment", name(app), "-n", NAMESPACE, "--ignore-not-found", "--wait=true")

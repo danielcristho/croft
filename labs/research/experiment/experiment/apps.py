@@ -9,7 +9,6 @@ from .profiles import Endpoint
 
 ROOT = Path(__file__).resolve().parent.parent
 CATALOG = ROOT / "apps.json"
-# support runs beside the app and serves no request: service discovery, tracing, telemetry, feature flags.
 ROLES = ("gateway", "business", "cache", "database", "support")
 
 
@@ -35,7 +34,6 @@ class Mix:
     endpoints: tuple[Endpoint, ...]
     scale: float | None = None
     scaler: Calibration | None = None
-    # {user} takes one of this many users per run, so runs never share a session or a cart.
     users: int = 1
 
 
@@ -45,15 +43,12 @@ class App:
     namespace: str
     deployment: str
     container: str
-    # A folder with k8s.yaml for the app and hpa.yaml for its baseline autoscaler.
     manifests: Path
     host: str
     path: str
     health: str
     scaler: Calibration | None
-    # The --profile scale that keeps a burst between one pod saturated and ten pods' worth.
     scale: float = 1.0
-    # Every Deployment of the namespace, by name.
     services: dict[str, Service] = field(default_factory=dict)
     mix: Mix | None = None
 
