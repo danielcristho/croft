@@ -1,9 +1,6 @@
 //! Scaler turns syscall rates into replica counts, using a calibration and a target CPU limit.
 
-use std::{
-    collections::{HashSet, VecDeque},
-    u32,
-};
+use std::collections::{HashSet, VecDeque};
 
 use crate::pipeline::metrics::{SYSCALL_RATE, Sample};
 
@@ -143,7 +140,7 @@ impl StepUp {
         }
     }
 
-    // ceiliing records this polls's repliicc and returns the most the period allows. 0 -> sets no cap.
+    // ceiling records this poll's replicas and returns the most the period allows; 0 pods sets no cap.
     pub fn ceiling(&mut self, current: u32) -> u32 {
         if self.seen.len() == self.polls {
             self.seen.pop_front();
