@@ -159,6 +159,15 @@ pub struct ScaleArgs {
     /// Kubernetes API through `kubectl proxy`
     #[arg(long, default_value = "http://127.0.0.1:8001")]
     pub api: String,
+    /// Pods a scale-up may add per period, as the HPA's default policy; 0 sets no cap
+    #[arg(long, default_value_t = 0)]
+    pub max_step_up: u32,
+    /// Percent a scale-up may add per period, used with --max-step-up
+    #[arg(long, default_value_t = 100)]
+    pub max_step_up_percent: u32,
+    /// Seconds of the scale-up period
+    #[arg(long, default_value_t = 15)]
+    pub step_up_period: u64,
     /// Namespace of the collector DaemonSet
     #[arg(long, default_value = "croft")]
     pub collectors_namespace: String,

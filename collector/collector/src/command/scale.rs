@@ -12,7 +12,7 @@ use serde_json::{Value, json};
 
 use crate::{
     cli::ScaleArgs,
-    decision::scaler::{self, Calibration, Confirm, Repeats, ScaleDown},
+    decision::scaler::{self, Calibration, Confirm, Repeats, ScaleDown, StepUp},
     pipeline::metrics,
     runtime::http,
 };
@@ -34,6 +34,11 @@ pub fn execute(args: &ScaleArgs) -> anyhow::Result<()> {
     let interval = Duration::from_secs(args.interval);
     let mut scale_down =
         ScaleDown::new(args.scale_down_window.div_ceil(args.interval.max(1)) as usize);
+    let mut step_up = StepUp::new(
+        args.max_step_up,
+        args.max_step_up_percent,
+        args.step_up_period.div_ceil(args.interval.max(1)) as usize,
+    );
     let mut repeats = Repeats::default();
     info!(
         "scaling {}/{} from {} per request ({} ms CPU, {} calls), target {}, confirm {} polls, scale down after {} s{}",
@@ -54,6 +59,7 @@ pub fn execute(args: &ScaleArgs) -> anyhow::Result<()> {
             &calibration,
             &mut confirm,
             &mut scale_down,
+            &mut step_up,
             &mut repeats,
         ) {
             warn!("scale poll: {e:#}");
@@ -67,6 +73,7 @@ fn poll(
     calibration: &Calibration,
     confirm: &mut Confirm,
     scale_down: &mut ScaleDown,
+    step_up: &mut StepUp,
     repeats: &mut Repeats,
 ) -> anyhow::Result<()> {
     let target = target(args)?;
@@ -95,7 +102,12 @@ fn poll(
         target.replicas
     );
     repeats.settle(needed, target.replicas);
-    let up = confirm.step(needed, target.replicas);
+    // let up = confirm.step(needed, target.replicas);
+    let ceiling = step_up.ceiling(target.replicas);
+    let up = confirm
+        .step(needed, target.replicas)
+        .map(|replicas| replicas.min(ceiling))
+        .filter(|&replicas| replicas > target.replicas);
     let down = scale_down.step(needed, target.replicas);
     let (direction, replicas) = match (up, down) {
         (Some(replicas), _) => ("up", replicas),
