@@ -180,7 +180,7 @@ class ScalerTest(unittest.TestCase):
             ]}}},
         }
         app = APPS["hotel-reservation"]
-        container = scaler.retarget(deployment, app)["spec"]["template"]["spec"]["containers"][0]
+        container = scaler.retarget(deployment, app, "croft")["spec"]["template"]["spec"]["containers"][0]
         self.assertIn(f"--calls-per-request={app.scaler.calls_per_request}", container["args"])
         self.assertIn(f"--cpu-per-request-ms={app.scaler.cpu_per_request_ms}", container["args"])
         self.assertEqual(container["env"], [{"name": "RUST_LOG", "value": scaler.LOG_LEVEL}])

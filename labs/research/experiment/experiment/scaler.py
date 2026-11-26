@@ -14,7 +14,7 @@ READY_TIMEOUT_S = 120
 LOG_LEVEL = "info,croft::command::scale=debug"
 ARM_ARGS = {
     "croft": [],
-    "croft-step": ["--max-step=4", "--max-step-up-percent=100", "step-up-period=15"],
+    "croft-step": ["--max-step-up=4", "--max-step-up-percent=100", "--step-up-period=15"],
 }
 
 
@@ -98,7 +98,6 @@ def retarget(deployment: dict, app: App, arm: str) -> dict:
         f"--deployment={app.deployment}",
         f"--syscall={app.scaler.syscall}",
         f"--calls-per-request={app.scaler.calls_per_request}",
-        f"--cpu-per-request-ms={app.scaler.cpu_per_request_ms}",
         f"--cpu-per-request-ms={app.scaler.cpu_per_request_ms}",
         *ARM_ARGS[arm],
     ]
