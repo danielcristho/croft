@@ -122,6 +122,39 @@ impl ScaleDown {
     }
 }
 
+// StepUp caps a scale-up as the HPA's default policies: per period, the larger of `pods` more and `percent` more replicas than at its start.
+pub struct StepUp {
+    pods: u32,
+    percent: u32,
+    polls: usize,
+    seen: VecDeque<u32>,
+}
+
+impl StepUp {
+    pub fn new(pods: u32, percent: u32, polls: usize) -> Self {
+        Self {
+            pods,
+            percent,
+            polls: polls.max(1),
+            seen: VecDeque::new(),
+        }
+    }
+
+    // ceiling records this poll's replicas and returns the most the period allows; 0 pods sets no cap.
+    pub fn ceiling(&mut self, current: u32) -> u32 {
+        if self.seen.len() == self.polls {
+            self.seen.pop_front();
+        }
+        self.seen.push_back(current);
+        if self.pods == 0 {
+            return u32::MAX;
+        }
+        let start = self.seen.iter().copied().min().unwrap_or(current);
+        let by_percent = start.saturating_mul(100 + self.percent) / 100;
+        start.saturating_add(self.pods).max(by_percent)
+    }
+}
+
 // cpu_cores reads a Kubernetes CPU quantity such as "1", "1.5" or "500m".
 pub fn cpu_cores(quantity: &str) -> Option<f64> {
     match quantity.strip_suffix('m') {
@@ -230,6 +263,26 @@ mod tests {
         down.restart();
         assert_eq!(down.step(1, 5), None);
         assert_eq!(down.step(1, 5), Some(1));
+    }
+
+    #[test]
+    fn step_up_takes_the_larger_limit() {
+        assert_eq!(StepUp::new(4, 100, 3).ceiling(1), 5);
+        assert_eq!(StepUp::new(4, 100, 3).ceiling(10), 20);
+    }
+
+    #[test]
+    fn step_up_counts_from_the_start_of_the_period() {
+        let mut up = StepUp::new(4, 100, 3);
+        assert_eq!(up.ceiling(1), 5);
+        assert_eq!(up.ceiling(5), 5);
+        assert_eq!(up.ceiling(5), 5);
+        assert_eq!(up.ceiling(5), 10);
+    }
+
+    #[test]
+    fn step_up_without_pods_sets_no_cap() {
+        assert_eq!(StepUp::new(0, 100, 3).ceiling(1), u32::MAX);
     }
 
     #[test]

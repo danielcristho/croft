@@ -80,6 +80,12 @@ spec:
             - --confirm-polls={{ .confirmPolls | default 2 }}
             - --interval={{ .interval | default 2 }}
             - --scale-down-window={{ .scaleDownWindow | default 300 }}
+            - --max-step-up={{ .maxStepUp | default 0 }}
+            - --max-step-up-percent={{ .maxStepUpPercent | default 100 }}
+            - --step-up-period={{ .stepUpPeriod | default 15 }}
+            # - --max-step-up={{ .maxStepUp | default 0 }}
+            # - --max-step-up-percent={{ .maxStepUpPercent | default 100 }}
+            # - --step-up-period={{ .stepUpPeriod | default 15 }}
             - --collectors-namespace={{ $.Release.Namespace }}
             - --metrics-port={{ $.Values.collector.metricsPort }}
             {{- if .dryRun }}
