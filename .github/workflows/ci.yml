@@ -88,7 +88,7 @@ jobs:
         working-directory: labs/research/experiment
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
       - run: uv sync --locked
       # Every module in tests/, so a new test file runs without a CI change.
       - run: uv run python -m unittest discover -s tests
@@ -100,7 +100,7 @@ jobs:
         working-directory: python
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
       - run: uv sync --locked --all-extras
       - run: uv run python -m unittest discover -s tests
 
@@ -124,6 +124,6 @@ jobs:
         with:
           manifest-path: collector/Cargo.toml
           command: check licenses
-      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
       - run: .github/scripts/python-licenses.sh labs/research/experiment
       - run: .github/scripts/python-licenses.sh python
