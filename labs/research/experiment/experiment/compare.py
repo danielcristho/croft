@@ -22,7 +22,6 @@ METRICS = [
 CROFT_SCALE = re.compile(r"scale (up|down) from=\d+ to=(\d+)")
 HPA_NEW_SIZE = re.compile(r"New size: (\d+); reason: .*above target")
 NEW_SIZE = re.compile(r"New size: (\d+);")
-# croft colours its log unless NO_COLOR is set, and the scaler pod does not set it.
 ANSI = re.compile(r"\x1b\[[0-9;]*m")
 
 
@@ -143,7 +142,8 @@ def arm(record: dict) -> dict:
         "profile": record["profile"]["name"],
         "scale": record["scale"],
         "probes": record.get("probes", "default"),
-        "scaler": record.get("scaler") or "hpa",
+        # "scaler": record.get("scaler") or "hpa",
+        "scaler": record.get("scaler") or ("static" if record.get("autoscaling") == "static" else "hpa"),
         "concurrent": record.get("concurrent", False),
     }
 

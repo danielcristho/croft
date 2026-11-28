@@ -57,9 +57,9 @@ def write_run(directory: Path, with_log: bool) -> None:
     (directory / "timeline.json").write_text(json.dumps({
         "rescales": [
             {"first_ms": BURST_MS + 25_000, "last_ms": BURST_MS + 25_000, "count": 1,
-             "message": "New size: 6; reason: cpu resource utilization (percentage of request) above target"},
+                "message": "New size: 6; reason: cpu resource utilization (percentage of request) above target"},
             {"first_ms": BURST_MS + 80_000, "last_ms": BURST_MS + 80_000, "count": 1,
-             "message": "New size: 4; reason: All metrics below target"},
+                "message": "New size: 4; reason: All metrics below target"},
         ],
         "replica_sets": [
             {"first_ms": BURST_MS + 4_000, "last_ms": BURST_MS + 4_000, "count": 1, "message": "Scaled up replica set frontend-abc from 1 to 2"},
@@ -96,8 +96,8 @@ class CompareTest(unittest.TestCase):
 
     def test_scaler_log_separates_scale_downs(self) -> None:
         log = ("2026-11-02T00:00:01Z INFO scale up from=1 to=5 rate=9.0/s\n"
-               "2026-11-02T00:05:01Z INFO scale down from=5 to=1 rate=1.0/s\n"
-               "2026-11-02T00:06:01Z INFO scale up from=1 to=3 rate=5.0/s\n")
+                "2026-11-02T00:05:01Z INFO scale down from=5 to=1 rate=1.0/s\n"
+                "2026-11-02T00:06:01Z INFO scale up from=1 to=3 rate=5.0/s\n")
         self.assertEqual([n for _, n in compare.parse_scaler_log(log)], [5, 3])
         both = compare.parse_scaler_log(log, ("up", "down"))
         self.assertEqual([n for _, n in both], [5, 1, 3])
@@ -128,10 +128,9 @@ class CompareTest(unittest.TestCase):
         self.assertEqual(scores["replica_seconds"], 13 * 5)
 
     def test_replicas_follow_every_decision_the_scrape_misses(self) -> None:
-        # croft asks for 5 twice and the HPA cuts back to 4 three times, merged into one event.
         croft = [(BURST_MS + 5_000, 2), (BURST_MS + 20_000, 5), (BURST_MS + 40_000, 5)]
         rescales = [{"first_ms": BURST_MS + 30_000, "last_ms": BURST_MS + 60_000, "count": 3,
-                     "message": "New size: 4; reason: All metrics below target"}]
+                        "message": "New size: 4; reason: All metrics below target"}]
         steps = compare.replica_steps(record("r", "croft"), rescales, croft)
         self.assertEqual([n for _, n in steps], [1, 2, 5, 4, 5, 4, 4])
         scores = compare.decision_metrics(steps, BURST_MS, END_MS)
@@ -143,7 +142,7 @@ class CompareTest(unittest.TestCase):
         previous = [{"run_id": "hr-1", "peak_replicas": "3"}, {"run_id": "web-1", "peak_replicas": "7"}]
         merged = compare.merge(previous, [{"run_id": "web-1", "peak_replicas": 8}, {"run_id": "otel-1", "peak_replicas": 4}])
         self.assertEqual([(row["run_id"], row["peak_replicas"]) for row in merged],
-                         [("hr-1", "3"), ("web-1", 8), ("otel-1", 4)])
+                            [("hr-1", "3"), ("web-1", 8), ("otel-1", 4)])
 
     def test_summary_groups_runs_by_arm(self) -> None:
         runs = [
@@ -168,6 +167,10 @@ class CompareTest(unittest.TestCase):
             compare.burst_records(runs, ["other"])
         with self.assertRaises(SystemExit):
             compare.burst_records(self.root / "missing.jsonl", [])
+    
+    def test_arm_keeps_static_runs_apart_from_the_hpa(self) -> None:
+        self.assertEqual(compare.arm({**record("st-1", None), "autoscaling": "static"})["scaler"], "static")
+        self.assertEqual(compare.arm(record("hpa-1", None))["scaler"], "hpa")
 
 
 class ScalerTest(unittest.TestCase):
