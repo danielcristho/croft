@@ -14,6 +14,7 @@ eBPF sees events, which no file keeps: each syscall, each wait for a CPU, each c
 | eBPF, `openat`, `ioctl`, `close` on `/dev/nvidia*` and `/dev/dri/*` | which processes hold a GPU and when they call into it | `workload`, `ioctl_count`, `since_last_gpu_ioctl_ms` |
 | eBPF, `raw_syscalls/sys_enter` and `sys_exit` of `accept`, reads and writes; `syscalls/sys_enter_close` | accepted connections holding a request not yet answered | `croft_container_inflight_requests` on `/metrics` |
 | `/proc/<pid>/net/tcp` and `tcp6`, `/proc/<pid>/fd` | connections waiting for `accept()` on the process's listening sockets | `croft_container_accept_queue` on `/metrics` |
+| eBPF, every map insert that can fail | inserts the eBPF side lost, per map, since the collector started | `croft_ebpf_map_drops_total` on `/metrics` |
 | eBPF, `sched_process_exit` | clears a process's state when it exits | |
 | `/proc/<pid>/maps`, `cmdline` | framework, from the libraries a process loaded or its arguments | `process.framework` |
 | `/proc/<pid>/stat`, `status`, `io`, `cwd`, `cgroup`, `net/dev` | CPU, RSS, threads, context switches, disk and network bytes, working directory, container | `usage`, `process` |

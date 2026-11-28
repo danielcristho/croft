@@ -24,6 +24,13 @@ impl DropWatcher {
         Ok(())
     }
 
+    // totals lists each site's map name with its drops since the collector started, as last read.
+    pub fn totals(&self) -> impl Iterator<Item = (&'static str, u64)> + '_ {
+        DropSite::ALL
+            .iter()
+            .map(|&site| (site.map_name(), self.reported[site.index() as usize]))
+    }
+
     fn new_since_last(&mut self, site: DropSite, total: u64) -> Option<u64> {
         let reported = &mut self.reported[site.index() as usize];
         let new = total.checked_sub(*reported).filter(|&n| n > 0);
@@ -42,6 +49,16 @@ mod tests {
         assert_eq!(watcher.new_since_last(DropSite::GpuActivity, 3), Some(3));
         assert_eq!(watcher.new_since_last(DropSite::GpuActivity, 3), None);
         assert_eq!(watcher.new_since_last(DropSite::GpuActivity, 5), Some(2));
+    }
+
+    #[test]
+    fn totals_hold_every_site_as_last_read() {
+        let mut watcher = DropWatcher::default();
+        watcher.new_since_last(DropSite::Connects, 4);
+        let totals: Vec<_> = watcher.totals().collect();
+        assert_eq!(totals.len(), DropSite::ALL.len());
+        assert!(totals.contains(&("CONNECTS", 4)));
+        assert!(totals.contains(&("GPU_FDS", 0)));
     }
 
     #[test]
