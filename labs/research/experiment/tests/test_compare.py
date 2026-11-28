@@ -168,6 +168,11 @@ class CompareTest(unittest.TestCase):
         with self.assertRaises(SystemExit):
             compare.burst_records(self.root / "missing.jsonl", [])
     
+    def test_arm_keeps_runs_with_other_targets_apart(self) -> None:
+        self.assertEqual(compare.arm(record("hr-1", None))["also_scaled"], "")
+        self.assertEqual(compare.arm({**record("hr-2", None), "targets": ["frontend"]})["also_scaled"], "")
+        self.assertEqual(compare.arm({**record("hr-3", None), "targets": ["frontend", "rate"]})["also_scaled"], "rate")
+    
     def test_arm_keeps_static_runs_apart_from_the_hpa(self) -> None:
         self.assertEqual(compare.arm({**record("st-1", None), "autoscaling": "static"})["scaler"], "static")
         self.assertEqual(compare.arm(record("hpa-1", None))["scaler"], "hpa")

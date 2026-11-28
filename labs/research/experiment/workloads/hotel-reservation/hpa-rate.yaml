@@ -1,0 +1,21 @@
+# The rate service beside the frontend, for --also-scale rate: the same 70% ContainerResource rule as hpa.yaml.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: rate
+  namespace: hotel-res
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: rate
+  minReplicas: 1
+  maxReplicas: 10
+  metrics:
+    - type: ContainerResource
+      containerResource:
+        name: cpu
+        container: rate
+        target:
+          type: Utilization
+          averageUtilization: 70
