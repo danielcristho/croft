@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.6.0](https://github.com/danielcristho/croft/compare/v0.5.0...v0.6.0) (2026-11-28)
+
+
+### Features
+
+* **collector:** optional scale-up cap as the HPA's default policies ([#85](https://github.com/danielcristho/croft/issues/85)) ([7203803](https://github.com/danielcristho/croft/commit/72038035f80ce0cd1d88d61a7e97ad41aca09e12))
+* **labs:** croft-step arm with the HPA's scale-up cap ([#87](https://github.com/danielcristho/croft/issues/87)) ([3bb3960](https://github.com/danielcristho/croft/commit/3bb3960c11acae3f3cf9aaf722e38ddf945cfe36))
+* **labs:** series with static and croft-step arms ([#90](https://github.com/danielcristho/croft/issues/90)) ([93839d2](https://github.com/danielcristho/croft/commit/93839d2b89c52f10f7df027f71435ab372a8c5bc))
+
+
+### Bug Fixes
+
+* **labs:** record the collector image and digests with every run ([#79](https://github.com/danielcristho/croft/issues/79)) ([136c273](https://github.com/danielcristho/croft/commit/136c2731094b6e0fef5ae8acd6d66e0f58070974))
+
 ## [0.5.0](https://github.com/danielcristho/croft/compare/v0.4.0...v0.5.0) (2026-11-24)
 
 

@@ -1,6 +1,6 @@
 [project]
 name = "croft-signals"
-version = "0.5.0"
+version = "0.6.0"
 description = "croft signals for notebooks: Prometheus metrics and collector datasets as pandas frames"
 readme = "README.md"
 license = "Apache-2.0"
