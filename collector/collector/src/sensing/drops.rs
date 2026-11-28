@@ -28,7 +28,7 @@ impl DropWatcher {
     pub fn totals(&self) -> impl Iterator<Item = (&'static str, u64)> + '_ {
         DropSite::ALL
             .iter()
-            .map(|&site| (site.map_name(), self.reported[site.index() as usize] ))
+            .map(|&site| (site.map_name(), self.reported[site.index() as usize]))
     }
 
     fn new_since_last(&mut self, site: DropSite, total: u64) -> Option<u64> {
