@@ -1,4 +1,4 @@
-"""Burst runs scored per arm, the HPA alone against the HPA with croft scale: reaction, latency objective, failures, cost."""
+"""Burst runs scored per arm, the HPA alone or with croft scale, by reaction, latency, failures and cost."""
 
 import csv
 import json
@@ -43,7 +43,7 @@ def parse_scaler_log(text: str, directions: tuple[str, ...] = ("up",)) -> list[t
     return decisions
 
 
-# parse_rescales reads the HPA's scale-ups as (epoch ms, new size); an aggregated event counts from its first time.
+# parse_rescales reads the HPA's scale-ups as (epoch ms, new size), counting an aggregated event from its first time.
 def parse_rescales(rescales: list[dict]) -> list[tuple[int, int]]:
     return [
         (rescale["first_ms"], int(match.group(1)))
@@ -64,7 +64,7 @@ def read_csv(path: Path) -> list[dict]:
         return list(csv.DictReader(rows))
 
 
-# load_metrics scores the burst window of workload.csv: one row per second of completed requests.
+# load_metrics scores the burst window of workload.csv, one row per second of completed requests.
 def load_metrics(rows: list[dict], start_ms: int, end_ms: int) -> dict:
     burst = [r for r in rows if start_ms < float(r["timestamp_epoch"]) * 1000 <= end_ms]
     if not burst:
@@ -85,8 +85,8 @@ def replica_metrics(rows: list[dict]) -> dict:
 
 
 # replica_steps lists every replica count asked of the Deployment as (epoch ms, replicas), from the deploy's size on.
-# kube-state-metrics is scraped every 30 s and misses a count the HPA undoes seconds after croft asked for it.
-# Kubernetes merges an event's repeats into one with a count; the HPA acts once per 15 s sync, so they are spread evenly.
+# kube-state-metrics, scraped every 30 s, misses a count the HPA undoes seconds later. Kubernetes folds an event's
+# repeats into one count, so they are spread evenly across the HPA's 15 s sync.
 def replica_steps(record: dict, rescales: list[dict], croft: list[tuple[int, int]]) -> list[tuple[int, int]]:
     asked = list(croft)
     for rescale in rescales:
@@ -97,7 +97,7 @@ def replica_steps(record: dict, rescales: list[dict], croft: list[tuple[int, int
     return [(start, record.get("replicas") or 1), *sorted((t, n) for t, n in asked if t >= start)]
 
 
-# decision_metrics scores the replica steps: the peak in the burst, when it was first asked, and the pods added over the run.
+# decision_metrics scores the replica steps, the peak in the burst, when it was first asked, and the pods added over the run.
 def decision_metrics(steps: list[tuple[int, int]], start_ms: int, end_ms: int) -> dict:
     at_start = [n for t, n in steps if t <= start_ms][-1]
     burst = [(t, n) for t, n in steps if start_ms < t <= end_ms]
@@ -135,7 +135,7 @@ def run_metrics(record: dict, directory: Path) -> dict:
     }
 
 
-# arm names the conditions a run shares with its repetitions; older records lack app, probes, scaler and concurrent.
+# arm names the conditions a run shares with its repetitions. Older records lack app, probes, scaler and concurrent.
 def arm(record: dict) -> dict:
     return {
         "app": record.get("app", "webapp"),
@@ -156,7 +156,7 @@ def mean_sd(values: list[float]) -> str:
 
 
 def summarize(runs: list[dict]) -> list[dict]:
-    """One row per arm: run count and mean ± sd of every metric, with [k] when only k runs have it."""
+    """One row per arm, run count and mean ± sd of every metric, with [k] when only k runs have it."""
     arms: dict[tuple, list[dict]] = {}
     for run in runs:
         arms.setdefault(tuple(run[key] for key in ARM), []).append(run)
@@ -170,7 +170,7 @@ def summarize(runs: list[dict]) -> list[dict]:
     return summary
 
 
-# burst_records keeps the last record of each burst run: a rerun under the same id overwrote its directory.
+# burst_records keeps the last record of each burst run, since a rerun under the same id overwrote its directory.
 def burst_records(path: Path, prefixes: list[str]) -> list[dict]:
     if not path.is_file():
         raise SystemExit(f"{path} does not exist; run a burst series first")
