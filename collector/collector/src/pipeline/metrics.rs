@@ -23,12 +23,12 @@ pub const CPU_THROTTLED: &str = "croft_container_cpu_throttled_fraction";
 pub const RUNQUEUE: &str = "croft_container_runqueue_wait";
 pub const INFLIGHT: &str = "croft_container_inflight_requests";
 pub const SYSCALL_RATE: &str = "croft_container_syscall_rate";
-// Counters, not rates: a single connect would otherwise show for one poll and fall between scrapes.
 pub const SYSCALL_BYTES: &str = "croft_container_syscall_bytes_total";
 pub const CONNECTS: &str = "croft_container_connects_total";
 pub const SOCKET_IO: &str = "croft_container_socket_io_total";
 pub const POLL_UNIX_MS: &str = "croft_poll_unix_ms";
 pub const ACCEPT_QUEUE: &str = "croft_container_accept_queue";
+pub const MAP_DROPS: &str = "croft_ebpf_map_drops_total";
 
 #[derive(Debug, Default, PartialEq)]
 pub struct ContainerSignals {
@@ -51,6 +51,7 @@ type Field = fn(&ContainerSignals) -> Option<f64>;
 #[derive(Debug, Default)]
 pub struct Snapshot {
     pub containers: BTreeMap<String, ContainerSignals>,
+    pub drops: Vec<(&'static str, u64)>,
 }
 
 impl Snapshot {
@@ -154,6 +155,10 @@ impl Snapshot {
                 );
             }
         }
+        let _ = writeln!(text, "# TYPE {MAP_DROPS} counter");
+        for (map, total) in &self.drops {
+            let _ = writeln!(text, "{MAP_DROPS}{{map=\"{map}\"}} {total}");
+        }
         text
     }
 }
@@ -256,6 +261,21 @@ mod tests {
         assert_eq!(a.runqueue, Some(1.75));
         assert_eq!(a.cpu_cores, Some(0.9));
         assert_eq!(snapshot.containers.len(), 1);
+    }
+
+    #[test]
+    fn drops_render_per_map() {
+        let snapshot = Snapshot {
+            drops: vec![("SYSCALL_BY_TYPE", 0), ("CONNECTS", 7)],
+            ..Snapshot::default()
+        };
+        let samples = parse(&snapshot.render(0));
+        let drops: Vec<_> = samples
+            .iter()
+            .filter(|s| s.name == MAP_DROPS)
+            .map(|s| (s.labels["map"].as_str(), s.value))
+            .collect();
+        assert_eq!(drops, [("SYSCALL_BY_TYPE", 0.0), ("CONNECTS", 7.0)]);
     }
 
     #[test]

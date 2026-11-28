@@ -111,6 +111,7 @@ impl Reporter {
 
     fn poll(&mut self, ebpf: &mut Ebpf) -> anyhow::Result<()> {
         self.drops.warn_new(ebpf)?;
+        self.snapshot.drops = self.drops.totals().collect();
         let syscall_counts = maps::syscall_counts(ebpf)?;
         let by_tgid = syscalls::group_by_tgid(syscall_counts.iter().flatten());
         let runqueue: HashMap<u32, u64> = maps::runqueue_ns(ebpf)?.iter().flatten().collect();
