@@ -9,7 +9,7 @@ from types import SimpleNamespace
 DAEMONSET = {"spec": {"template": {"spec": {"containers": [{"image": "ghcr.io/danielcristho/croft-collector:operands"}]}}}}
 
 APP = SimpleNamespace(
-    name="hr", namespace="hotel", deployment="frontend",
+    name="hr", namespace="hotel", deployment="frontend", suffix="",
     scaler=SimpleNamespace(syscall="sendto", calls_per_request=2, cpu_per_request_ms=3.0),
 )
 

@@ -1,4 +1,4 @@
-"""croft scale in place of the HPA for one run: deployed from deploy/kubernetes/scaler.yaml with the app's calibration."""
+"""croft scale in place of the HPA for one run, deployed from deploy/kubernetes/scaler.yaml with the app's calibration."""
 
 import json
 from pathlib import Path
@@ -19,10 +19,10 @@ ARM_ARGS = {
 
 
 def name(app: App) -> str:
-    return f"croft-scaler-{app.name}"
+    return f"croft-scaler-{app.name}{app.suffix}"
 
 
-# cpu_cores reads a Kubernetes CPU quantity: "200m", "1" or "1.5".
+# cpu_cores reads a Kubernetes CPU quantity such as "200m", "1" or "1.5".
 def cpu_cores(quantity: str) -> float:
     return float(quantity[:-1]) / 1000 if quantity.endswith("m") else float(quantity)
 
@@ -34,18 +34,19 @@ def limit_cores(app: App) -> float:
     return cpu_cores(container["resources"]["limits"]["cpu"])
 
 
-# check stops before a run: without a calibration or collector metrics the scaler would run blind.
+# check refuses a run with no calibration or collector metrics.
 def check(app: App) -> None:
     if app.scaler is None:
-        raise SystemExit(f"apps.json has no scaler calibration for {app.name}")
+        raise SystemExit(f"apps.json has no scaler calibration for {app.name} {app.deployment}")
+        # raise SystemExit(f"apps.json has no scaler calibration for {app.name}")
     daemonset = kube.get("daemonset", NAMESPACE, COLLECTORS)
     env = daemonset["spec"]["template"]["spec"]["containers"][0].get("env", [])
     if not any(var["name"] == METRICS_ENV and var.get("value") for var in env):
         raise SystemExit(f"{COLLECTORS} does not set {METRICS_ENV}; deploy the collector with deploy/kubernetes/collector.yaml")
 
 
-# collector_image reads the collector the run ran beside: the DaemonSet's image and the digests its pods run. A tag such
-# as :operands moves when the image is rebuilt, and the collector's probes cost the observed containers CPU (#71).
+# collector_image reads the DaemonSet's image and the digests its pods run, since a tag like :operands moves when
+# the image is rebuilt. Its probes cost the observed containers CPU.
 def collector_image(daemonset: dict, pods: list[dict]) -> dict:
     return {
         "image": daemonset["spec"]["template"]["spec"]["containers"][0]["image"],
@@ -54,7 +55,7 @@ def collector_image(daemonset: dict, pods: list[dict]) -> dict:
     }
 
 
-# collector reads collector_image from the cluster; None when the collector is not deployed.
+# collector reads collector_image from the cluster, or None when it is not deployed.
 def collector() -> dict | None:
     try:
         daemonset = kube.get("daemonset", NAMESPACE, COLLECTORS)
@@ -86,7 +87,8 @@ def objects(app: App, arm: str) -> list[dict]:
 
 # retarget points the manifest's scaler Deployment at the app, with its calibration and the run's log level.
 def retarget(deployment: dict, app: App, arm: str) -> dict:
-    labels = {"app": "croft-scaler", "target": app.name}
+    labels = {"app": "croft-scaler", "target": f"{app.name}{app.suffix}"}
+    # labels = {"app": "croft-scaler", "target": app.name}
     deployment["metadata"]["name"] = name(app)
     deployment["metadata"]["labels"] = labels
     deployment["spec"]["selector"]["matchLabels"] = labels

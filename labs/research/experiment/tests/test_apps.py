@@ -47,6 +47,22 @@ class AppsTest(unittest.TestCase):
             with self.assertRaisesRegex(SystemExit, "frontend"):
                 apps.load(path)
 
+    def test_a_target_is_seen_as_its_own_deployment(self) -> None:
+        app = apps.APPS["hotel-reservation"]
+        rate = app.target("rate")
+        self.assertEqual((rate.deployment, rate.container, rate.selector), ("rate", "rate", "app=rate"))
+        self.assertEqual(rate.hpa_manifest.name, "hpa-rate.yaml")
+        self.assertEqual((app.suffix, rate.suffix), ("", "-rate"))
+        self.assertEqual([t.deployment for t in app.scaled(("rate",))], ["frontend", "rate"])
+        with self.assertRaisesRegex(SystemExit, "search"):
+            app.target("search")
+    
+    def test_a_target_needs_its_hpa_manifest(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = catalog(Path(tmp), targets={"search": {"container": "search"}})
+            with self.assertRaisesRegex(SystemExit, "hpa-search.yaml"):
+                apps.load(path)
+    
     def test_every_app_has_a_mix(self) -> None:
         for app in apps.APPS.values():
             with self.subTest(app=app.name):

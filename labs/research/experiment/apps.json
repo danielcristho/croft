@@ -12,6 +12,11 @@
       "calls_per_request": 11.8,
       "cpu_per_request_ms": 6.18
     },
+    "targets": {
+      "rate" :{
+        "container": "rate"
+      }
+    },
     "scale": 1,
     "services": {
       "frontend": {"role": "gateway", "language": "go"},

@@ -9,7 +9,6 @@ from .profiles import Endpoint
 
 ROOT = Path(__file__).resolve().parent.parent
 CATALOG = ROOT / "apps.json"
-# support runs beside the app and serves no request: service discovery, tracing, telemetry, feature flags.
 ROLES = ("gateway", "business", "cache", "database", "support")
 
 
@@ -21,6 +20,12 @@ class Calibration:
     calls_per_request: float
     cpu_per_request_ms: float
 
+@dataclass(frozen=True)
+class Target:
+    """A Deployment that --also-scale runs scale beside the app's own, with its container and croft scale calibration."""
+
+    container: str
+    scaler: Calibration | None = None
 
 @dataclass(frozen=True)
 class Service:
@@ -45,22 +50,42 @@ class App:
     namespace: str
     deployment: str
     container: str
-    # A folder with k8s.yaml for the app and hpa.yaml for its baseline autoscaler.
     manifests: Path
     host: str
     path: str
     health: str
     scaler: Calibration | None
-    # The --profile scale that keeps a burst between one pod saturated and ten pods' worth.
     scale: float = 1.0
-    # Every Deployment of the namespace, by name.
     services: dict[str, Service] = field(default_factory=dict)
     mix: Mix | None = None
+    targets: dict[str, Target] = field(default_factory=dict)
+    target_of: str | None = None
 
     @property
     def selector(self) -> str:
         return f"app={self.deployment}"
+    
+    @property
+    def hpa_manifest(self) -> Path:
+        return self.manifests / (f"hpa-{self.deployment}.yaml" if self.target_of else "hpa.yaml")
 
+    @property
+    def suffix(self) -> str:
+        """Names this app's own files apart from a target's, run alongside it under the same prefix."""
+        return f"-{self.deployment}" if self.target_of else ""
+
+    def target(self, deployment: str) -> "App":
+        """The app as one of its targets sees it: that Deployment, its container and its calibration."""
+        if deployment not in self.targets:
+            raise SystemExit(f"{self.name}: {deployment} is not among its targets {sorted(self.targets)}")
+        target = self.targets[deployment]
+        return replace(self, deployment=deployment, container=target.container, scaler=target.scaler, targets={},
+                        target_of=self.deployment)
+    
+    def scaled(self, also: tuple[str, ...] = ()) -> list["App"]:
+        """The Deployments a run scales: the app's own first, then the targets named in also."""
+        return [self, *(self.target(deployment) for deployment in also)]
+    
     @property
     def url(self) -> str:
         return f"{self.host}{self.path}"
@@ -97,6 +122,9 @@ def parse_mix(entry: dict) -> Mix:
     scaler = entry.get("scaler")
     return Mix(endpoints, entry.get("scale"), Calibration(**scaler) if scaler else None, users)
 
+def parse_target(entry: dict) -> Target:
+    scaler = entry.get("scaler")
+    return Target(entry["container"], Calibration(**scaler) if scaler else None)
 
 def load(path: Path = CATALOG) -> dict[str, App]:
     """Every app in the catalog; a missing or unknown key stops the harness before it touches the cluster."""
@@ -105,6 +133,7 @@ def load(path: Path = CATALOG) -> dict[str, App]:
         entry = dict(entry)
         scaler = entry.pop("scaler", None)
         mix = entry.pop("mix", None)
+        targets = entry.pop("targets", {})
         try:
             app = App(
                 name=name,
@@ -112,6 +141,7 @@ def load(path: Path = CATALOG) -> dict[str, App]:
                 scaler=Calibration(**scaler) if scaler else None,
                 services={service: Service(**fields) for service, fields in entry.pop("services", {}).items()},
                 mix=parse_mix(mix) if mix else None,
+                targets={deployment: parse_target(fields) for deployment, fields in targets.items()},
                 **entry,
             )
         except (KeyError, TypeError, ValueError) as error:
@@ -121,9 +151,16 @@ def load(path: Path = CATALOG) -> dict[str, App]:
             raise SystemExit(f"{path}: app {name}: roles {unknown} are not among {ROLES}")
         if app.services and app.deployment not in app.services:
             raise SystemExit(f"{path}: app {name}: the scaled deployment {app.deployment} is not among its services")
-        for manifest in ("k8s.yaml", "hpa.yaml"):
+        for deployment in app.targets:
+            if deployment == app.deployment or (app.services and deployment not in app.services):
+                raise SystemExit(f"{path}: app {name}: target {deployment} is the scaled deployment or not among its services")
+        manifests = ["k8s.yaml", "hpa.yaml", *(f"hpa-{deployment}.yaml" for deployment in app.targets)]
+        for manifest in manifests:
             if not (app.manifests / manifest).is_file():
                 raise SystemExit(f"{path}: app {name}: {app.manifests / manifest} is missing")
+        # for manifest in ("k8s.yaml", "hpa.yaml"):
+        #     if not (app.manifests / manifest).is_file():
+        #         raise SystemExit(f"{path}: app {name}: {app.manifests / manifest} is missing")
         apps[name] = app
     return apps
 
@@ -131,7 +168,6 @@ def load(path: Path = CATALOG) -> dict[str, App]:
 APPS = load()
 
 
-# python3 -m experiment.apps [<app> <field>]: the app names, or one field of an app, for the justfile.
 if __name__ == "__main__":
     import sys
 
